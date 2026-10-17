@@ -7,6 +7,7 @@
 import { sb } from './supabase.js';
 import { etat, licenceExpiree, peutGerer } from './state.js';
 import { chargerClient, ouvrirFormulaireClient } from './clients-commun.js';
+import { imprimerRecuVente } from './recu.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -752,7 +753,8 @@ export function afficherCaisse(conteneur, params) {
       const boutonImprimer = e.target.closest('[data-action="imprimer"]');
       if (boutonImprimer) {
         boutonOccupe(boutonImprimer, true, 'Préparation…');
-        imprimerRecu(await recuServeur);
+        const recuFinal = await recuServeur;
+        imprimerRecuVente({ ...recuFinal, client: recuFinal.client?.nom || null, vendeur: etat.membre?.nom });
         boutonOccupe(boutonImprimer, false);
       }
     });
@@ -783,41 +785,6 @@ export function afficherCaisse(conteneur, params) {
     } catch {
       return recuLocal;
     }
-  }
-
-  /** Remplit le gabarit du reçu 80 mm (#recu) puis lance l'impression. */
-  function imprimerRecu(recu) {
-    const zoneRecu = document.getElementById('recu');
-    zoneRecu.innerHTML = `
-      <div class="recu-entete">
-        <strong class="recu-boutique">${esc(boutique.nom)}</strong>
-        ${boutique.ville ? `<span>${esc([boutique.commune, boutique.ville].filter(Boolean).join(', '))}</span>` : ''}
-        ${boutique.telephone ? `<span>Tél : ${esc(formatTelephone(boutique.telephone))}</span>` : ''}
-      </div>
-      <div class="recu-sep"></div>
-      <div class="recu-ligne"><span>Vente</span><span>${esc(formatNumeroVente(recu.numero))}</span></div>
-      <div class="recu-ligne"><span>Date</span><span>${esc(formatDate(recu.date, 'complet'))}</span></div>
-      <div class="recu-ligne"><span>Vendeur</span><span>${esc(etat.membre?.nom || '—')}</span></div>
-      <div class="recu-ligne"><span>Client</span><span>${esc(recu.client?.nom || 'Client comptoir')}</span></div>
-      <div class="recu-sep"></div>
-      ${recu.lignes.map((l) => `
-        <div class="recu-article">
-          <span class="recu-article-nom">${esc(l.nom_produit)}</span>
-          <div class="recu-ligne"><span>${esc(formatQuantite(l.quantite, l.unite))} × ${formatNombre(l.prix_unitaire)}</span><span>${formatNombre(l.total)}</span></div>
-        </div>`).join('')}
-      <div class="recu-sep"></div>
-      <div class="recu-ligne"><span>Sous-total</span><span>${formatGNF(recu.sousTotal)}</span></div>
-      ${recu.remise ? `<div class="recu-ligne"><span>Remise</span><span>− ${formatGNF(recu.remise)}</span></div>` : ''}
-      <div class="recu-ligne recu-total"><span>TOTAL</span><span>${formatGNF(recu.total)}</span></div>
-      <div class="recu-ligne"><span>Paiement</span><span>${esc(MODES_PAIEMENT[recu.mode]?.libelle || recu.mode)}</span></div>
-      ${recu.montantRecu !== null ? `
-        <div class="recu-ligne"><span>Reçu</span><span>${formatGNF(recu.montantRecu)}</span></div>
-        <div class="recu-ligne"><span>Monnaie rendue</span><span>${formatGNF(Math.max(0, recu.monnaie))}</span></div>` : ''}
-      ${recu.echeance ? `<div class="recu-ligne"><span>Échéance</span><span>${esc(formatDate(recu.echeance, 'court'))}</span></div>` : ''}
-      <div class="recu-sep"></div>
-      <p class="recu-merci">Merci de votre confiance !</p>
-      <p class="recu-pied">Propulsé par YOUMMA Business</p>`;
-    window.print();
   }
 
   /* ======================================================= Chargement des données */

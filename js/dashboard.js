@@ -144,6 +144,9 @@ function brancherEvenements(conteneur) {
     if (e.target.closest('[data-action="relancer"]')) {
       toast('Relance par SMS : bientôt disponible.', 'info');
     }
+    // Toute la ligne d'une vente ouvre son détail (le n° reste un vrai lien pour le clavier).
+    const ligne = e.target.closest('tr[data-vente]');
+    if (ligne && !e.target.closest('a')) naviguer(`ventes/${ligne.dataset.vente}`);
   });
 }
 
@@ -190,7 +193,7 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
   zone('kpis').innerHTML = [
     { libelle: 'Ventes du jour', valeur: s.ventes_jour, sous: variation.texte, encreSous: variation.encre,
       teinte: '#E3EEFB', encre: '#0D47A1', icone: 'rapports' },
-    { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: 'Espèces + mobile money', encreSous: '#5A6B82',
+    { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: `Dépenses : ${formatGNF(s.depenses_jour)}`, encreSous: '#5A6B82',
       teinte: '#E0F2F1', encre: '#00695C', icone: 'caisse' },
     { libelle: 'Crédits en cours', valeur: s.credits_total,
       sous: `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''} · ${s.nb_credits_retard} en retard`,
@@ -429,6 +432,7 @@ async function chargerDernieresVentes(idBoutique, zone) {
   const lignesVentes = ventes.map((v) => {
     const liste = articles.get(v.id) || [];
     return {
+      id: v.id,
       numero: formatNumeroVente(v.numero),
       heure: formatDate(v.created_at, 'heure'),
       client: nomsClients.get(v.client_id) || 'Client comptoir',
@@ -447,8 +451,8 @@ async function chargerDernieresVentes(idBoutique, zone) {
         </thead>
         <tbody>
           ${lignesVentes.map((v) => `
-            <tr>
-              <td class="gras">${esc(v.numero)}</td>
+            <tr class="ligne-cliquable" data-vente="${esc(v.id)}">
+              <td class="gras"><a class="lien-vente" href="#/ventes/${encodeURIComponent(v.id)}">${esc(v.numero)}</a></td>
               <td class="discret">${esc(v.heure)}</td>
               <td class="mi-gras">${esc(v.client)}</td>
               <td class="secondaire">${esc(v.articles)}</td>
@@ -461,13 +465,15 @@ async function chargerDernieresVentes(idBoutique, zone) {
     </div>
     <ul class="liste-ventes-mobile seul-mobile">
       ${lignesVentes.map((v) => `
-        <li class="vente-mobile">
+        <li>
+          <a class="vente-mobile" href="#/ventes/${encodeURIComponent(v.id)}">
           <div class="vente-mobile-haut">
             <span class="gras">${esc(v.numero)} · ${esc(v.heure)}</span>
             <span class="tres-gras">${formatGNF(v.total)}</span>
           </div>
           <span class="ligne-sous">${esc(v.client)} · ${esc(v.articles)}</span>
           <div class="vente-mobile-bas">${badgePaiement(v.mode)}<span class="ligne-sous">${esc(v.vendeur)}</span></div>
+          </a>
         </li>`).join('')}
     </ul>`;
 }

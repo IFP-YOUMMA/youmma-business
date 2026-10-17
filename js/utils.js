@@ -4,8 +4,9 @@
  */
 
 export const FUSEAU = 'Africa/Conakry';
-const ESPACE_FINE = ' ';
-const ESPACE_INSECABLE = ' ';
+// Séparateur de milliers et espace avant l’unité : espace insécable normale (U+00A0),
+// bien visible (l’espace fine U+202F était presque invisible avec Manrope).
+const ESPACE_INSECABLE = '\u00A0';
 const MS_JOUR = 86400000;
 
 /* =========================================================================
@@ -42,6 +43,22 @@ export function lireNombre(saisie) {
   if (texte === '') return null;
   const n = Number(texte);
   return Number.isFinite(n) ? n : null;
+}
+
+const TAILLE_LOT = 1000;
+
+/**
+ * Charge toutes les lignes d'une requête Supabase par lots de 1 000 (limite par défaut de l'API).
+ * requete(debut, fin) doit renvoyer la requête avec .range(debut, fin).
+ */
+export async function chargerParLots(requete) {
+  const lignes = [];
+  for (let debut = 0; ; debut += TAILLE_LOT) {
+    const { data, error } = await requete(debut, debut + TAILLE_LOT - 1);
+    if (error) throw error;
+    lignes.push(...data);
+    if (data.length < TAILLE_LOT) return lignes;
+  }
 }
 
 /** Retarde l'appel d'une fonction tant que l'utilisateur continue de taper. */
@@ -82,8 +99,19 @@ export function ecrireStockage(cle, valeur) {
 export function formatNombre(valeur, decimalesMax = 0) {
   const arrondi = Number((Number(valeur) || 0).toFixed(decimalesMax));
   const [entier, decimales] = Math.abs(arrondi).toString().split('.');
-  const groupes = entier.replace(/\B(?=(\d{3})+(?!\d))/g, ESPACE_FINE);
+  const groupes = entier.replace(/\B(?=(\d{3})+(?!\d))/g, ESPACE_INSECABLE);
   return (arrondi < 0 ? '−' : '') + groupes + (decimales ? ',' + decimales : '');
+}
+
+/**
+ * Champ de montant en GNF (type texte, clavier numérique) : ne garde que les chiffres et
+ * ajoute les espaces de milliers pendant la saisie. Renvoie le montant (ou null si vide).
+ */
+export function formaterSaisieMontant(champ) {
+  const chiffres = champ.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  const montant = chiffres ? Number(chiffres) : null;
+  champ.value = chiffres ? formatNombre(montant) : '';
+  return montant;
 }
 
 /** « 2450000 » → « 2 450 000 GNF » (sans décimales). */
@@ -147,6 +175,28 @@ export function formatDate(date, format = 'long') {
 export function dateISO(decalageJours = 0) {
   const d = new Date(Date.now() + decalageJours * MS_JOUR);
   return new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+/** Ajoute n jours à une date AAAA-MM-JJ (n négatif pour reculer). */
+export function decalerDate(iso, n) {
+  const [a, m, j] = iso.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, j + n)).toISOString().slice(0, 10);
+}
+
+/**
+ * Bornes d'une période usuelle, en dates AAAA-MM-JJ incluses (fuseau Conakry) :
+ * 'jour' | '7j' | 'mois' | 'moisDernier'.
+ */
+export function bornesPeriode(code) {
+  const aujourdhui = dateISO();
+  const debutMois = aujourdhui.slice(0, 8) + '01';
+  if (code === '7j') return { du: decalerDate(aujourdhui, -6), au: aujourdhui };
+  if (code === 'mois') return { du: debutMois, au: aujourdhui };
+  if (code === 'moisDernier') {
+    const finMoisDernier = decalerDate(debutMois, -1);
+    return { du: finMoisDernier.slice(0, 8) + '01', au: finMoisDernier };
+  }
+  return { du: aujourdhui, au: aujourdhui };
 }
 
 /** Nombre de jours entre aujourd'hui et une date (positif = dans le futur, négatif = dépassée). */
@@ -233,7 +283,9 @@ const MESSAGES_METIER = {
   QUANTITE_INVALIDE: 'Une quantité n’est pas valide. Vérifiez les quantités du panier.',
   CLIENT_INCONNU: 'Ce client est introuvable dans votre boutique.',
   MONTANT_SUPERIEUR_A_LA_DETTE: 'Le montant dépasse ce que le client doit. Vérifiez le montant reçu.',
-  MONTANT_INVALIDE: 'Le montant n’est pas valide. Saisissez un montant supérieur à 0.'
+  MONTANT_INVALIDE: 'Le montant n’est pas valide. Saisissez un montant supérieur à 0.',
+  VENTE_INTROUVABLE: 'Cette vente est introuvable dans votre boutique.',
+  DEJA_ANNULEE: 'Cette vente a déjà été annulée.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -260,6 +312,7 @@ export function messageErreur(err) {
   }
   if (/jwt expired|session missing|invalid refresh token/i.test(brut)) return 'Votre session a expiré. Reconnectez-vous.';
   if (err?.code === '23505' || /duplicate key/i.test(brut)) return 'Cet élément existe déjà (nom ou code-barres en double).';
+  if (err?.code === '23514' || /check constraint/i.test(brut)) return 'Une valeur saisie est refusée par la base de données. Vérifiez le formulaire.';
   if (err?.code === '42501' || /row-level security|permission denied/i.test(brut)) {
     return 'Vous n’avez pas les droits pour faire cette action.';
   }
@@ -430,6 +483,7 @@ export const ICONES = {
   crayon: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   entree: 'M12 3v12M7 10l5 5 5-5M5 21h14',
   inventaire: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  annuler: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   corbeille: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
   moins: 'M5 12h14',
   telephone: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z',

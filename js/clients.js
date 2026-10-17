@@ -15,10 +15,11 @@ import {
   completerClient, totauxCredits, chargerSituationCredits, chargerClient,
   chargerNomsMembres, badgeEcheance, ouvrirFormulaireClient
 } from './clients-commun.js';
+import { imprimerRecuRemboursement } from './recu.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales,
-  formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente,
-  dateISO, MODES_PAIEMENT
+  formatNombre, formatGNF, formatDate, formatTelephone, formatNumeroVente,
+  dateISO, formaterSaisieMontant, MODES_PAIEMENT
 } from './utils.js';
 
 const LIMITE_HISTORIQUE = 30;
@@ -504,9 +505,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
 
   /** Saisie du montant : chiffres uniquement, espaces de milliers ajoutés pendant la frappe. */
   function saisirMontant(champ) {
-    const chiffres = champ.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
-    remb.montant = chiffres ? Number(chiffres) : null;
-    champ.value = chiffres ? formatNombre(remb.montant) : '';
+    remb.montant = formaterSaisieMontant(champ);
     majApercu();
   }
 
@@ -573,31 +572,6 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
     });
   }
 
-  /** Reçu 80 mm (même gabarit que la caisse). */
-  function imprimerRecuRemboursement(recu) {
-    const ligne = (libelle, valeur, classe = '') => `<div class="recu-ligne ${classe}"><span>${esc(libelle)}</span><span>${esc(valeur)}</span></div>`;
-    document.getElementById('recu').innerHTML = `
-      <div class="recu-entete">
-        <strong class="recu-boutique">${esc(boutique.nom)}</strong>
-        ${boutique.ville ? `<span>${esc([boutique.commune, boutique.ville].filter(Boolean).join(', '))}</span>` : ''}
-        ${boutique.telephone ? `<span>Tél : ${esc(formatTelephone(boutique.telephone))}</span>` : ''}
-      </div>
-      <div class="recu-sep"></div>
-      <p class="recu-titre">REÇU DE REMBOURSEMENT</p>
-      ${ligne('Date', formatDate(recu.date, 'complet'))}
-      ${ligne('Client', recu.client)}
-      <div class="recu-sep"></div>
-      ${ligne('Montant reçu', formatGNF(recu.montant), 'recu-total')}
-      ${ligne('Mode', MODES_PAIEMENT[recu.mode].libelle)}
-      ${ligne('Ancien solde', formatGNF(recu.ancienSolde))}
-      ${ligne('Nouveau solde', formatGNF(recu.nouveauSolde))}
-      ${ligne('Encaissé par', recu.encaissePar)}
-      <div class="recu-sep"></div>
-      <p class="recu-merci">Merci de votre confiance !</p>
-      <p class="recu-pied">Propulsé par YOUMMA Business</p>`;
-    window.print();
-  }
-
   /* ---------------- Historique */
 
   async function chargerHistorique() {
@@ -657,7 +631,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
     return `
       <li>
         <button type="button" class="hist-ligne hist-vente ${annulee ? 'annulee' : ''}" data-vente="${esc(v.id)}"
-          aria-label="Voir le détail de la vente ${esc(formatNumeroVente(v.numero))}">
+          aria-label="Ouvrir la vente ${esc(formatNumeroVente(v.numero))}">
           <span class="hist-icone">${icone('ventes', 16, 2.2)}</span>
           <span class="hist-textes">
             <span class="hist-titre">Achat à crédit · ${esc(formatNumeroVente(v.numero))}${annulee ? ' <span class="tag-annulee">Annulée</span>' : ''}</span>
@@ -679,53 +653,6 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
         </span>
         <span class="hist-montant">− ${formatNombre(p.montant)}</span>
       </li>`;
-  }
-
-  /* ---------------- Détail d'une vente */
-
-  async function ouvrirDetailVente(idVente) {
-    const { el } = ouvrirModale({ titre: 'Détail de la vente', variante: 'large', contenu: `<div data-zone="detail">${squelettesHistorique()}</div>` });
-    const zoneDetail = el.querySelector('[data-zone="detail"]');
-    const [venteRes, lignesRes, noms] = await Promise.all([
-      sb.from('ventes')
-        .select('id, numero, created_at, sous_total, remise, total, mode_paiement, statut, vendeur_id, echeance')
-        .eq('id', idVente).single(),
-      sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente),
-      nomsMembres
-    ]);
-    if (!zoneDetail.isConnected) return;
-    if (venteRes.error || lignesRes.error) {
-      zoneDetail.innerHTML = `<p class="bloc-erreur">${esc(messageErreur(venteRes.error || lignesRes.error))}</p>`;
-      return;
-    }
-    const v = venteRes.data;
-    const info = (libelle, valeur) => `<div class="fiche-info"><dt>${esc(libelle)}</dt><dd>${valeur}</dd></div>`;
-    zoneDetail.innerHTML = `
-      <div class="detail-vente">
-        ${v.statut === 'annulee' ? '<p class="note-licence">Cette vente a été annulée.</p>' : ''}
-        <dl class="fiche-infos">
-          ${info('N° de vente', esc(formatNumeroVente(v.numero)))}
-          ${info('Date', esc(formatDate(v.created_at, 'complet')))}
-          ${info('Vendeur', esc(noms.get(v.vendeur_id) || '—'))}
-          ${info('Paiement', esc(MODES_PAIEMENT[v.mode_paiement]?.libelle || v.mode_paiement))}
-          ${v.echeance ? info('Échéance', esc(formatDate(v.echeance, 'court'))) : ''}
-        </dl>
-        <ul class="detail-lignes">
-          ${lignesRes.data.map((l) => `
-            <li>
-              <span class="detail-lignes-textes">
-                <span class="gras">${esc(l.nom_produit)}</span>
-                <span class="discret">${esc(formatQuantite(l.quantite, l.unite))} × ${formatNombre(l.prix_unitaire)} GNF</span>
-              </span>
-              <span class="gras">${formatGNF(l.total)}</span>
-            </li>`).join('')}
-        </ul>
-        <div class="totaux">
-          <div class="totaux-ligne"><span class="discret">Sous-total</span><span class="gras">${formatGNF(v.sous_total)}</span></div>
-          ${Number(v.remise) ? `<div class="totaux-ligne"><span class="discret">Remise</span><span class="gras texte-succes">− ${formatGNF(v.remise)}</span></div>` : ''}
-          <div class="totaux-ligne totaux-final"><span>Total</span><span class="total-grand">${formatNombre(v.total)} <span class="unite-gnf">GNF</span></span></div>
-        </div>
-      </div>`;
   }
 
   /* ---------------- Événements */
@@ -761,7 +688,8 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
       zone.querySelectorAll('[data-mode-remb]').forEach((b) => b.setAttribute('aria-pressed', String(b === mode)));
     }
     const vente = e.target.closest('[data-vente]');
-    if (vente) ouvrirDetailVente(vente.dataset.vente);
+    // Détail, réimpression et annulation : page Historique des ventes.
+    if (vente) naviguer(`ventes/${vente.dataset.vente}`);
   };
   zone.oninput = (e) => {
     if (e.target.dataset.ref === 'montant-remb') saisirMontant(e.target);

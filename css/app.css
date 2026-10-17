@@ -237,7 +237,7 @@ textarea.input { min-height: 88px; padding: 12px 14px; resize: vertical; line-he
   display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;
 }
 .badge-paiement { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
-.badge-premium { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #F9A825; color: #2B1B00; }
+.badge-premium { flex: none; font-size: 10px; font-weight: 800; line-height: 1.5; padding: 1px 7px; border-radius: 999px; background: #F9A825; color: #2B1B00; white-space: nowrap; }
 
 /* =============================================================================
    Écrans publics : connexion / inscription
@@ -307,7 +307,7 @@ textarea.input { min-height: 88px; padding: 12px 14px; resize: vertical; line-he
 }
 .lien-menu:hover { background: rgba(255, 255, 255, .06); color: #FFFFFF; }
 .lien-menu.actif { background: var(--navy-actif); color: #FFFFFF; }
-.lien-menu-libelle { flex: 1; }
+.lien-menu-libelle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lien-deconnexion { margin-top: -8px; }
 
 /* Sélecteur de boutique */
@@ -504,7 +504,12 @@ textarea.input { min-height: 88px; padding: 12px 14px; resize: vertical; line-he
 .tableau td.discret { font-size: 14px; }
 
 .liste-ventes-mobile { list-style: none; margin: 0; padding: 0; }
-.vente-mobile { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--border-doux); font-size: 14px; }
+.vente-mobile { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--border-doux); font-size: 14px; color: var(--text); text-decoration: none; }
+.vente-mobile:hover { color: var(--text); background: var(--surface-douce); }
+.ligne-cliquable { cursor: pointer; }
+.ligne-cliquable:hover td { background: var(--surface-douce); }
+.lien-vente { color: var(--text); text-decoration: none; }
+.lien-vente:hover { color: var(--primary); text-decoration: underline; }
 .dash-ventes { flex: none; }
 .vente-mobile-haut, .vente-mobile-bas { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
@@ -1013,6 +1018,174 @@ button.hist-ligne:hover { background: var(--surface-douce); }
 }
 
 /* =============================================================================
+   Historique des ventes (maquette Ventes.dc.html)
+   ============================================================================= */
+.page-ventes, .page-depenses { gap: 20px; }
+.recherche-ventes { min-width: 280px; }
+.segments-cadre { background: #FFFFFF; border: 1px solid var(--border-input); border-radius: 12px; }
+.segments-cadre .segment { border-radius: 9px; font-weight: 700; color: var(--text-2); min-height: 38px; }
+.segments-cadre .segment.actif { background: var(--navy); color: #FFFFFF; box-shadow: none; }
+.filtres-ventes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.filtre-select select {
+  min-height: 46px; padding: 0 36px 0 14px; border: 1px solid var(--border-input); border-radius: 12px; background-color: #FFFFFF;
+  font-weight: 700; font-size: 13px; color: var(--text); cursor: pointer;
+}
+.filtre-case {
+  display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 14px; background: #FFFFFF;
+  border: 1px solid var(--border-input); border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.filtre-case input { width: 18px; height: 18px; accent-color: var(--primary); }
+.dates-perso { display: flex; flex-wrap: wrap; gap: 12px; }
+.dates-perso .champ { flex: 0 1 200px; }
+
+.ventes-liste { flex: 999 1 560px; min-width: 0; padding: 14px 18px; display: flex; flex-direction: column; }
+.entete-liste-ventes, .ligne-vente {
+  display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 76px minmax(110px, 1fr) minmax(130px, 1.4fr) minmax(110px, auto) minmax(80px, .8fr) minmax(110px, auto);
+}
+.entete-liste-ventes { padding: 10px 8px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.liste-ventes-page { list-style: none; margin: 0; padding: 0; }
+.liste-ventes-page > li { border-top: 1px solid var(--border-doux); }
+.ligne-vente { width: 100%; min-height: 52px; padding: 10px 8px; border: none; background: none; text-align: left; color: var(--text); font-size: 14px; }
+.ligne-vente:hover { background: var(--surface-douce); }
+.ligne-vente.selectionnee { background: #F0F6FE; box-shadow: inset 3px 0 0 var(--primary); }
+.lv-numero { font-weight: 800; }
+.lv-date, .lv-vendeur { color: var(--text-2); }
+.lv-client { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.lv-montant { text-align: right; font-weight: 800; white-space: nowrap; }
+.lv-montant.annule, .total-grand.annule { color: #8A97A8; text-decoration: line-through; }
+.badge-annulee { background: var(--border-doux); color: var(--muted); }
+.charger-plus { display: flex; justify-content: center; padding-top: 12px; }
+.charger-plus:empty { display: none; }
+
+.detail-cadre { flex-basis: 380px; }
+.dv-corps { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.dv-entete { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.dv-titres { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dv-titres .discret { font-size: 13px; }
+.dv-numero { font-size: 22px; font-weight: 800; }
+.bandeau-annulee {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px;
+  background: var(--border-doux); color: var(--muted); font-weight: 800; font-size: 14px;
+}
+a.client-bouton { text-decoration: none; }
+a.client-bouton svg { color: var(--muted); flex: none; }
+.client-comptoir { cursor: default; }
+.client-comptoir:hover { border-color: var(--border-input); background: var(--surface-douce); }
+.dv-corps .totaux .total-grand { font-size: 22px; }
+.dv-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.dv-actions .btn { flex: 1 1 160px; min-height: 48px; }
+.btn-annuler-vente { background: #FFFFFF; border-color: #F2B8B8; color: var(--danger); }
+.btn-annuler-vente:hover { background: var(--danger-bg); color: var(--danger); }
+.dv-note { font-size: 12px; }
+.liste-consequences { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--text-2); font-size: 14px; }
+
+/* =============================================================================
+   Dépenses (maquette Depenses.dc.html)
+   ============================================================================= */
+.depenses-corps { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.depenses-form { flex: 1 1 360px; max-width: 100%; padding: 20px; border-radius: 18px; }
+.form-depense { display: flex; flex-direction: column; gap: 14px; }
+.form-depense h2 { font-size: 17px; font-weight: 800; }
+.form-depense .champ > label, .form-depense .etiquette { color: var(--text-2); }
+.form-depense .input-montant { min-height: 52px; font-size: 20px; }
+.form-depense .btn-grand { min-height: 54px; border-radius: 12px; font-weight: 800; }
+.puces-categories .puce { min-height: 40px; }
+.depenses-droite { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.repartition { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.repartition h2 { font-size: 16px; font-weight: 800; }
+.repartition-ligne { display: flex; flex-direction: column; gap: 6px; }
+.repartition-haut { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.repartition-haut .discret { font-size: 14px; font-weight: 600; }
+.jauge-repartition, .jauge-repartition > div { height: 8px; }
+.jauge-repartition > div { background: var(--primary); }
+.depenses-liste { padding: 14px 18px; }
+.entete-liste-depenses, .ligne-depense {
+  display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 100px minmax(160px, 2fr) minmax(120px, auto) minmax(80px, .8fr) minmax(110px, auto);
+}
+.entete-liste-depenses.avec-action, .ligne-depense.avec-action {
+  grid-template-columns: 100px minmax(160px, 2fr) minmax(120px, auto) minmax(80px, .8fr) minmax(110px, auto) 40px;
+}
+.entete-liste-depenses { padding: 10px 8px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.liste-depenses { list-style: none; margin: 0; padding: 0; }
+.liste-depenses > li { border-top: 1px solid var(--border-doux); }
+.ligne-depense { min-height: 56px; padding: 8px; font-size: 14px; }
+.ld-date, .ld-par { color: var(--text-2); }
+.ld-libelle { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.ld-montant { text-align: right; font-weight: 800; white-space: nowrap; }
+.badge-categorie {
+  display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary-dark); white-space: nowrap;
+}
+.btn-supprimer { width: 40px; height: 40px; border: 1px solid #F2B8B8; border-radius: 10px; background: #FFFFFF; color: var(--danger); }
+.btn-supprimer:hover { background: var(--danger-bg); }
+.fab-depense {
+  position: fixed; z-index: 35; right: 16px; bottom: calc(var(--hauteur-barre-bas) + 16px + env(safe-area-inset-bottom));
+  min-height: 52px; padding: 0 20px; border-radius: 999px; font-weight: 800; box-shadow: 0 8px 20px rgba(21, 101, 192, .35);
+}
+
+@media (max-width: 1199.98px) and (min-width: 900px) {
+  .detail-cadre { position: static; max-height: none; }
+}
+
+/* Téléphone : cartes, détail plein écran, boutons d'action fixés en bas */
+@media (max-width: 899.98px) {
+  .page-ventes, .page-depenses { gap: 16px; }
+  .recherche-ventes { flex: 1 1 100%; min-width: 0; }
+  .page-depenses .page-entete .segments { width: 100%; }
+  .filtres-ventes { gap: 8px; }
+  .segments-cadre { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; }
+  .segments-cadre .segment { flex: none; }
+  .filtre-select { flex: 1 1 140px; }
+  .filtre-select select { width: 100%; }
+  .filtre-case { flex: 1 1 100%; }
+  .dates-perso .champ { flex: 1 1 140px; }
+
+  .ventes-liste { padding: 4px 12px; }
+  .ligne-vente {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "numero montant" "client paiement" "date vendeur";
+    gap: 4px 10px; padding: 12px 4px;
+  }
+  .lv-numero { grid-area: numero; }
+  .lv-montant { grid-area: montant; }
+  .lv-client { grid-area: client; }
+  .lv-paiement { grid-area: paiement; text-align: right; }
+  .lv-date { grid-area: date; font-size: 12px; }
+  .lv-vendeur { grid-area: vendeur; font-size: 12px; text-align: right; }
+  .ligne-vente.selectionnee { box-shadow: none; }
+
+  .detail-page-entete {
+    display: flex; align-items: center; gap: 12px; padding: 16px; padding-top: max(16px, env(safe-area-inset-top));
+    background: var(--navy); color: #FFFFFF;
+  }
+  .fiche-page-cadre .dv-corps { padding: 16px; padding-bottom: 200px; }
+  .fiche-page-cadre .dv-actions {
+    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(11, 31, 58, .10); padding: 12px 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .fiche-page-cadre .dv-actions .btn { min-height: 52px; }
+  .fiche-page-cadre .dv-note { margin-bottom: 8px; }
+
+  .depenses-liste { padding: 4px 12px; }
+  .ligne-depense, .ligne-depense.avec-action {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "libelle libelle montant" "categorie par action" "date date action";
+    gap: 4px 10px; padding: 12px 4px;
+  }
+  .ligne-depense:not(.avec-action) { grid-template-areas: "libelle libelle montant" "categorie par par" "date date date"; }
+  .ld-libelle { grid-area: libelle; }
+  .ld-montant { grid-area: montant; }
+  .ld-categorie { grid-area: categorie; }
+  .ld-par { grid-area: par; font-size: 12px; text-align: right; }
+  .ld-date { grid-area: date; font-size: 12px; }
+  .ld-action { grid-area: action; align-self: center; }
+  .btn-supprimer { width: 44px; height: 44px; }
+  .page-depenses { padding-bottom: 96px; }
+}
+
+/* =============================================================================
    Modales et panneaux
    ============================================================================= */
 .modale-fond {
@@ -1086,6 +1259,7 @@ button.hist-ligne:hover { background: var(--surface-douce); }
   .recu-article { margin-bottom: 3px; }
   .recu-article-nom { font-weight: 700; }
   .recu-total { font-size: 14px; font-weight: 800; margin: 3px 0; }
+  .recu-titre { text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 1px; margin: 0 0 4px; }
   .recu-merci { text-align: center; font-weight: 700; margin-top: 4px; }
   .recu-pied { text-align: center; font-size: 9px; margin-top: 2px; }
 }

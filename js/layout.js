@@ -14,17 +14,15 @@ import {
 export const SECTIONS = [
   { route: 'tableau-de-bord', libelle: 'Tableau de bord', icone: 'tableau', active: true },
   { route: 'caisse', libelle: 'Caisse', icone: 'caisse', active: true },
-  { route: 'ventes', libelle: 'Ventes', icone: 'ventes',
-    description: 'Retrouvez l’historique de toutes vos ventes, réimprimez un reçu ou annulez une vente.' },
+  { route: 'ventes', libelle: 'Ventes', icone: 'ventes', active: true },
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
-  { route: 'depenses', libelle: 'Dépenses', icone: 'depenses',
-    description: 'Notez le transport, la manutention, le loyer… et connaissez votre vrai bénéfice.' },
+  { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports',
     description: 'Chiffre d’affaires, marges et meilleurs articles par semaine, mois et année.' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs',
     description: 'Ajoutez vos vendeurs et gérants, avec des droits adaptés à chacun.' },
-  { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', badge: 'Premium',
+  { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', libelleCourt: 'En ligne', icone: 'enLigne', badge: 'Premium',
     description: 'Une vitrine en ligne pour recevoir des commandes de vos clients sur WhatsApp.' },
   { route: 'parametres', libelle: 'Paramètres', icone: 'parametres',
     description: 'Logo, coordonnées de la boutique, reçus et préférences.' }
@@ -131,7 +129,7 @@ function lienMenu(section) {
   return `
     <a href="#/${section.route}" class="lien-menu" data-route="${section.route}">
       ${icone(section.icone, 20)}
-      <span class="lien-menu-libelle">${esc(section.libelle)}</span>
+      <span class="lien-menu-libelle">${esc(section.libelleCourt || section.libelle)}</span>
       ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
     </a>`;
 }

@@ -12,7 +12,12 @@ import { afficherTableauDeBord } from './dashboard.js';
 import { afficherCaisse } from './caisse.js';
 import { afficherStock } from './stock.js';
 import { afficherClients } from './clients.js';
+import { afficherVentes } from './ventes.js';
+import { afficherDepenses } from './depenses.js';
 import { esc, logoComplet, messageErreur, fermerModales } from './utils.js';
+
+/** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
+const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
 
 /**
  * publique : accessible sans connexion · horsShell : sans menu (onboarding)
@@ -25,11 +30,10 @@ const ROUTES = {
   'tableau-de-bord': { vue: afficherTableauDeBord },
   caisse: { vue: afficherCaisse, pleinEcran: true },
   stock: { vue: afficherStock },
-  // Sur téléphone, la fiche d'un client (#/clients/<id>) s'ouvre en plein écran.
-  clients: {
-    vue: afficherClients,
-    pleinEcran: (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches
-  }
+  clients: { vue: afficherClients, pleinEcran: detailPleinEcran },
+  // Même logique pour le détail d'une vente (#/ventes/<id>).
+  ventes: { vue: afficherVentes, pleinEcran: detailPleinEcran },
+  depenses: { vue: afficherDepenses }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
