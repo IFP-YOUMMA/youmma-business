@@ -1,0 +1,146 @@
+/**
+ * app.js — Point d'entrée : chargement de la session, table des routes,
+ * protections d'accès (connexion, boutique) et enregistrement du service worker.
+ */
+import { sb, configurationValide } from './supabase.js';
+import { etat, chargerSession, chargerBoutiques, viderEtat } from './state.js';
+import { demarrerRouteur, lireRoute, naviguer } from './router.js';
+import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
+import { afficherOnboarding } from './onboarding.js';
+import { preparerShell, retirerShell, afficherBientot, SECTIONS } from './layout.js';
+import { afficherTableauDeBord } from './dashboard.js';
+import { afficherCaisse } from './caisse.js';
+import { afficherStock } from './stock.js';
+import { afficherClients } from './clients.js';
+import { esc, logoComplet, messageErreur, fermerModales } from './utils.js';
+
+/**
+ * publique : accessible sans connexion · horsShell : sans menu (onboarding)
+ * pleinEcran : menu masqué (booléen, ou fonction des paramètres de la route)
+ */
+const ROUTES = {
+  connexion: { vue: afficherConnexion, publique: true },
+  inscription: { vue: afficherInscription, publique: true },
+  'nouvelle-boutique': { vue: afficherOnboarding, horsShell: true },
+  'tableau-de-bord': { vue: afficherTableauDeBord },
+  caisse: { vue: afficherCaisse, pleinEcran: true },
+  stock: { vue: afficherStock },
+  // Sur téléphone, la fiche d'un client (#/clients/<id>) s'ouvre en plein écran.
+  clients: {
+    vue: afficherClients,
+    pleinEcran: (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches
+  }
+};
+SECTIONS.filter((section) => !section.active).forEach((section) => {
+  ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
+});
+
+let nettoyerVue = null;
+
+/** Affiche la page correspondant au hash courant, après les contrôles d'accès. */
+function resoudre() {
+  const lu = lireRoute();
+  // « clients/<id> » → route « clients » avec le paramètre id.
+  const [nom, identifiant] = lu.nom.split('/');
+  const params = lu.params;
+  if (identifiant) params.set('id', decodeURIComponent(identifiant));
+  const route = ROUTES[nom];
+  const accueil = etat.boutique ? 'tableau-de-bord' : 'nouvelle-boutique';
+
+  if (!route) return naviguer(etat.session ? accueil : 'connexion', { remplacer: true });
+  if (route.publique && etat.session) return naviguer(accueil, { remplacer: true });
+  if (!route.publique && !etat.session) return naviguer('connexion', { remplacer: true });
+  if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('nouvelle-boutique', { remplacer: true });
+
+  nettoyerVue?.();
+  nettoyerVue = null;
+  fermerModales();
+
+  let conteneur;
+  if (route.publique || route.horsShell) {
+    retirerShell();
+    conteneur = document.getElementById('app');
+    window.scrollTo(0, 0);
+  } else {
+    const pleinEcran = typeof route.pleinEcran === 'function' ? route.pleinEcran(params) : Boolean(route.pleinEcran);
+    conteneur = preparerShell({ route: nom, pleinEcran });
+  }
+  const nettoyage = route.vue(conteneur, params);
+  if (typeof nettoyage === 'function') nettoyerVue = nettoyage;
+  return undefined;
+}
+
+/** Écran affiché tant que js/config.js n'est pas rempli. */
+function afficherAideConfiguration() {
+  document.getElementById('app').innerHTML = `
+    <div class="ecran-auth">
+      <div class="carte-auth">
+        ${logoComplet('clair')}
+        <div class="auth-titres">
+          <h1>Configuration requise</h1>
+          <p>Renseignez <strong>SUPABASE_URL</strong> et <strong>SUPABASE_ANON_KEY</strong> dans le fichier <code>js/config.js</code>, puis rechargez la page.</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+/** Écran d'erreur au démarrage (souvent : pas de réseau). */
+function afficherErreurDemarrage(message) {
+  document.getElementById('app').innerHTML = `
+    <div class="ecran-auth">
+      <div class="carte-auth">
+        ${logoComplet('clair')}
+        <div class="auth-titres">
+          <h1>Connexion impossible</h1>
+          <p>${esc(message)}</p>
+        </div>
+        <button type="button" class="btn btn-primaire btn-bloc btn-grand" data-action="reessayer">Réessayer</button>
+        <button type="button" class="btn btn-secondaire btn-bloc" data-action="deconnexion">Se déconnecter</button>
+      </div>
+    </div>`;
+  document.querySelector('[data-action="reessayer"]').addEventListener('click', () => location.reload());
+  document.querySelector('[data-action="deconnexion"]').addEventListener('click', async () => {
+    await deconnecter();
+    location.reload();
+  });
+}
+
+async function demarrer() {
+  if (!configurationValide) {
+    afficherAideConfiguration();
+    return;
+  }
+  try {
+    await chargerSession();
+    if (etat.session) await chargerBoutiques();
+  } catch (err) {
+    afficherErreurDemarrage(messageErreur(err));
+    return;
+  }
+
+  sb.auth.onAuthStateChange((evenement, session) => {
+    if (evenement === 'SIGNED_OUT') {
+      if (!etat.session) return;
+      viderEtat();
+      retirerShell();
+      naviguer('connexion', { remplacer: true });
+    } else if (session) {
+      etat.session = session;
+    }
+  });
+
+  demarrerRouteur(resoudre);
+}
+
+function enregistrerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const enregistrer = () => navigator.serviceWorker.register('./sw.js')
+    .catch((err) => console.warn('[YOUMMA] Service worker non enregistré :', err));
+  // Le module peut finir de charger après l'événement « load » (import du CDN Supabase) :
+  // dans ce cas, on enregistre tout de suite.
+  if (document.readyState === 'complete') enregistrer();
+  else window.addEventListener('load', enregistrer);
+}
+
+enregistrerServiceWorker();
+demarrer();

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0B1F3A">
+  <meta name="description" content="YOUMMA Business : caisse, stock et crédits clients pour les commerçants de Guinée.">
+  <title>YOUMMA Business</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <!-- Toutes les vues sont rendues ici par js/app.js -->
+  <div id="app">
+    <div class="ecran-chargement" role="status">
+      <svg width="48" height="54" viewBox="0 0 32 36" aria-hidden="true"><defs><linearGradient id="yg-chargement" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FC3F7"/><stop offset="1" stop-color="#1565C0"/></linearGradient></defs><path d="M16 1C16 1 3 15 3 22a13 13 0 0 0 26 0C29 15 16 1 16 1z" fill="url(#yg-chargement)"/><text x="16" y="28" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="800" font-size="15" fill="#FFFFFF">y</text></svg>
+      <span>Chargement…</span>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <!-- Reçu 80 mm : rempli au moment d'imprimer, visible uniquement à l'impression -->
+  <div id="recu" aria-hidden="true"></div>
+
+  <noscript>
+    <p style="padding:24px;font-family:sans-serif">YOUMMA Business a besoin de JavaScript pour fonctionner.</p>
+  </noscript>
+</body>
+</html>

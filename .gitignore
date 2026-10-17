@@ -1,0 +1,8 @@
+youmma-business-kit/
+maquettes/
+node_modules/
+.claude/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
