@@ -12,9 +12,11 @@ import {
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES
 } from './utils.js';
 
-const COLONNES_PRODUIT = 'id, categorie_id, nom, unite, prix_detail, prix_gros, prix_achat, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif';
-/** Un vendeur ne reçoit pas le prix d’achat (masquage côté interface, voir le rapport de l’étape 4). */
-const colonnesProduit = () => (peut('voir_prix_achat') ? COLONNES_PRODUIT : COLONNES_PRODUIT.replace(' prix_achat,', ''));
+/**
+ * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
+ * le gérant le reçoit par la fonction serveur produits_couts, fusionnée côté appli.
+ */
+const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, created_at';
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -178,16 +180,20 @@ export function afficherStock(conteneur, params) {
   /* ======================================================= Données */
 
   async function chargerDonnees() {
-    const [produitsRes, categoriesRes] = await Promise.all([
-      sb.from('produits').select(colonnesProduit()).eq('boutique_id', boutique.id).order('nom'),
-      sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom')
+    const [produitsRes, categoriesRes, coutsRes] = await Promise.all([
+      sb.from('produits').select(COLONNES_PRODUIT).eq('boutique_id', boutique.id).order('nom'),
+      sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom'),
+      // Prix d'achat : gérant / propriétaire uniquement, jamais demandé pour un vendeur.
+      peut('voir_prix_achat') ? sb.rpc('produits_couts', { p_boutique: boutique.id }) : Promise.resolve({ data: [] })
     ]);
-    if (produitsRes.error || categoriesRes.error) {
-      zone('liste').innerHTML = `<li class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(produitsRes.error || categoriesRes.error))}</li>`;
+    const erreur = produitsRes.error || categoriesRes.error || coutsRes.error;
+    if (erreur) {
+      zone('liste').innerHTML = `<li class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(erreur))}</li>`;
       zone('resume').textContent = '';
       return false;
     }
-    s.produits = produitsRes.data;
+    const couts = new Map((coutsRes.data || []).map((c) => [c.produit_id, c.prix_achat]));
+    s.produits = produitsRes.data.map((p) => ({ ...p, prix_achat: couts.get(p.id) ?? null }));
     s.categories = categoriesRes.data;
     s.charge = true;
     renderFiltres();
@@ -228,7 +234,7 @@ export function afficherStock(conteneur, params) {
         if (desactiver && !(await confirmer(`« ${produit.nom} » n’apparaîtra plus dans la caisse. Son historique est conservé et vous pourrez le réactiver.`, { titre: 'Désactiver l’article', libelleOk: 'Désactiver', danger: true }))) return;
         const { data, error } = await sb.from('produits').update({ actif: !desactiver }).eq('id', produit.id).select(COLONNES_PRODUIT).single();
         if (error) { toast(messageErreur(error), 'erreur'); return; }
-        remplacerProduit(data);
+        remplacerProduit({ ...data, prix_achat: produit.prix_achat });
         toast(desactiver ? 'Article désactivé.' : 'Article réactivé.', 'succes');
         fermer();
       }
@@ -529,7 +535,8 @@ export function afficherStock(conteneur, params) {
       const { data, error } = await requete.select(COLONNES_PRODUIT).single();
       if (error) { erreur(messageErreur(error)); boutonOccupe(bouton, false); return; }
 
-      remplacerProduit(data);
+      // Le prix d'achat n'est pas relu par l'API : on garde la valeur enregistrée.
+      remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
       fermer();
       toast(creation ? `« ${data.nom} » ajouté au stock.` : 'Article mis à jour.', 'succes');
       apres?.();
