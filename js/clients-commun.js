@@ -12,7 +12,7 @@ import {
   formatDate, ecartJours, jours, prenom
 } from './utils.js';
 
-export const COLONNES_CLIENT = 'id, nom, telephone, solde_credit, notes, created_at';
+export const COLONNES_CLIENT = 'id, nom, telephone, solde_credit, notes, stop_promo, created_at';
 /** Une échéance dans les N prochains jours rend le client « bientôt ». */
 const JOURS_BIENTOT = 7;
 

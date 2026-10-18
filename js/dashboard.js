@@ -7,8 +7,12 @@ import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { carteLicence } from './layout.js';
 import { chargerSituationCredits, texteEcheance } from './clients-commun.js';
+import { boutonsRelanceHTML, relancerParSms, chargerSoldeSms } from './sms.js';
+
+/** Clients affichés dans « Crédits clients à relancer » (pour les boutons de relance). */
+const clientsARelancer = new Map();
 import {
-  esc, icone, toast, prenom, initiales, capitaliser, formatNombre, formatGNF, formatMillions,
+  esc, icone, prenom, initiales, capitaliser, formatNombre, formatGNF, formatMillions,
   formatQuantite, formatDate, dateISO, formatNumeroVente, MODES_PAIEMENT
 } from './utils.js';
 
@@ -31,6 +35,7 @@ export function afficherTableauDeBord(conteneur) {
   chargerStats(b.id, zone, situation);
   chargerStockBas(b.id, zone('stock'));
   chargerCredits(situation, zone('credits'));
+  if (peut('messages.voir')) afficherSoldeSms(zone('sms-restants'));
   chargerDernieresVentes(b.id, zone('ventes'));
 }
 
@@ -135,6 +140,7 @@ function gabarit(b) {
         <div class="dash-entete-textes">
           <h1>Bonjour, ${esc(prenom(etat.membre?.nom) || 'et bienvenue')}</h1>
           <span>${esc(aujourdhui)} · voici l’activité de votre boutique aujourd’hui</span>
+          ${peut('messages.voir') ? '<span class="ligne-sms" data-zone="sms-restants"></span>' : ''}
         </div>
         <div class="dash-entete-actions">
           <form class="recherche-entete" role="search" data-form="recherche">
@@ -233,8 +239,10 @@ function brancherEvenements(conteneur) {
     naviguer('stock' + (q ? '?q=' + encodeURIComponent(q) : ''));
   });
   conteneur.addEventListener('click', (e) => {
-    if (e.target.closest('[data-action="relancer"]')) {
-      toast('Relance par SMS : bientôt disponible.', 'info');
+    const relance = e.target.closest('[data-relancer-sms]');
+    if (relance) {
+      const client = clientsARelancer.get(relance.dataset.relancerSms);
+      if (client) relancerParSms(client, client.solde_credit);
     }
     // Toute la ligne d'une vente ouvre son détail (le n° reste un vrai lien pour le clavier).
     const ligne = e.target.closest('tr[data-vente]');
@@ -451,6 +459,18 @@ async function chargerStockBas(idBoutique, zone) {
 
 /* ------------------------------------------------------------ Crédits à relancer */
 
+/** Petite ligne « SMS : X restants » sous l'en-tête (gérant / propriétaire). */
+async function afficherSoldeSms(zone) {
+  try {
+    const solde = await chargerSoldeSms();
+    if (!zone?.isConnected) return;
+    zone.innerHTML = `${icone('sms', 14, 2)} SMS : <strong>${formatNombre(solde)}</strong> restant${solde > 1 ? 's' : ''} · <a href="#/messages">Messages</a>`;
+    zone.classList.toggle('bas', solde < 20);
+  } catch (err) {
+    console.warn('[YOUMMA] Solde SMS indisponible :', err);
+  }
+}
+
 /** Couleur du texte d'échéance selon le statut de crédit (couleurs de la maquette). */
 const ENCRES_ECHEANCE = { retard: '#B23A0E', bientot: '#8A5A00', ok: '#5A6B82', aucun: '#5A6B82' };
 
@@ -466,6 +486,8 @@ async function chargerCredits(situationPromesse, zone) {
     zone.innerHTML = etatVide('Aucun crédit en cours. Les ventes à crédit apparaîtront ici pour être relancées.');
     return;
   }
+  clientsARelancer.clear();
+  clients.forEach((c) => clientsARelancer.set(c.id, c));
   zone.innerHTML = clients.map((c) => {
     const encre = ENCRES_ECHEANCE[c.statut.code];
     return `
@@ -479,9 +501,7 @@ async function chargerCredits(situationPromesse, zone) {
           </span>
         </a>
         <span class="ligne-montant seul-ordi">${formatGNF(c.solde_credit)}</span>
-        <button type="button" class="btn btn-relance" data-action="relancer" aria-label="Relancer ${esc(c.nom)} par SMS">
-          ${icone('sms', 16, 2)}<span class="seul-ordi">Relancer par SMS</span>
-        </button>
+        ${boutonsRelanceHTML(c, c.solde_credit)}
       </div>`;
   }).join('');
 }

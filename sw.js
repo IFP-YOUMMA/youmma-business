@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v6';
+const VERSION_CACHE = 'yb-statique-v7';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -35,6 +35,11 @@ const FICHIERS_STATIQUES = [
   './js/parametres.js',
   './js/chantiers-commun.js',
   './js/chantiers.js',
+  './js/sms.js',
+  './js/fournisseurs.js',
+  './js/messages.js',
+  './js/campagne.js',
+  './js/admin.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png'

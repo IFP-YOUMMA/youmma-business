@@ -10,6 +10,7 @@ import { chargerClient, ouvrirFormulaireClient } from './clients-commun.js';
 import { imprimerRecuVente } from './recu.js';
 import { naviguer } from './router.js';
 import { chargerChantierOuvert } from './chantiers-commun.js';
+import { chargerSoldeSms } from './sms.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -40,6 +41,8 @@ export function afficherCaisse(conteneur, params) {
     /** Map produit_id → { produit, quantite } */
     panier: new Map(),
     client: null,
+    /** Case « reçu par SMS » cochée par défaut : crédit SMS disponible et modèle « recu_vente » actif. */
+    recuSmsParDefaut: true,
     /** Chantier ouvert du client choisi (rappel « Faire un enlèvement chantier »). */
     chantierClient: null,
     remise: 0,
@@ -444,10 +447,28 @@ export function afficherCaisse(conteneur, params) {
 
   function choisirClient(client) {
     s.client = client;
-    s.recuSms = Boolean(client?.telephone);
+    s.recuSms = Boolean(client?.telephone) && s.recuSmsParDefaut;
     s.chantierClient = null;
     renderPanier();
     if (client) verifierChantierClient(client.id);
+  }
+
+  /**
+   * Reçu SMS coché par défaut seulement s'il reste du crédit et si le modèle « Reçu de vente » est actif
+   * (le modèle n'est lisible que par le gérant ; pour un vendeur, seul le crédit compte).
+   */
+  async function chargerReglageRecuSms() {
+    try {
+      const [solde, modele] = await Promise.all([
+        chargerSoldeSms(),
+        peut('messages.voir')
+          ? sb.from('message_modeles').select('actif').eq('boutique_id', boutique.id).eq('cle', 'recu_vente').maybeSingle()
+          : Promise.resolve({ data: null })
+      ]);
+      s.recuSmsParDefaut = solde > 0 && modele.data?.actif !== false;
+    } catch (err) {
+      console.warn('[YOUMMA] Réglage du reçu SMS indisponible :', err);
+    }
   }
 
   /** Rappel discret si le client choisi a un chantier ouvert. */
@@ -585,7 +606,7 @@ export function afficherCaisse(conteneur, params) {
     viderPanier();
     s.typePrix = vente.typePrix === 'gros' ? 'gros' : 'detail';
     s.client = vente.client || null;
-    s.recuSms = Boolean(s.client?.telephone);
+    s.recuSms = Boolean(s.client?.telephone) && s.recuSmsParDefaut;
     s.remise = Number(vente.remise) || 0;
     let ignores = 0;
     vente.lignes.forEach((l) => {
@@ -934,6 +955,7 @@ export function afficherCaisse(conteneur, params) {
   renderPanier();
   renderAttente();
   chargerDonnees();
+  chargerReglageRecuSms();
   if (params?.get('client')) preselectionnerClient(params.get('client'));
   if (params?.get('vendre') !== null || window.matchMedia('(min-width: 900px)').matches) {
     conteneur.querySelector('#recherche-caisse').focus({ preventScroll: true });

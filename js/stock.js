@@ -16,7 +16,7 @@ import {
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
  * le gérant le reçoit par la fonction serveur produits_couts, fusionnée côté appli.
  */
-const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, created_at';
+const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, fournisseur_id, created_at';
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -51,6 +51,8 @@ export function afficherStock(conteneur, params) {
   const s = {
     produits: [],
     categories: [],
+    /** Fournisseurs actifs (gérant), pour le champ « Fournisseur » de l'article. */
+    fournisseurs: [],
     charge: false,
     recherche: params.get('q') || '',
     categorie: '',
@@ -180,11 +182,12 @@ export function afficherStock(conteneur, params) {
   /* ======================================================= Données */
 
   async function chargerDonnees() {
-    const [produitsRes, categoriesRes, coutsRes] = await Promise.all([
+    const [produitsRes, categoriesRes, coutsRes, fournisseursRes] = await Promise.all([
       sb.from('produits').select(COLONNES_PRODUIT).eq('boutique_id', boutique.id).order('nom'),
       sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom'),
       // Prix d'achat : gérant / propriétaire uniquement, jamais demandé pour un vendeur.
-      peut('voir_prix_achat') ? sb.rpc('produits_couts', { p_boutique: boutique.id }) : Promise.resolve({ data: [] })
+      peut('voir_prix_achat') ? sb.rpc('produits_couts', { p_boutique: boutique.id }) : Promise.resolve({ data: [] }),
+      sb.from('fournisseurs').select('id, nom, actif').eq('boutique_id', boutique.id).order('nom')
     ]);
     const erreur = produitsRes.error || categoriesRes.error || coutsRes.error;
     if (erreur) {
@@ -195,6 +198,7 @@ export function afficherStock(conteneur, params) {
     const couts = new Map((coutsRes.data || []).map((c) => [c.produit_id, c.prix_achat]));
     s.produits = produitsRes.data.map((p) => ({ ...p, prix_achat: couts.get(p.id) ?? null }));
     s.categories = categoriesRes.data;
+    s.fournisseurs = fournisseursRes.data || [];
     s.charge = true;
     renderFiltres();
     renderListe();
@@ -260,6 +264,7 @@ export function afficherStock(conteneur, params) {
           ${peut('voir_prix_achat') ? info('Prix d’achat', p.prix_achat !== null && p.prix_achat !== undefined ? formatGNF(p.prix_achat) : '—') : ''}
           ${info('Seuil d’alerte', p.sur_commande ? '—' : esc(formatQuantite(p.seuil_alerte, p.unite)))}
           ${info('Code-barres', esc(p.code_barre || '—'))}
+          ${gerer ? info('Fournisseur', esc(s.fournisseurs.find((f) => f.id === p.fournisseur_id)?.nom || '—')) : ''}
         </dl>
         ${gerer ? `
           <div class="fiche-actions">
@@ -425,6 +430,15 @@ export function afficherStock(conteneur, params) {
             </div>
           </div>
 
+          <div class="champ">
+            <label for="art-fournisseur">Fournisseur (facultatif)</label>
+            <select id="art-fournisseur" name="fournisseur" class="input">
+              <option value="">Aucun fournisseur</option>
+              ${s.fournisseurs.filter((f) => f.actif || f.id === p.fournisseur_id).map((f) => `<option value="${esc(f.id)}" ${f.id === p.fournisseur_id ? 'selected' : ''}>${esc(f.nom)}</option>`).join('')}
+            </select>
+            <small class="aide">Sert aux bons de commande (Messages › Fournisseurs).</small>
+          </div>
+
           <label class="case-option">
             <input type="checkbox" name="sur_commande" ${p.sur_commande ? 'checked' : ''}>
             <span><strong>Article sur commande</strong> (pas de stock : sable, gravier, prestation…)</span>
@@ -524,7 +538,8 @@ export function afficherStock(conteneur, params) {
         prix_achat: prixAchat === null ? null : Math.round(prixAchat),
         seuil_alerte: seuil,
         sur_commande: surCommande,
-        code_barre: formulaire.code_barre.value.trim() || null
+        code_barre: formulaire.code_barre.value.trim() || null,
+        fournisseur_id: formulaire.fournisseur.value || null
       };
 
       const bouton = formulaire.querySelector('[type=submit]');

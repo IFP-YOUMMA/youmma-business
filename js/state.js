@@ -11,6 +11,8 @@ export const COLONNES_BOUTIQUE = 'id, nom, type_activite, ville, commune, teleph
 /** État global (une seule instance). */
 export const etat = {
   session: null,
+  /** Administrateur de la plateforme YOUMMA (vérifié une fois après connexion). */
+  adminPlateforme: false,
   /** [{ boutique, membre }] */
   boutiques: [],
   boutique: null,
@@ -37,6 +39,7 @@ export async function chargerBoutiques() {
   etat.membre = null;
   const uid = utilisateur()?.id;
   if (!uid) return etat.boutiques;
+  etat.adminPlateforme = await verifierAdminPlateforme();
 
   const { data: membres, error } = await sb
     .from('membres')
@@ -62,6 +65,16 @@ export async function chargerBoutiques() {
   return etat.boutiques;
 }
 
+/** Vrai si l'utilisateur connecté est administrateur de la plateforme YOUMMA (faux en cas d'erreur). */
+async function verifierAdminPlateforme() {
+  try {
+    const { data, error } = await sb.rpc('est_admin_plateforme');
+    return !error && data === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Active une boutique (et mémorise le choix). Renvoie false si l'id est inconnu. */
 export function choisirBoutique(id) {
   const entree = etat.boutiques.find((x) => x.boutique.id === id);
@@ -75,6 +88,7 @@ export function choisirBoutique(id) {
 /** Réinitialise l'état (déconnexion). */
 export function viderEtat() {
   etat.session = null;
+  etat.adminPlateforme = false;
   etat.boutiques = [];
   etat.boutique = null;
   etat.membre = null;
@@ -104,7 +118,13 @@ const DROITS = {
   // Chantiers : tout le monde ouvre un chantier, fait des enlèvements et des versements, imprime.
   annuler_versement: RESPONSABLES,
   cloturer_chantier: RESPONSABLES,     // clôturer et rouvrir
-  modifier_chantier: RESPONSABLES
+  modifier_chantier: RESPONSABLES,
+  // Messages SMS, campagnes, fournisseurs.
+  'messages.voir': RESPONSABLES,
+  'messages.modifier': RESPONSABLES,
+  'campagnes.envoyer': RESPONSABLES,
+  'fournisseurs.gerer': RESPONSABLES,
+  'clients.relancer': ['proprietaire', 'gerant', 'vendeur'] // le serveur limite à 1 relance par jour et par client
 };
 
 /** Vrai si le membre courant a le droit demandé dans la boutique active. */

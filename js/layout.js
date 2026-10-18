@@ -6,6 +6,7 @@
 import { etat, infosLicence, choisirBoutique, peut } from './state.js';
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
+import { majCreditSmsAffiche } from './sms.js';
 import {
   esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, lienWhatsApp, TYPES_ACTIVITE
 } from './utils.js';
@@ -21,9 +22,12 @@ export const SECTIONS = [
   { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
+  { route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true },
   { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', libelleCourt: 'En ligne', icone: 'enLigne', badge: 'Premium',
     description: 'Une vitrine en ligne pour recevoir des commandes de vos clients sur WhatsApp.' },
-  { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true }
+  { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
+  // Administration de la plateforme : visible seulement pour l'équipe YOUMMA (est_admin_plateforme).
+  { route: 'admin', libelle: 'Admin YOUMMA', icone: 'bouclier', active: true, admin: true }
 ];
 
 /**
@@ -31,7 +35,7 @@ export const SECTIONS = [
  * Boutique de matériaux : « Chantiers » est mis en avant, juste après « Caisse ».
  */
 function sectionsVisibles() {
-  const visibles = SECTIONS.filter((section) => !section.droit || peut(section.droit));
+  const visibles = SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.admin || etat.adminPlateforme));
   if (etat.boutique?.type_activite !== 'materiaux') return visibles;
   const chantiers = visibles.find((section) => section.route === 'chantiers');
   const autres = visibles.filter((section) => section !== chantiers);
@@ -109,6 +113,7 @@ function construireShell() {
           </div>
         </header>
         ${licence.expiree ? bandeauLicence() : ''}
+        <div data-zone="bandeau-sms"></div>
         <main id="vue" tabindex="-1"></main>
       </div>
 
@@ -125,6 +130,7 @@ function construireShell() {
 
   const shell = app.querySelector('.shell');
   brancherShell(shell);
+  majCreditSmsAffiche(); // badge du menu et bandeau « crédit bas » (gérant / propriétaire)
   return shell;
 }
 
@@ -148,6 +154,7 @@ function lienMenu(section) {
       ${icone(section.icone, 20)}
       <span class="lien-menu-libelle">${esc(section.libelleCourt || section.libelle)}</span>
       ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
+      ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
     </a>`;
 }
 

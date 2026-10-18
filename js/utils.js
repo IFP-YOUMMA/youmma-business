@@ -61,6 +61,24 @@ export async function chargerParLots(requete) {
   }
 }
 
+/** Copie un texte dans le presse-papiers (avec repli pour les anciens navigateurs). Renvoie true si réussi. */
+export async function copierTexte(texte) {
+  try {
+    await navigator.clipboard.writeText(texte);
+    return true;
+  } catch {
+    const champ = Object.assign(document.createElement('textarea'), { value: texte });
+    champ.setAttribute('readonly', '');
+    champ.style.position = 'fixed';
+    champ.style.opacity = '0';
+    document.body.appendChild(champ);
+    champ.select();
+    const ok = document.execCommand('copy');
+    champ.remove();
+    return ok;
+  }
+}
+
 /** Retarde l'appel d'une fonction tant que l'utilisateur continue de taper. */
 export function differer(fonction, delai = 250) {
   let minuterie;
@@ -330,7 +348,19 @@ const MESSAGES_METIER = {
   CHANTIER_DEJA_OUVERT: 'Ce client a déjà un chantier ouvert.',
   SOLDE_NON_NUL: 'Le solde n’est pas à zéro.',
   MOUVEMENT_INTROUVABLE: 'Cette opération est introuvable sur le chantier.',
-  TYPE_INVALIDE: 'Type d’opération invalide.'
+  TYPE_INVALIDE: 'Type d’opération invalide.',
+  CREDIT_SMS_INSUFFISANT: 'Crédit SMS insuffisant — rechargez pour envoyer.',
+  AUCUN_DESTINATAIRE: 'Aucun client ne correspond.',
+  TEXTE_REQUIS: 'Écrivez le texte du message.',
+  TEXTE_TROP_LONG: 'Message trop long (3 SMS maximum).',
+  TELEPHONE_INVALIDE: 'Numéro de téléphone invalide.',
+  MODELE_INCONNU: 'Ce type de message est inconnu.',
+  CAMPAGNE_INTROUVABLE: 'Cette campagne est introuvable.',
+  FOURNISSEUR_INTROUVABLE: 'Ce fournisseur est introuvable.',
+  COMMANDE_INTROUVABLE: 'Ce bon de commande est introuvable.',
+  DEJA_RELANCE: 'Ce client a déjà été relancé aujourd’hui.',
+  AUCUNE_DETTE: 'Ce client ne doit rien.',
+  CLIENT_INTROUVABLE: 'Ce client est introuvable.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -532,6 +562,7 @@ export const ICONES = {
   annuler: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   corbeille: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
   moins: 'M5 12h14',
+  bouclier: 'M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z',
   casque: 'M2 18h20M4 18v-2a8 8 0 0 1 16 0v2M10 8V5h4v3M8.5 10.5L9 8M15.5 10.5L15 8',
   document: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8',
   photo: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',

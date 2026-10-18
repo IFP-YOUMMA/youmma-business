@@ -9,7 +9,7 @@
  * fonction serveur enregistrer_remboursement.
  */
 import { sb } from './supabase.js';
-import { etat } from './state.js';
+import { etat, peut } from './state.js';
 import { naviguer } from './router.js';
 import {
   completerClient, totauxCredits, chargerSituationCredits, chargerClient,
@@ -17,6 +17,7 @@ import {
 } from './clients-commun.js';
 import { imprimerRecuRemboursement } from './recu.js';
 import { COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier } from './chantiers-commun.js';
+import { relancerParSms } from './sms.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales,
   formatNombre, formatGNF, formatDate, formatTelephone, formatNumeroVente,
@@ -430,7 +431,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
 
         <div class="fiche-corps">
           <div class="actions-client">
-            <button type="button" class="action-client" data-action="relancer">${icone('sms', 20, 2)}<span>Relancer<span class="seul-ordi"> par</span> SMS</span></button>
+            <button type="button" class="action-client" data-action="relancer" ${tel && client.solde_credit > 0 && peut('clients.relancer') ? '' : `disabled title="${tel ? 'Ce client ne doit rien' : 'Aucun numéro enregistré'}"`}>${icone('sms', 20, 2)}<span>Relancer<span class="seul-ordi"> par</span> SMS</span></button>
             ${tel
               ? `<a class="action-client" href="tel:+${esc(tel)}">${icone('telephone', 20, 2)}<span>Appeler</span></a>`
               : `<button type="button" class="action-client" disabled title="Aucun numéro enregistré">${icone('telephone', 20, 2)}<span>Appeler</span></button>`}
@@ -439,6 +440,12 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
               : `<button type="button" class="action-client seul-mobile" disabled title="Aucun numéro enregistré">${icone('whatsapp', 20, 2)}<span>WhatsApp</span></button>`}
             <a class="action-client seul-ordi" href="#/caisse?client=${encodeURIComponent(client.id)}">${icone('plus', 20, 2)}<span>Nouvelle vente</span></a>
           </div>
+
+          ${peut('messages.modifier') ? `
+            <label class="case-option case-promo">
+              <input type="checkbox" data-action="stop-promo" ${client.stop_promo ? 'checked' : ''}>
+              <span><strong>Ne pas envoyer de promotions</strong> <span class="discret">(campagnes SMS). Les reçus et relances de crédit restent envoyés.</span></span>
+            </label>` : ''}
 
           <section class="bloc-chantier-client" aria-label="Chantier" data-zone="chantier-client"></section>
 
@@ -696,7 +703,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
       });
     }
     if (action === 'ouvrir-chantier') ouvrirFormulaireChantier({ client });
-    if (action === 'relancer') toast('Bientôt disponible : les relances SMS arrivent à la prochaine mise à jour.', 'info');
+    if (action === 'relancer') relancerParSms(client, client.solde_credit);
     if (action === 'tout') {
       remb.montant = client.solde_credit;
       const champ = zone.querySelector('[data-ref="montant-remb"]');
@@ -717,6 +724,14 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
     const vente = e.target.closest('[data-vente]');
     // Détail, réimpression et annulation : page Historique des ventes.
     if (vente) naviguer(`ventes/${vente.dataset.vente}`);
+  };
+  zone.onchange = async (e) => {
+    if (e.target.dataset.action !== 'stop-promo') return;
+    const stop = e.target.checked;
+    const { error } = await sb.from('clients').update({ stop_promo: stop }).eq('id', client.id);
+    if (error) { e.target.checked = !stop; toast(messageErreur(error), 'erreur'); return; }
+    client = { ...client, stop_promo: stop };
+    toast(stop ? 'Ce client ne recevra plus les promotions.' : 'Ce client recevra de nouveau les promotions.', 'succes');
   };
   zone.oninput = (e) => {
     if (e.target.dataset.ref === 'montant-remb') saisirMontant(e.target);

@@ -9,7 +9,7 @@ import { sb } from './supabase.js';
 import { etat, utilisateur, peut, estProprietaire, LIBELLES_ROLES } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom,
-  formatGNF, formatDate, formatTelephone, normaliserTelephone, bornesPeriode, chargerParLots
+  formatGNF, formatDate, formatTelephone, normaliserTelephone, bornesPeriode, chargerParLots, copierTexte
 } from './utils.js';
 
 const ADRESSE_APPLI = 'https://ifp-youmma.github.io/youmma-business/';
@@ -49,24 +49,6 @@ function texteExpiration(expireAt) {
   }
   if (heures >= 1) return `Expire dans ${heures} heure${heures > 1 ? 's' : ''}`;
   return 'Expire dans moins d’une heure';
-}
-
-/** Copie un texte dans le presse-papiers (avec repli pour les anciens navigateurs). */
-async function copier(texte) {
-  try {
-    await navigator.clipboard.writeText(texte);
-    return true;
-  } catch {
-    const champ = Object.assign(document.createElement('textarea'), { value: texte });
-    champ.setAttribute('readonly', '');
-    champ.style.position = 'fixed';
-    champ.style.opacity = '0';
-    document.body.appendChild(champ);
-    champ.select();
-    const ok = document.execCommand('copy');
-    champ.remove();
-    return ok;
-  }
 }
 
 export function afficherVendeurs(conteneur) {
@@ -198,7 +180,7 @@ export function afficherVendeurs(conteneur) {
   async function surClicCopier(e) {
     const bouton = e.target.closest('[data-copier]');
     if (!bouton) return;
-    toast(await copier(bouton.dataset.copier) ? 'Code copié.' : 'Copie impossible : notez le code.', 'info');
+    toast(await copierTexte(bouton.dataset.copier) ? 'Code copié.' : 'Copie impossible : notez le code.', 'info');
   }
 
   /* ---------------- Équipe */

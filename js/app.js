@@ -18,6 +18,8 @@ import { afficherVendeurs } from './vendeurs.js';
 import { afficherRapports } from './rapports.js';
 import { afficherParametres } from './parametres.js';
 import { afficherChantiers } from './chantiers.js';
+import { afficherMessages } from './messages.js';
+import { afficherAdmin } from './admin.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
@@ -27,6 +29,7 @@ const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max
  * publique : accessible sans connexion · horsShell : sans menu (onboarding)
  * pleinEcran : menu masqué (booléen, ou fonction des paramètres de la route)
  * droit : action requise (peut() dans state.js), sinon retour au tableau de bord
+ * admin : réservée à l'équipe YOUMMA (est_admin_plateforme), sinon retour au tableau de bord
  */
 const ROUTES = {
   connexion: { vue: afficherConnexion, publique: true },
@@ -48,7 +51,10 @@ const ROUTES = {
   chantiers: {
     vue: afficherChantiers,
     pleinEcran: (params) => params.get('vue') === 'enlevement' && window.matchMedia('(max-width: 899.98px)').matches
-  }
+  },
+  // #/messages (onglet dans l'adresse : #/messages/campagnes…), #/messages/campagne (nouvelle campagne)
+  messages: { vue: afficherMessages, droit: 'messages.voir' },
+  admin: { vue: afficherAdmin, admin: true }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -71,6 +77,7 @@ function resoudre() {
   if (route.publique && etat.session) return naviguer(accueil, { remplacer: true });
   if (!route.publique && !etat.session) return naviguer('connexion', { remplacer: true });
   if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('nouvelle-boutique', { remplacer: true });
+  if (route.admin && !etat.adminPlateforme) return naviguer('tableau-de-bord', { remplacer: true });
   if (route.droit && !peut(route.droit)) {
     toast('Accès réservé au gérant.', 'erreur');
     return naviguer('tableau-de-bord', { remplacer: true });
