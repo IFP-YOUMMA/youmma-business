@@ -180,7 +180,8 @@ function afficherHistorique(conteneur, idSelection) {
     const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
     zone('kpis').innerHTML = [
       { libelle: 'Chiffre d’affaires', valeur: formatGNF(ca), sous: `${pluriel(validees.length, 'vente')} validée${validees.length > 1 ? 's' : ''}`, encre: 'var(--text)' },
-      { libelle: 'Encaissé', valeur: formatGNF(somme(validees.filter((v) => v.mode_paiement !== 'credit'))), sous: 'hors ventes à crédit', encre: 'var(--succes)' },
+      // Ventes à crédit et enlèvements chantier ne sont pas encaissés au moment de la vente.
+      { libelle: 'Encaissé', valeur: formatGNF(somme(validees.filter((v) => !['credit', 'chantier'].includes(v.mode_paiement)))), sous: 'hors crédit et chantiers', encre: 'var(--succes)' },
       { libelle: 'Panier moyen', valeur: formatGNF(validees.length ? ca / validees.length : 0), sous: 'par vente', encre: 'var(--text)' },
       { libelle: 'Annulées', valeur: pluriel(annulees.length, 'vente'), sous: `${formatGNF(somme(annulees))} remis en stock`, encre: 'var(--danger)' }
     ].map((k) => `
@@ -380,7 +381,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
   try {
     const [venteRes, lignesRes, references] = await Promise.all([
       sb.from('ventes')
-        .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut')
+        .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut, chantier_id')
         .eq('boutique_id', boutique.id).eq('id', idVente).maybeSingle(),
       sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente),
       refsPromesse
@@ -406,6 +407,13 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
   }
 
   const client = vente.client_id ? { id: vente.client_id, nom: refs.clients.get(vente.client_id) || 'Client' } : null;
+  // Enlèvement chantier : lien vers le compte du chantier.
+  let chantier = null;
+  if (vente.chantier_id) {
+    const { data } = await sb.from('chantiers').select('id, numero, nom').eq('id', vente.chantier_id).maybeSingle();
+    chantier = data;
+    if (!zone.isConnected || zone.dataset.vente !== idVente) return;
+  }
   const vendeur = trouverMembre(refs, vente.vendeur_id);
 
   function rendre() {
@@ -424,6 +432,13 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
         </div>
 
         ${annulee ? `<p class="bandeau-annulee">${icone('alerte', 16, 2)} Vente annulée</p>` : ''}
+
+        ${chantier ? `
+          <a class="client-bouton lien-chantier-vente" href="#/chantiers/${encodeURIComponent(chantier.id)}">
+            <span class="avatar">${icone('casque', 18, 2)}</span>
+            <span class="client-textes"><span class="gras">${esc(chantier.nom)}</span><span class="discret">Enlèvement sur le chantier ${esc(chantier.numero)} · voir le compte</span></span>
+            ${icone('chevronDroite', 16, 2)}
+          </a>` : ''}
 
         ${client ? `
           <a class="client-bouton" href="#/clients/${encodeURIComponent(client.id)}">
@@ -489,6 +504,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
         <ul class="liste-consequences">
           <li>Les articles reviendront en stock.</li>
           ${vente.mode_paiement === 'credit' && client ? `<li>${formatGNF(vente.total)} seront retirés de la dette de ${esc(client.nom)}.</li>` : ''}
+          ${chantier ? `<li>${formatGNF(vente.total)} seront recrédités sur le chantier « ${esc(chantier.nom)} » (ligne « Annulation enlèvement » au registre).</li>` : ''}
           <li>La vente restera visible dans l’historique, marquée « Annulée ».</li>
         </ul>
         <div class="modale-actions">

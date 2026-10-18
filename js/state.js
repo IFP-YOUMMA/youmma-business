@@ -100,7 +100,11 @@ const DROITS = {
   equipe: RESPONSABLES,                // inviter, désactiver / réactiver un vendeur
   nommer_gerant: ['proprietaire'],
   parametres_boutique: RESPONSABLES,   // « Ma boutique » et « Mes boutiques »
-  ouvrir_boutique: ['proprietaire']
+  ouvrir_boutique: ['proprietaire'],
+  // Chantiers : tout le monde ouvre un chantier, fait des enlèvements et des versements, imprime.
+  annuler_versement: RESPONSABLES,
+  cloturer_chantier: RESPONSABLES,     // clôturer et rouvrir
+  modifier_chantier: RESPONSABLES
 };
 
 /** Vrai si le membre courant a le droit demandé dans la boutique active. */

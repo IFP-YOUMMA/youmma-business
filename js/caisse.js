@@ -8,10 +8,12 @@ import { sb } from './supabase.js';
 import { etat, licenceExpiree, peut } from './state.js';
 import { chargerClient, ouvrirFormulaireClient } from './clients-commun.js';
 import { imprimerRecuVente } from './recu.js';
+import { naviguer } from './router.js';
+import { chargerChantierOuvert } from './chantiers-commun.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
-  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, MODES_PAIEMENT
+  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, texteSolde, classeSolde, MODES_PAIEMENT, MODES_CAISSE
 } from './utils.js';
 
 const ICONES_UNITES = {
@@ -38,6 +40,8 @@ export function afficherCaisse(conteneur, params) {
     /** Map produit_id → { produit, quantite } */
     panier: new Map(),
     client: null,
+    /** Chantier ouvert du client choisi (rappel « Faire un enlèvement chantier »). */
+    chantierClient: null,
     remise: 0,
     editionRemise: false,
     mode: 'especes',
@@ -299,7 +303,13 @@ export function afficherCaisse(conteneur, params) {
           <span class="discret">${esc(detail)}</span>
         </span>
         <span class="lien-changer">${c ? 'Changer' : 'Choisir'}</span>
-      </button>`;
+      </button>
+      ${s.chantierClient ? `
+        <div class="rappel-chantier">
+          ${icone('casque', 18, 2)}
+          <span>Ce client a un chantier ouvert (<strong class="${classeSolde(s.chantierClient.solde)}">${esc(texteSolde(s.chantierClient.solde))}</strong>).</span>
+          <button type="button" class="btn-lien" data-action="enlevement-chantier">Faire un enlèvement chantier</button>
+        </div>` : ''}`;
   }
 
   function lignePanierHTML({ produit, quantite }) {
@@ -333,7 +343,7 @@ export function afficherCaisse(conteneur, params) {
   function modesHTML(compact) {
     return `
       <div class="modes ${compact ? 'modes-compacts' : ''}" role="group" aria-label="Mode de paiement">
-        ${Object.entries(MODES_PAIEMENT).map(([code, m]) => `
+        ${Object.entries(MODES_PAIEMENT).filter(([code]) => MODES_CAISSE.includes(code)).map(([code, m]) => `
           <button type="button" class="mode" data-mode="${code}" aria-pressed="${s.mode === code}">
             ${compact ? '' : `<span class="mode-pastille" style="background:${m.couleur}"></span>`}
             ${esc(compact ? m.court : m.libelle)}
@@ -423,6 +433,7 @@ export function afficherCaisse(conteneur, params) {
   function viderPanier() {
     s.panier.clear();
     s.client = null;
+    s.chantierClient = null;
     s.remise = 0;
     s.editionRemise = false;
     s.montantRecu = null;
@@ -434,7 +445,29 @@ export function afficherCaisse(conteneur, params) {
   function choisirClient(client) {
     s.client = client;
     s.recuSms = Boolean(client?.telephone);
+    s.chantierClient = null;
     renderPanier();
+    if (client) verifierChantierClient(client.id);
+  }
+
+  /** Rappel discret si le client choisi a un chantier ouvert. */
+  async function verifierChantierClient(idClient) {
+    try {
+      const chantier = await chargerChantierOuvert(idClient);
+      if (s.client?.id !== idClient || !chantier) return;
+      s.chantierClient = chantier;
+      renderPanier();
+    } catch (err) {
+      console.warn('[YOUMMA] Chantier du client non vérifié :', err);
+    }
+  }
+
+  /** Ouvre l'écran d'enlèvement du chantier avec les articles du panier déjà saisis. */
+  function versEnlevementChantier() {
+    const lignes = [...s.panier.values()].map(({ produit, quantite }) => `${produit.id}:${quantite}`).join(',');
+    const params = new URLSearchParams({ prix: s.typePrix });
+    if (lignes) params.set('lignes', lignes);
+    naviguer(`chantiers/${s.chantierClient.id}/enlevement?${params}`);
   }
 
   function basculerPanier(ouvert) {
@@ -850,6 +883,7 @@ export function afficherCaisse(conteneur, params) {
         renderPanier();
         return conteneur.querySelector('#remise')?.focus();
       case 'choisir-client': return ouvrirChoixClient();
+      case 'enlevement-chantier': return versEnlevementChantier();
       case 'mettre-en-attente': return mettreEnAttente();
       case 'liste-attente': return ouvrirListeAttente();
       case 'valider': return valider();

@@ -16,7 +16,7 @@ const PERIODES = [
 ];
 const TITRES_EVOLUTION = { jour: 'Ventes et dépenses par jour', semaine: 'Ventes et dépenses par semaine', mois: 'Ventes et dépenses par mois' };
 const TRIS = [['ca', 'Chiffre d’affaires'], ['marge', 'Marge'], ['quantite', 'Quantité']];
-const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit'];
+const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit', 'chantier'];
 const HAUTEUR_BARRE = 160;
 const MAX_VALEURS_AFFICHEES = 12;
 

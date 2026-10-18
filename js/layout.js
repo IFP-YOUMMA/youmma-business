@@ -17,6 +17,7 @@ export const SECTIONS = [
   { route: 'ventes', libelle: 'Ventes', icone: 'ventes', active: true },
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
+  { route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true },
   { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
@@ -25,9 +26,17 @@ export const SECTIONS = [
   { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true }
 ];
 
-/** Sections visibles pour le rôle du membre courant. */
+/**
+ * Sections visibles pour le rôle du membre courant.
+ * Boutique de matériaux : « Chantiers » est mis en avant, juste après « Caisse ».
+ */
 function sectionsVisibles() {
-  return SECTIONS.filter((section) => !section.droit || peut(section.droit));
+  const visibles = SECTIONS.filter((section) => !section.droit || peut(section.droit));
+  if (etat.boutique?.type_activite !== 'materiaux') return visibles;
+  const chantiers = visibles.find((section) => section.route === 'chantiers');
+  const autres = visibles.filter((section) => section !== chantiers);
+  autres.splice(autres.findIndex((section) => section.route === 'caisse') + 1, 0, chantiers);
+  return autres;
 }
 
 /** Onglets de la barre du bas (téléphone). */

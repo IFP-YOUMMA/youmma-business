@@ -119,6 +119,22 @@ export function formatGNF(valeur) {
   return formatNombre(Math.round(Number(valeur) || 0)) + ESPACE_INSECABLE + 'GNF';
 }
 
+/** Solde d'un chantier : « Avance 650 000 GNF », « Doit 1 050 000 GNF » ou « Soldé ». */
+export function texteSolde(solde) {
+  const n = Number(solde) || 0;
+  if (n > 0) return `Avance ${formatGNF(n)}`;
+  if (n < 0) return `Doit ${formatGNF(-n)}`;
+  return 'Soldé';
+}
+
+/** Classe de couleur du solde : solde-avance (vert), solde-dette (rouge) ou solde-nul (gris). */
+export function classeSolde(solde) {
+  const n = Number(solde) || 0;
+  if (n > 0) return 'solde-avance';
+  if (n < 0) return 'solde-dette';
+  return 'solde-nul';
+}
+
 /** Montant en millions pour l'histogramme : 4850000 → « 4,85 M ». */
 export function formatMillions(valeur) {
   const millions = (Number(valeur) || 0) / 1e6;
@@ -260,8 +276,13 @@ export const MODES_PAIEMENT = {
   especes: { libelle: 'Espèces', court: 'Espèces', couleur: '#0B1F3A', fond: '#E8ECF2', encre: '#0B1F3A' },
   orange_money: { libelle: 'Orange Money', court: 'Orange Money', couleur: '#EF6C00', fond: '#FFE8D6', encre: '#8A3B00' },
   mtn_momo: { libelle: 'MTN MoMo', court: 'MTN MoMo', couleur: '#FBC02D', fond: '#FFF4C2', encre: '#5C4600' },
-  credit: { libelle: 'À crédit', court: 'Crédit', couleur: '#90A4AE', fond: '#FBE9E7', encre: '#9A2E0A' }
+  credit: { libelle: 'À crédit', court: 'Crédit', couleur: '#90A4AE', fond: '#FBE9E7', encre: '#9A2E0A' },
+  // Enlèvement sur un compte chantier (payé par l'avance ou mis en dette du chantier).
+  chantier: { libelle: 'Chantier', court: 'Chantier', couleur: '#4FC3F7', fond: '#E1F5FE', encre: '#01579B' }
 };
+
+/** Modes proposés à la caisse (le mode « chantier » passe par l'écran d'enlèvement). */
+export const MODES_CAISSE = ['especes', 'orange_money', 'mtn_momo', 'credit'];
 
 /** Numéro de vente lisible : 232 → « V-0232 » (un texte déjà formaté est gardé tel quel). */
 export function formatNumeroVente(numero) {
@@ -303,7 +324,13 @@ const MESSAGES_METIER = {
   INVITATION_INTROUVABLE: 'Cette invitation est introuvable ou a déjà été utilisée.',
   ROLE_INVALIDE: 'Ce rôle n’est pas valide.',
   NOM_REQUIS: 'Indiquez un nom.',
-  PAS_INVALIDE: 'Période de rapport invalide.'
+  PAS_INVALIDE: 'Période de rapport invalide.',
+  CHANTIER_INTROUVABLE: 'Ce chantier est introuvable dans votre boutique.',
+  CHANTIER_CLOTURE: 'Ce chantier est clôturé.',
+  CHANTIER_DEJA_OUVERT: 'Ce client a déjà un chantier ouvert.',
+  SOLDE_NON_NUL: 'Le solde n’est pas à zéro.',
+  MOUVEMENT_INTROUVABLE: 'Cette opération est introuvable sur le chantier.',
+  TYPE_INVALIDE: 'Type d’opération invalide.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -505,6 +532,9 @@ export const ICONES = {
   annuler: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   corbeille: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
   moins: 'M5 12h14',
+  casque: 'M2 18h20M4 18v-2a8 8 0 0 1 16 0v2M10 8V5h4v3M8.5 10.5L9 8M15.5 10.5L15 8',
+  document: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8',
+  photo: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   connexion: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3',
   inviter: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
   points: 'M12 5h.01M12 12h.01M12 19h.01',

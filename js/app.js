@@ -17,6 +17,7 @@ import { afficherDepenses } from './depenses.js';
 import { afficherVendeurs } from './vendeurs.js';
 import { afficherRapports } from './rapports.js';
 import { afficherParametres } from './parametres.js';
+import { afficherChantiers } from './chantiers.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
@@ -42,7 +43,12 @@ const ROUTES = {
   depenses: { vue: afficherDepenses },
   vendeurs: { vue: afficherVendeurs, droit: 'equipe' },
   rapports: { vue: afficherRapports, droit: 'rapports' },
-  parametres: { vue: afficherParametres }
+  parametres: { vue: afficherParametres },
+  // #/chantiers, #/chantiers/<id>, #/chantiers/<id>/enlevement (plein écran sur téléphone), #/chantiers/<id>/releve
+  chantiers: {
+    vue: afficherChantiers,
+    pleinEcran: (params) => params.get('vue') === 'enlevement' && window.matchMedia('(max-width: 899.98px)').matches
+  }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -53,10 +59,11 @@ let nettoyerVue = null;
 /** Affiche la page correspondant au hash courant, après les contrôles d'accès. */
 function resoudre() {
   const lu = lireRoute();
-  // « clients/<id> » → route « clients » avec le paramètre id.
-  const [nom, identifiant] = lu.nom.split('/');
+  // « clients/<id> » → route « clients » avec le paramètre id ; « chantiers/<id>/releve » → en plus vue=releve.
+  const [nom, identifiant, sousVue] = lu.nom.split('/');
   const params = lu.params;
   if (identifiant) params.set('id', decodeURIComponent(identifiant));
+  if (sousVue) params.set('vue', sousVue);
   const route = ROUTES[nom];
   const accueil = etat.boutique ? 'tableau-de-bord' : 'nouvelle-boutique';
 

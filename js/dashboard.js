@@ -12,7 +12,7 @@ import {
   formatQuantite, formatDate, dateISO, formatNumeroVente, MODES_PAIEMENT
 } from './utils.js';
 
-const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit'];
+const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit', 'chantier'];
 const HAUTEUR_MAX_BARRE = 160;
 
 export function afficherTableauDeBord(conteneur) {
@@ -157,7 +157,9 @@ function gabarit(b) {
       </section>
 
       <nav class="acces-rapides seul-mobile" aria-label="Accès rapides">
-        ${[['stock', 'Stock', 'stock'], ['clients', 'Clients', 'client'], ['depenses', 'Dépenses', 'depenses'], ['rapports', 'Rapports', 'rapports']]
+        ${[['stock', 'Stock', 'stock'], ['clients', 'Clients', 'client'], ['depenses', 'Dépenses', 'depenses'],
+          // Boutique de matériaux : accès direct aux chantiers à la place des rapports.
+          b.type_activite === 'materiaux' ? ['chantiers', 'Chantiers', 'casque'] : ['rapports', 'Rapports', 'rapports']]
           .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 22, 1.8)}${libelle}</a>`).join('')}
       </nav>
 
@@ -286,7 +288,8 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
     { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: `Dépenses : ${formatGNF(s.depenses_jour)}`, encreSous: '#5A6B82',
       teinte: '#E0F2F1', encre: '#00695C', icone: 'caisse' },
     { libelle: 'Crédits en cours', valeur: s.credits_total,
-      sous: `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''} · ${s.nb_credits_retard} en retard`,
+      sous: `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''} · ${s.nb_credits_retard} en retard`
+        + (s.dettes_chantiers > 0 ? ` · + Chantiers : ${formatGNF(s.dettes_chantiers)} dus` : ''),
       encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#5A6B82', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client' },
     { libelle: 'Valeur du stock', valeur: s.valeur_stock,
       sous: s.nb_stock_bas > 0 ? `${s.nb_stock_bas} article${s.nb_stock_bas > 1 ? 's' : ''} sous le seuil` : 'Aucun article sous le seuil',
@@ -317,7 +320,7 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
 function normaliserStats(data) {
   const brut = (Array.isArray(data) ? data[0] : data) || {};
   const champs = ['ventes_jour', 'nb_ventes_jour', 'ventes_hier', 'encaisse_jour', 'depenses_jour', 'credits_total',
-    'nb_clients_credit', 'nb_credits_retard', 'valeur_stock', 'nb_stock_bas'];
+    'nb_clients_credit', 'nb_credits_retard', 'valeur_stock', 'nb_stock_bas', 'dettes_chantiers'];
   const s = {};
   champs.forEach((c) => { s[c] = Number(brut[c]) || 0; });
   s.ventes_7j = Array.isArray(brut.ventes_7j) ? brut.ventes_7j : [];

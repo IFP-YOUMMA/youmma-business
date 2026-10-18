@@ -1,11 +1,11 @@
 /**
- * recu.js — Gabarits des reçus 80 mm (vente et remboursement), imprimés via window.print()
- * et la feuille @media print de css/app.css. Utilisé par la caisse, l'historique des ventes
- * et la fiche client.
+ * recu.js — Gabarits des reçus 80 mm (vente, remboursement, bon d'enlèvement et versement chantier),
+ * imprimés via window.print() et la feuille @media print de css/app.css.
+ * Utilisé par la caisse, l'historique des ventes, la fiche client et les comptes chantier.
  */
 import { etat } from './state.js';
 import {
-  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, MODES_PAIEMENT
+  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, texteSolde, MODES_PAIEMENT
 } from './utils.js';
 
 /** En-tête commun : nom, adresse et téléphone de la boutique active. */
@@ -66,6 +66,55 @@ export function imprimerRecuVente(recu, { mentions = [] } = {}) {
       ? ligne('Reçu', formatGNF(recu.montantRecu)) + ligne('Monnaie rendue', formatGNF(Math.max(0, recu.monnaie || 0)))
       : ''}
     ${recu.echeance ? ligne('Échéance', formatDate(recu.echeance, 'court')) : ''}
+    ${pied()}`);
+}
+
+/**
+ * Bon d'enlèvement d'un chantier (80 mm), à faire signer.
+ * bon : { numero, date, chantier {numero, nom}, client, recuperePar, servi, lignes, total, soldeApres, note }
+ */
+export function imprimerBonEnlevement(bon) {
+  imprimer(`
+    ${enteteBoutique()}
+    <p class="recu-titre">BON D’ENLÈVEMENT</p>
+    ${ligne('Chantier', `${bon.chantier.numero || ''} · ${bon.chantier.nom}`)}
+    ${ligne('Client', bon.client || '—')}
+    ${ligne('Vente', formatNumeroVente(bon.numero))}
+    ${ligne('Date', formatDate(bon.date, 'complet'))}
+    ${ligne('Récupéré par', bon.recuperePar || '—')}
+    ${ligne('Servi par', bon.servi || '—')}
+    <div class="recu-sep"></div>
+    ${bon.lignes.map((l) => `
+      <div class="recu-article">
+        <span class="recu-article-nom">${esc(l.nom_produit)}</span>
+        <div class="recu-ligne"><span>${esc(formatQuantite(l.quantite, l.unite))} × ${formatNombre(l.prix_unitaire)}</span><span>${formatNombre(l.total)}</span></div>
+      </div>`).join('')}
+    <div class="recu-sep"></div>
+    ${ligne('TOTAL', formatGNF(bon.total), 'recu-total')}
+    ${ligne('Solde après', texteSolde(bon.soldeApres), 'recu-total')}
+    ${bon.note ? `<p class="recu-note">${esc(bon.note)}</p>` : ''}
+    <div class="recu-signature">Signature de la personne qui récupère :</div>
+    ${pied()}`);
+}
+
+/**
+ * Reçu de versement sur un chantier (80 mm).
+ * recu : { date, chantier {numero, nom}, client, montant, mode, versePar, ancienSolde, nouveauSolde, encaissePar }
+ */
+export function imprimerRecuVersement(recu) {
+  imprimer(`
+    ${enteteBoutique()}
+    <p class="recu-titre">REÇU DE VERSEMENT</p>
+    ${ligne('Chantier', `${recu.chantier.numero || ''} · ${recu.chantier.nom}`)}
+    ${ligne('Client', recu.client || '—')}
+    ${ligne('Date', formatDate(recu.date, 'complet'))}
+    <div class="recu-sep"></div>
+    ${ligne('Montant reçu', formatGNF(recu.montant), 'recu-total')}
+    ${ligne('Mode', MODES_PAIEMENT[recu.mode].libelle)}
+    ${recu.versePar ? ligne('Versé par', recu.versePar) : ''}
+    ${ligne('Ancien solde', texteSolde(recu.ancienSolde))}
+    ${ligne('Nouveau solde', texteSolde(recu.nouveauSolde))}
+    ${ligne('Encaissé par', recu.encaissePar)}
     ${pied()}`);
 }
 

@@ -16,6 +16,7 @@ import {
   chargerNomsMembres, badgeEcheance, ouvrirFormulaireClient
 } from './clients-commun.js';
 import { imprimerRecuRemboursement } from './recu.js';
+import { COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier } from './chantiers-commun.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales,
   formatNombre, formatGNF, formatDate, formatTelephone, formatNumeroVente,
@@ -439,6 +440,8 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
             <a class="action-client seul-ordi" href="#/caisse?client=${encodeURIComponent(client.id)}">${icone('plus', 20, 2)}<span>Nouvelle vente</span></a>
           </div>
 
+          <section class="bloc-chantier-client" aria-label="Chantier" data-zone="chantier-client"></section>
+
           ${remb.detteSoldee ? `<p class="dette-soldee" role="status">${icone('valide', 18, 2.4)} Dette soldée ✔</p>` : ''}
           ${client.solde_credit > 0 ? blocRemboursementHTML() : ''}
 
@@ -450,10 +453,33 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
       </div>`;
     majApercu();
     chargerHistorique();
+    chargerChantiersClient();
   }
 
   function squelettesHistorique() {
     return '<div class="squelette-ligne"><span class="squelette" style="height:14px;width:55%"></span><span class="squelette" style="height:10px;width:75%"></span></div>'.repeat(3);
+  }
+
+  /* ---------------- Chantiers du client */
+
+  async function chargerChantiersClient() {
+    const zoneChantier = zone.querySelector('[data-zone="chantier-client"]');
+    const { data, error } = await sb.from('chantiers').select(COLONNES_CHANTIER)
+      .eq('boutique_id', boutique.id).eq('client_id', client.id).order('created_at', { ascending: false });
+    if (!zoneChantier?.isConnected) return;
+    if (error) { zoneChantier.innerHTML = `<p class="bloc-erreur">${esc(messageErreur(error))}</p>`; return; }
+    const ouvert = data.find((c) => c.statut === 'ouvert');
+    const clotures = data.filter((c) => c.statut !== 'ouvert');
+    zoneChantier.innerHTML = `
+      <h2>Chantier</h2>
+      ${ouvert ? `
+        <div class="chantier-ouvert-client">
+          <span class="client-textes"><span class="gras">${esc(ouvert.nom)}</span><span class="discret">${esc(ouvert.numero)}</span></span>
+          ${badgeSolde(ouvert.solde)}
+          <a class="btn btn-secondaire btn-petit" href="#/chantiers/${encodeURIComponent(ouvert.id)}">Ouvrir le compte</a>
+        </div>` : '<button type="button" class="btn btn-secondaire btn-bloc" data-action="ouvrir-chantier">Ouvrir un chantier pour ce client</button>'}
+      ${clotures.length ? `<ul class="chantiers-clotures">${clotures.map((c) => `
+        <li><a href="#/chantiers/${encodeURIComponent(c.id)}">${esc(c.numero)} · ${esc(c.nom)}</a> <span class="discret">clôturé</span></li>`).join('')}</ul>` : ''}`;
   }
 
   /* ---------------- Remboursement */
@@ -669,6 +695,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
         }
       });
     }
+    if (action === 'ouvrir-chantier') ouvrirFormulaireChantier({ client });
     if (action === 'relancer') toast('Bientôt disponible : les relances SMS arrivent à la prochaine mise à jour.', 'info');
     if (action === 'tout') {
       remb.montant = client.solde_credit;
