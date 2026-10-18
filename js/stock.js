@@ -6,13 +6,15 @@
  * change que par la fonction serveur mouvement_stock (ou par les ventes).
  */
 import { sb } from './supabase.js';
-import { etat, peutGerer } from './state.js';
+import { etat, peut } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES
 } from './utils.js';
 
 const COLONNES_PRODUIT = 'id, categorie_id, nom, unite, prix_detail, prix_gros, prix_achat, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif';
+/** Un vendeur ne reçoit pas le prix d’achat (masquage côté interface, voir le rapport de l’étape 4). */
+const colonnesProduit = () => (peut('voir_prix_achat') ? COLONNES_PRODUIT : COLONNES_PRODUIT.replace(' prix_achat,', ''));
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -43,7 +45,7 @@ function estStockBas(p) {
 
 export function afficherStock(conteneur, params) {
   const boutique = etat.boutique;
-  const gerer = peutGerer();
+  const gerer = peut('gerer_stock');
   const s = {
     produits: [],
     categories: [],
@@ -177,7 +179,7 @@ export function afficherStock(conteneur, params) {
 
   async function chargerDonnees() {
     const [produitsRes, categoriesRes] = await Promise.all([
-      sb.from('produits').select(COLONNES_PRODUIT).eq('boutique_id', boutique.id).order('nom'),
+      sb.from('produits').select(colonnesProduit()).eq('boutique_id', boutique.id).order('nom'),
       sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom')
     ]);
     if (produitsRes.error || categoriesRes.error) {
@@ -249,7 +251,7 @@ export function afficherStock(conteneur, params) {
           ${info('Unité', esc(p.unite || '—'))}
           ${info('Prix détail', formatGNF(p.prix_detail))}
           ${info('Prix gros', p.prix_gros !== null && p.prix_gros !== undefined ? formatGNF(p.prix_gros) : '—')}
-          ${gerer ? info('Prix d’achat', p.prix_achat !== null && p.prix_achat !== undefined ? formatGNF(p.prix_achat) : '—') : ''}
+          ${peut('voir_prix_achat') ? info('Prix d’achat', p.prix_achat !== null && p.prix_achat !== undefined ? formatGNF(p.prix_achat) : '—') : ''}
           ${info('Seuil d’alerte', p.sur_commande ? '—' : esc(formatQuantite(p.seuil_alerte, p.unite)))}
           ${info('Code-barres', esc(p.code_barre || '—'))}
         </dl>

@@ -3,7 +3,7 @@
  * protections d'accès (connexion, boutique) et enregistrement du service worker.
  */
 import { sb, configurationValide } from './supabase.js';
-import { etat, chargerSession, chargerBoutiques, viderEtat } from './state.js';
+import { etat, chargerSession, chargerBoutiques, viderEtat, peut } from './state.js';
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
@@ -14,7 +14,10 @@ import { afficherStock } from './stock.js';
 import { afficherClients } from './clients.js';
 import { afficherVentes } from './ventes.js';
 import { afficherDepenses } from './depenses.js';
-import { esc, logoComplet, messageErreur, fermerModales } from './utils.js';
+import { afficherVendeurs } from './vendeurs.js';
+import { afficherRapports } from './rapports.js';
+import { afficherParametres } from './parametres.js';
+import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
 const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
@@ -22,18 +25,24 @@ const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max
 /**
  * publique : accessible sans connexion · horsShell : sans menu (onboarding)
  * pleinEcran : menu masqué (booléen, ou fonction des paramètres de la route)
+ * droit : action requise (peut() dans state.js), sinon retour au tableau de bord
  */
 const ROUTES = {
   connexion: { vue: afficherConnexion, publique: true },
   inscription: { vue: afficherInscription, publique: true },
+  // Écran de choix : rejoindre avec un code ou créer sa boutique (?creer=1 : formulaire de création).
   'nouvelle-boutique': { vue: afficherOnboarding, horsShell: true },
+  rejoindre: { vue: afficherOnboarding, horsShell: true },
   'tableau-de-bord': { vue: afficherTableauDeBord },
   caisse: { vue: afficherCaisse, pleinEcran: true },
   stock: { vue: afficherStock },
   clients: { vue: afficherClients, pleinEcran: detailPleinEcran },
   // Même logique pour le détail d'une vente (#/ventes/<id>).
   ventes: { vue: afficherVentes, pleinEcran: detailPleinEcran },
-  depenses: { vue: afficherDepenses }
+  depenses: { vue: afficherDepenses },
+  vendeurs: { vue: afficherVendeurs, droit: 'equipe' },
+  rapports: { vue: afficherRapports, droit: 'rapports' },
+  parametres: { vue: afficherParametres }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -55,6 +64,10 @@ function resoudre() {
   if (route.publique && etat.session) return naviguer(accueil, { remplacer: true });
   if (!route.publique && !etat.session) return naviguer('connexion', { remplacer: true });
   if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('nouvelle-boutique', { remplacer: true });
+  if (route.droit && !peut(route.droit)) {
+    toast('Accès réservé au gérant.', 'erreur');
+    return naviguer('tableau-de-bord', { remplacer: true });
+  }
 
   nettoyerVue?.();
   nettoyerVue = null;

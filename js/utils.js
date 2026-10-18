@@ -161,7 +161,8 @@ const FORMATS_DATE = {
   heure: { hour: '2-digit', minute: '2-digit', hour12: false },
   complet: { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false },
   jourCourt: { weekday: 'short' },
-  moisAnnee: { month: 'long', year: 'numeric' }
+  moisAnnee: { month: 'long', year: 'numeric' },
+  moisCourtAnnee: { month: 'short', year: 'numeric' }
 };
 
 /** Formate une date en français : 'long' → « samedi 17 octobre 2026 », 'heure' → « 09:42 »… */
@@ -185,12 +186,18 @@ export function decalerDate(iso, n) {
 
 /**
  * Bornes d'une période usuelle, en dates AAAA-MM-JJ incluses (fuseau Conakry) :
- * 'jour' | '7j' | 'mois' | 'moisDernier'.
+ * 'jour' | '7j' | 'semaine' (depuis lundi) | 'mois' | 'moisDernier' | 'annee'.
  */
 export function bornesPeriode(code) {
   const aujourdhui = dateISO();
   const debutMois = aujourdhui.slice(0, 8) + '01';
   if (code === '7j') return { du: decalerDate(aujourdhui, -6), au: aujourdhui };
+  if (code === 'semaine') {
+    const [a, m, j] = aujourdhui.split('-').map(Number);
+    const joursDepuisLundi = (new Date(Date.UTC(a, m - 1, j)).getUTCDay() + 6) % 7;
+    return { du: decalerDate(aujourdhui, -joursDepuisLundi), au: aujourdhui };
+  }
+  if (code === 'annee') return { du: aujourdhui.slice(0, 5) + '01-01', au: aujourdhui };
   if (code === 'mois') return { du: debutMois, au: aujourdhui };
   if (code === 'moisDernier') {
     const finMoisDernier = decalerDate(debutMois, -1);
@@ -285,7 +292,18 @@ const MESSAGES_METIER = {
   MONTANT_SUPERIEUR_A_LA_DETTE: 'Le montant dépasse ce que le client doit. Vérifiez le montant reçu.',
   MONTANT_INVALIDE: 'Le montant n’est pas valide. Saisissez un montant supérieur à 0.',
   VENTE_INTROUVABLE: 'Cette vente est introuvable dans votre boutique.',
-  DEJA_ANNULEE: 'Cette vente a déjà été annulée.'
+  DEJA_ANNULEE: 'Cette vente a déjà été annulée.',
+  CODE_INVALIDE: 'Code invalide ou expiré.',
+  CODE_INDISPONIBLE: 'Impossible de créer un code pour le moment. Réessayez dans un instant.',
+  DEJA_MEMBRE: 'Vous faites déjà partie de cette boutique.',
+  SEUL_PROPRIETAIRE: 'Seul le propriétaire de la boutique peut faire cette action.',
+  PAS_SOI_MEME: 'Vous ne pouvez pas modifier votre propre accès.',
+  PROPRIETAIRE_INTOUCHABLE: 'Le propriétaire de la boutique ne peut pas être modifié.',
+  MEMBRE_INTROUVABLE: 'Ce membre est introuvable dans la boutique.',
+  INVITATION_INTROUVABLE: 'Cette invitation est introuvable ou a déjà été utilisée.',
+  ROLE_INVALIDE: 'Ce rôle n’est pas valide.',
+  NOM_REQUIS: 'Indiquez un nom.',
+  PAS_INVALIDE: 'Période de rapport invalide.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -306,6 +324,7 @@ export function messageErreur(err) {
   if (/already (been )?registered|already exists/i.test(brut)) return 'Ce numéro a déjà un compte. Connectez-vous.';
   if (/email not confirmed/i.test(brut)) return 'Ce compte n’est pas encore activé. Contactez le support YOUMMA.';
   if (/password should be at least/i.test(brut)) return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if (/different from the old password|same_password/i.test(brut)) return 'Le nouveau mot de passe doit être différent de l’ancien.';
   if (/rate limit|too many/i.test(brut)) return 'Trop de tentatives. Patientez quelques minutes puis réessayez.';
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(brut)) {
     return 'Pas de connexion internet. Vérifiez votre réseau puis réessayez.';
@@ -486,6 +505,11 @@ export const ICONES = {
   annuler: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
   corbeille: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14',
   moins: 'M5 12h14',
+  connexion: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3',
+  inviter: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
+  points: 'M12 5h.01M12 12h.01M12 19h.01',
+  telecharger: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  copier: 'M8 8h12v12H8zM4 16V4h12',
   telephone: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z',
   whatsapp: 'M3 21l1.7-5A9 9 0 1 1 8 19.3z',
   // Vignettes d'articles (maquette caisse)

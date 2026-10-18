@@ -23,10 +23,14 @@ function enteteBoutique() {
 const ligne = (libelle, valeur, classe = '') =>
   `<div class="recu-ligne ${classe}"><span>${esc(libelle)}</span><span>${esc(valeur)}</span></div>`;
 
-const PIED = `
-  <div class="recu-sep"></div>
-  <p class="recu-merci">Merci de votre confiance !</p>
-  <p class="recu-pied">Propulsé par YOUMMA Business</p>`;
+/** Pied du reçu : message personnalisé de la boutique (Paramètres), sinon le remerciement par défaut. */
+function pied() {
+  const message = String(etat.boutique.message_recu || '').trim() || 'Merci de votre confiance !';
+  return `
+    <div class="recu-sep"></div>
+    <p class="recu-merci">${esc(message)}</p>
+    <p class="recu-pied">Propulsé par YOUMMA Business</p>`;
+}
 
 function imprimer(html) {
   document.getElementById('recu').innerHTML = html;
@@ -62,7 +66,7 @@ export function imprimerRecuVente(recu, { mentions = [] } = {}) {
       ? ligne('Reçu', formatGNF(recu.montantRecu)) + ligne('Monnaie rendue', formatGNF(Math.max(0, recu.monnaie || 0)))
       : ''}
     ${recu.echeance ? ligne('Échéance', formatDate(recu.echeance, 'court')) : ''}
-    ${PIED}`);
+    ${pied()}`);
 }
 
 /**
@@ -81,5 +85,5 @@ export function imprimerRecuRemboursement(recu) {
     ${ligne('Ancien solde', formatGNF(recu.ancienSolde))}
     ${ligne('Nouveau solde', formatGNF(recu.nouveauSolde))}
     ${ligne('Encaissé par', recu.encaissePar)}
-    ${PIED}`);
+    ${pied()}`);
 }

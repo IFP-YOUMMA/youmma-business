@@ -1186,6 +1186,237 @@ a.client-bouton svg { color: var(--muted); flex: none; }
 }
 
 /* =============================================================================
+   Étape 4 — encadrés communs
+   ============================================================================= */
+.encadre-succes, .encadre-erreur {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 700; line-height: 1.4;
+}
+.encadre-succes { background: #E8F5EA; color: var(--succes); }
+.encadre-erreur { background: var(--danger-bg); color: var(--danger); }
+.encadre-succes svg, .encadre-erreur svg { flex: none; }
+.encadre-succes span { font-weight: 600; }
+.texte-alerte { color: var(--alerte); }
+.btn-petit { min-height: 40px; padding: 0 12px; font-size: 13px; }
+.actions-droite { display: flex; justify-content: flex-end; }
+
+/* =============================================================================
+   Rejoindre une boutique (maquette Rejoindre.dc.html)
+   ============================================================================= */
+.onboarding-titres-etroits, .choix-contenu { max-width: 520px; }
+.choix-contenu { gap: 14px; }
+.carte-code { border: 2px solid var(--primary); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.choix-entete, .choix-creer { display: flex; align-items: center; gap: 12px; }
+.choix-icone {
+  width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--fond-segments); color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+}
+.choix-icone-active { background: var(--primary-soft); color: var(--primary); }
+.choix-textes { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.choix-titre { font-weight: 800; font-size: 16px; }
+.input-code {
+  min-height: 64px; border-radius: 14px; text-align: center; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 30px; font-weight: 800; letter-spacing: 8px;
+}
+.separateur-ou { display: flex; align-items: center; gap: 12px; color: #8A97A8; font-size: 13px; font-weight: 700; }
+.separateur-ou span { flex: 1; height: 1px; background: var(--border-input); }
+.choix-creer { padding: 16px 18px; border-radius: 18px; text-decoration: none; color: var(--text); }
+.choix-creer:hover { color: var(--text); border-color: var(--border-bouton); }
+.choix-creer > svg { color: var(--muted); flex: none; }
+.lien-code { font-size: 13px; font-weight: 700; text-decoration: none; align-self: flex-start; }
+
+/* =============================================================================
+   Vendeurs (maquette Vendeurs.dc.html)
+   ============================================================================= */
+.page-vendeurs, .page-rapports, .page-parametres { gap: 20px; }
+.vendeurs-gauche, .parametres-gauche { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.equipe, .invitations { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.equipe h2, .invitations h2 { font-size: 17px; font-weight: 800; }
+.liste-equipe, .liste-invitations { list-style: none; margin: 0; padding: 0; }
+.membre { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border-doux); }
+.membre.inactif { opacity: .65; }
+.avatar-membre { width: 46px; height: 46px; font-size: 15px; }
+.membre.inactif .avatar-membre { background: var(--border-doux); color: #8A97A8; }
+.membre-textes { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.membre-nom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; }
+.badge-role { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.badge-role-proprietaire { background: var(--navy); color: #FFFFFF; }
+.badge-role-gerant { background: var(--primary-soft); color: var(--primary-dark); }
+.badge-role-vendeur { background: var(--border-doux); color: var(--text-2); }
+.badge-role-inactif { background: var(--danger-bg); color: var(--danger); }
+.membre-ventes { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 150px; text-align: right; }
+.membre-sans-action { width: 44px; flex: none; }
+.menu-membre { display: flex; flex-direction: column; gap: 10px; }
+.invitation { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border-doux); }
+.code-badge {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 20px; font-weight: 800; letter-spacing: 3px;
+  padding: 6px 12px; border-radius: 10px; background: var(--primary-soft); color: var(--primary-dark); white-space: nowrap;
+}
+.invitation-textes { flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.invitation-expire { font-size: 12px; font-weight: 600; color: var(--alerte); }
+.invitation-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.invitation-cadre { flex-basis: 380px; }
+.form-invitation { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.form-invitation h2 { font-size: 17px; font-weight: 800; }
+.form-invitation .champ > label { color: var(--text-2); }
+.form-invitation fieldset { gap: 8px; }
+.choix-role {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 2px solid var(--border-input); border-radius: 12px;
+  background: #FFFFFF; cursor: pointer;
+}
+.choix-role:has(input:checked) { border-color: var(--primary); background: #F0F6FE; }
+.choix-role input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--primary); }
+.choix-role-textes { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.choix-role-textes .discret { line-height: 1.4; }
+.resultat-invitation {
+  background: var(--navy); color: #FFFFFF; padding: 20px; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center;
+}
+.modale .resultat-invitation { border-radius: 16px; }
+.resultat-libelle { font-size: 13px; color: var(--navy-text); }
+.code-invitation { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 40px; font-weight: 800; letter-spacing: 8px; }
+.resultat-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+.resultat-actions .btn { flex: 1 1 140px; min-height: 50px; }
+.btn-copier { background: var(--navy-2); border-color: var(--navy-border); color: #FFFFFF; }
+.btn-copier:hover { background: var(--navy-actif); color: #FFFFFF; }
+.btn-whatsapp { background: #25D366; color: #06371A; font-weight: 800; }
+.btn-whatsapp:hover { background: #1FBF5A; color: #06371A; }
+.resultat-aide { font-size: 12px; color: var(--navy-lien); line-height: 1.5; }
+
+/* =============================================================================
+   Rapports (maquette Rapports.dc.html)
+   ============================================================================= */
+.rapport-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rapport-impression-entete { display: none; }
+.bandeau-benefice {
+  background: var(--navy); color: #FFFFFF; border-radius: 18px; padding: 22px 24px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px;
+}
+.benefice-bloc { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.benefice-bloc.operateur { min-width: 0; }
+.benefice-bloc.operateur .benefice-libelle { font-size: 22px; font-weight: 800; color: var(--navy-text); }
+.benefice-libelle { font-size: 12px; font-weight: 700; color: var(--navy-text); }
+.benefice-valeur { font-size: 22px; font-weight: 800; }
+.benefice-bloc.marge .benefice-valeur { color: #A5E3AE; }
+.benefice-bloc.depenses .benefice-valeur { color: #FFB38A; }
+.benefice-bloc.net .benefice-valeur { font-size: 30px; color: var(--accent-light); }
+.benefice-bloc.net.negatif .benefice-valeur { color: #FF8A80; }
+.page-rapports [data-zone="contenu"] { display: flex; flex-direction: column; gap: 18px; }
+.note-marge { margin-top: -8px; font-size: 12px; }
+.rapport-rangee { gap: 18px; }
+.bloc-evolution { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.bloc-vendeurs { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.bloc-vendeurs h2, .bloc-top h2 { font-size: 16px; font-weight: 800; }
+.legende-double { display: flex; gap: 14px; font-size: 12px; font-weight: 700; color: var(--text-2); }
+.legende-double > span { display: flex; align-items: center; gap: 6px; }
+.pastille-ventes, .pastille-depenses { width: 12px; height: 12px; border-radius: 3px; }
+.pastille-ventes, .gd-barre.ventes { background: var(--primary); }
+.pastille-depenses, .gd-barre.depenses { background: var(--pay-om); }
+.graph-double-cadre { overflow-x: auto; }
+.graph-double { display: flex; align-items: flex-end; gap: 8px; height: 230px; border-bottom: 1px solid var(--border); padding: 0 4px; }
+.gd-groupe { flex: 1; min-width: 38px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
+.gd-barres { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 4px; width: 100%; }
+.gd-colonne { flex: 1; max-width: 38px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.gd-barre { width: 100%; border-radius: 6px 6px 0 0; }
+.gd-valeur { font-size: 10px; font-weight: 700; color: var(--text-2); white-space: nowrap; }
+.gd-libelle { font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; margin-bottom: -22px; }
+.graph-double { margin-bottom: 26px; }
+.bloc-top { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+.tableau-top { min-width: 640px; }
+.montant-annule { color: #8A97A8; text-decoration: line-through; }
+
+/* =============================================================================
+   Paramètres (maquette Parametres.dc.html)
+   ============================================================================= */
+.page-parametres > .page-titres { gap: 4px; }
+.parametres-droite { flex: 1 1 360px; max-width: 100%; display: flex; flex-direction: column; gap: 18px; }
+.section-parametres { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.section-parametres h2 { font-size: 17px; font-weight: 800; }
+.compte-identite { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.avatar-grand { width: 52px; height: 52px; font-size: 17px; }
+.compte-textes { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }
+.compte-textes .discret { font-size: 13px; }
+.form-mdp { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px solid var(--border-doux); align-items: end; }
+.form-mdp .erreur-form { grid-column: 1 / -1; }
+.licence-parametres {
+  background: var(--navy); color: #FFFFFF; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.licence-parametres h2 { font-size: 17px; font-weight: 800; }
+.licence-formule { font-size: 26px; font-weight: 800; }
+.licence-texte { font-size: 14px; color: var(--navy-lien); }
+.licence-aide { font-size: 12px; color: var(--navy-text); text-decoration: none; }
+.licence-aide:hover { color: #FFFFFF; text-decoration: underline; }
+.liste-mes-boutiques { list-style: none; margin: 0; padding: 0; }
+.ma-boutique {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 4px; min-height: 56px; border: none;
+  border-top: 1px solid var(--border-doux); background: none; text-align: left; color: var(--text); font-size: 13px;
+}
+.ma-boutique:hover:not(.active) { background: var(--surface-douce); }
+.ma-boutique.active { cursor: default; }
+.ma-boutique-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.btn-pointille { border: 1px dashed #9CC3EE; background: var(--surface-douce); color: var(--primary-dark); }
+.btn-pointille:hover { background: var(--primary-soft); color: var(--primary-dark); }
+.pied-version { font-size: 12px; color: #8A97A8; text-align: center; }
+
+/* =============================================================================
+   Tableau de bord vendeur
+   ============================================================================= */
+.page-vendeur { gap: 18px; max-width: 900px; }
+.btn-cta-vendeur { min-height: 60px; border-radius: 16px; font-size: 17px; font-weight: 800; }
+.vendeur-jour { background: var(--navy); color: #FFFFFF; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px; }
+.vendeur-jour-titre { font-size: 13px; color: var(--navy-text); }
+.vendeur-jour-montant { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
+.vendeur-jour-montant span { font-size: 15px; color: var(--navy-text); letter-spacing: 0; }
+.vendeur-jour-nb { font-size: 13px; font-weight: 700; color: #A5E3AE; }
+.vendeur-jour .squelette { background: linear-gradient(90deg, #13305A 25%, #1E4A86 50%, #13305A 75%); background-size: 200% 100%; }
+.raccourcis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.raccourcis .acces-rapide {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 80px; padding: 10px 4px;
+  background: #FFFFFF; border: 1px solid var(--border); border-radius: 14px; text-decoration: none;
+  color: var(--text); font-size: 13px; font-weight: 700;
+}
+.raccourcis .acces-rapide svg { color: var(--primary); }
+.raccourcis .acces-rapide:hover { border-color: var(--border-bouton); color: var(--text); }
+
+@media (max-width: 899.98px) {
+  .page-vendeurs, .page-rapports, .page-parametres { gap: 16px; }
+  .page-vendeurs .page-entete .btn { width: 100%; }
+  .membre { gap: 10px; }
+  .membre-ventes { min-width: 0; flex: 1 1 auto; align-items: flex-start; text-align: left; order: 3; }
+  .membre .btn-icone, .membre-sans-action { order: 2; }
+  .invitation-actions { width: 100%; }
+  .invitation-actions .btn { flex: 1 1 auto; min-height: 44px; }
+  .bandeau-benefice { padding: 18px; gap: 10px 16px; }
+  .benefice-bloc { min-width: 0; }
+  .benefice-valeur { font-size: 18px; }
+  .benefice-bloc.net { flex-basis: 100%; }
+  .benefice-bloc.net .benefice-valeur { font-size: 26px; }
+  .rapport-actions { width: 100%; }
+  .rapport-actions > .btn { flex: 1 1 140px; }
+  .bloc-top { padding: 16px; }
+  .input-code { font-size: 26px; letter-spacing: 6px; }
+  .code-invitation { font-size: 34px; letter-spacing: 6px; }
+}
+
+/* Impression A4 d'un rapport : contenu seul, sans menu ni boutons */
+@media print {
+  body.impression-rapport { font-size: 11px; }
+  body.impression-rapport .sidebar, body.impression-rapport .barre-bas, body.impression-rapport .entete-mobile,
+  body.impression-rapport .bandeau-licence, body.impression-rapport .toasts, body.impression-rapport .rapport-actions,
+  body.impression-rapport .lien-retour, body.impression-rapport .page-rapports .segments, body.impression-rapport .modale-fond,
+  body.impression-rapport .note-marge a { display: none !important; }
+  body.impression-rapport .shell, body.impression-rapport .colonne { display: block; padding: 0; min-height: 0; }
+  body.impression-rapport .page { padding: 0; gap: 12px; }
+  body.impression-rapport .rapport-impression-entete { display: block; font-size: 13px; padding-bottom: 6px; border-bottom: 1px solid #000000; }
+  body.impression-rapport .carte, body.impression-rapport .bandeau-benefice { break-inside: avoid; box-shadow: none; }
+  body.impression-rapport .bandeau-benefice, body.impression-rapport .barre-empilee, body.impression-rapport .gd-barre,
+  body.impression-rapport .jauge-repartition > div, body.impression-rapport .legende-pastille {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body.impression-rapport .graph-double-cadre, body.impression-rapport .tableau-cadre { overflow: visible; }
+  body.impression-rapport .graph-double { min-width: 0 !important; }
+  body.impression-rapport .tableau-top { min-width: 0; }
+}
+
+/* =============================================================================
    Modales et panneaux
    ============================================================================= */
 .modale-fond {
@@ -1244,10 +1475,14 @@ a.client-bouton svg { color: var(--muted); flex: none; }
 #recu { display: none; }
 
 @media print {
-  @page { size: 80mm auto; margin: 3mm; }
+  /* Page par défaut : A4 (rapports). Le reçu utilise sa propre page nommée de 80 mm. */
+  @page { size: A4; margin: 12mm; }
+  @page recu { size: 80mm auto; margin: 3mm; }
   html, body { background: #FFFFFF !important; overflow: visible !important; }
-  body > *:not(#recu) { display: none !important; }
-  #recu {
+  body:not(.impression-rapport) > *:not(#recu) { display: none !important; }
+  body.impression-rapport #recu { display: none !important; }
+  body:not(.impression-rapport) #recu {
+    page: recu;
     display: block; width: 74mm; margin: 0 auto; color: #000000;
     font-family: 'Manrope', Arial, sans-serif; font-size: 11px; line-height: 1.35;
   }

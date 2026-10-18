@@ -9,7 +9,7 @@
  * (gérant / propriétaire), qui remet le stock et corrige la dette du client.
  */
 import { sb } from './supabase.js';
-import { etat, peutGerer } from './state.js';
+import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { imprimerRecuVente } from './recu.js';
 import {
@@ -92,6 +92,9 @@ function afficherHistorique(conteneur, idSelection) {
   };
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   const refsPromesse = chargerReferences(boutique.id);
+  // Un vendeur ne voit que ses propres ventes.
+  const toutesLesVentes = peut('voir_toutes_ventes');
+  const uid = utilisateur()?.id;
 
   conteneur.innerHTML = `
     <div class="page page-ventes">
@@ -119,7 +122,7 @@ function afficherHistorique(conteneur, idSelection) {
             ${Object.entries(MODES_PAIEMENT).map(([code, m]) => `<option value="${code}">${esc(m.court)}</option>`).join('')}
           </select>
         </label>
-        <label class="filtre-select">
+        <label class="filtre-select" ${toutesLesVentes ? '' : 'hidden'}>
           <span class="sr-only">Vendeur</span>
           <select id="filtre-vendeur" data-zone="vendeurs"><option value="">Vendeur : tous</option></select>
         </label>
@@ -266,13 +269,15 @@ function afficherHistorique(conteneur, idSelection) {
     zone('plus').innerHTML = '';
     try {
       const [ventes, refs] = await Promise.all([
-        chargerParLots((debut, fin) => sb.from('ventes')
-          .select('id, numero, created_at, client_id, vendeur_id, mode_paiement, total, statut')
-          .eq('boutique_id', boutique.id)
-          .gte('created_at', `${du}T00:00:00Z`) // Conakry = UTC
-          .lt('created_at', `${decalerDate(au, 1)}T00:00:00Z`)
-          .order('created_at', { ascending: false })
-          .range(debut, fin)),
+        chargerParLots((debut, fin) => {
+          let requete = sb.from('ventes')
+            .select('id, numero, created_at, client_id, vendeur_id, mode_paiement, total, statut')
+            .eq('boutique_id', boutique.id)
+            .gte('created_at', `${du}T00:00:00Z`) // Conakry = UTC
+            .lt('created_at', `${decalerDate(au, 1)}T00:00:00Z`);
+          if (!toutesLesVentes) requete = requete.eq('vendeur_id', uid);
+          return requete.order('created_at', { ascending: false }).range(debut, fin);
+        }),
         refsPromesse
       ]);
       if (jeton !== s.jeton) return;
@@ -362,7 +367,7 @@ function afficherDetailPage(conteneur, idVente) {
 
 async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
   const boutique = etat.boutique;
-  const gerer = peutGerer();
+  const gerer = peut('annuler_vente');
   zone.dataset.vente = idVente;
   zone.onclick = null;
   zone.innerHTML = `
@@ -391,6 +396,8 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
   }
   // L'utilisateur a choisi une autre vente entre-temps.
   if (!zone.isConnected || zone.dataset.vente !== idVente) return;
+  // Vente d'un autre vendeur ouverte par l'adresse : réservée au gérant.
+  if (vente && !peut('voir_toutes_ventes') && vente.vendeur_id !== utilisateur()?.id) vente = null;
   if (!vente) {
     zone.querySelector('.dv-corps').innerHTML = `
       <div class="fiche-vide"><p>Cette vente est introuvable dans votre boutique.</p>

@@ -5,7 +5,7 @@
  * recalcule tout côté serveur. Les prix affichés ici servent seulement à l'aperçu.
  */
 import { sb } from './supabase.js';
-import { etat, licenceExpiree, peutGerer } from './state.js';
+import { etat, licenceExpiree, peut } from './state.js';
 import { chargerClient, ouvrirFormulaireClient } from './clients-commun.js';
 import { imprimerRecuVente } from './recu.js';
 import {
@@ -156,7 +156,7 @@ export function afficherCaisse(conteneur, params) {
       conteneurArticles.innerHTML = `
         <div class="etat-vide etat-vide-large">
           <p>Aucun article dans votre boutique pour l’instant.</p>
-          ${peutGerer()
+          ${peut('gerer_stock')
             ? '<a class="btn btn-primaire" href="#/stock?ajouter=1">Ajouter mes premiers articles</a>'
             : '<p class="discret">Demandez au gérant d’ajouter les articles.</p>'}
         </div>`;

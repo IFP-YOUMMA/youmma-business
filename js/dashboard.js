@@ -3,7 +3,7 @@
  * Chaque bloc se charge indépendamment et affiche un squelette en attendant.
  */
 import { sb } from './supabase.js';
-import { etat } from './state.js';
+import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { carteLicence } from './layout.js';
 import { chargerSituationCredits, texteEcheance } from './clients-commun.js';
@@ -16,6 +16,11 @@ const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit'];
 const HAUTEUR_MAX_BARRE = 160;
 
 export function afficherTableauDeBord(conteneur) {
+  // Un vendeur ne voit pas les chiffres globaux de la boutique : tableau de bord personnel.
+  if (!peut('voir_chiffres_globaux')) {
+    afficherTableauVendeur(conteneur);
+    return;
+  }
   const b = etat.boutique;
   conteneur.innerHTML = gabarit(b);
   brancherEvenements(conteneur);
@@ -27,6 +32,91 @@ export function afficherTableauDeBord(conteneur) {
   chargerStockBas(b.id, zone('stock'));
   chargerCredits(situation, zone('credits'));
   chargerDernieresVentes(b.id, zone('ventes'));
+}
+
+/* ------------------------------------------------------------ Tableau de bord vendeur */
+
+function afficherTableauVendeur(conteneur) {
+  const b = etat.boutique;
+  const uid = utilisateur()?.id;
+  conteneur.innerHTML = `
+    <div class="page page-vendeur">
+      <header class="dash-entete">
+        <div class="dash-entete-textes">
+          <h1>Bonjour, ${esc(prenom(etat.membre?.nom) || 'et bienvenue')}</h1>
+          <span>${esc(capitaliser(formatDate(new Date(), 'long')))} · bonne journée de vente !</span>
+        </div>
+      </header>
+      <a class="btn btn-primaire btn-cta-vendeur" href="#/caisse?vendre=1">${icone('plus', 22, 2.4)} Nouvelle vente</a>
+      <section class="vendeur-jour" aria-label="Mes ventes du jour" data-zone="mes-ventes">
+        <span class="vendeur-jour-titre">Mes ventes du jour</span>
+        <span class="squelette" style="height:38px;width:220px"></span>
+      </section>
+      <nav class="raccourcis" aria-label="Raccourcis">
+        ${[['caisse', 'Caisse', 'caisse'], ['clients', 'Clients', 'client'], ['stock', 'Stock', 'stock']]
+          .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 24, 1.8)}${libelle}</a>`).join('')}
+      </nav>
+      <section class="carte bloc-liste">
+        <div class="bloc-entete">
+          <h2>Mes dernières ventes</h2>
+          <a class="lien-bloc" href="#/ventes">Tout voir</a>
+        </div>
+        <div data-zone="ventes">${squelettesLignes(4)}</div>
+      </section>
+    </div>`;
+  const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
+  chargerMesVentesDuJour(b.id, uid, zone('mes-ventes'));
+  chargerMesDernieresVentes(b.id, uid, zone('ventes'));
+}
+
+async function chargerMesVentesDuJour(idBoutique, uid, zone) {
+  const { data, error } = await sb.from('ventes')
+    .select('total')
+    .eq('boutique_id', idBoutique)
+    .eq('vendeur_id', uid)
+    .eq('statut', 'validee')
+    .gte('created_at', `${dateISO()}T00:00:00Z`); // Conakry = UTC
+  if (error) { console.error(error); zone.innerHTML = erreurBloc(); return; }
+  const total = data.reduce((t, v) => t + (Number(v.total) || 0), 0);
+  zone.innerHTML = `
+    <span class="vendeur-jour-titre">Mes ventes du jour</span>
+    <span class="vendeur-jour-montant">${formatNombre(total)} <span>GNF</span></span>
+    <span class="vendeur-jour-nb">${data.length ? `${data.length} vente${data.length > 1 ? 's' : ''} aujourd’hui` : 'Pas encore de vente aujourd’hui'}</span>`;
+}
+
+async function chargerMesDernieresVentes(idBoutique, uid, zone) {
+  const { data: ventes, error } = await sb.from('ventes')
+    .select('id, numero, created_at, client_id, mode_paiement, total, statut')
+    .eq('boutique_id', idBoutique)
+    .eq('vendeur_id', uid)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) { console.error(error); zone.innerHTML = erreurBloc(); return; }
+  if (!ventes.length) {
+    zone.innerHTML = etatVide('Vos ventes apparaîtront ici. Lancez-vous depuis la caisse !', { href: '#/caisse', libelle: 'Ouvrir la caisse' });
+    return;
+  }
+  const idsClients = [...new Set(ventes.map((v) => v.client_id).filter(Boolean))];
+  const { data: clients } = idsClients.length
+    ? await sb.from('clients').select('id, nom').in('id', idsClients)
+    : { data: [] };
+  const noms = new Map((clients || []).map((c) => [c.id, c.nom]));
+  zone.innerHTML = `
+    <ul class="liste-ventes-mobile">
+      ${ventes.map((v) => `
+        <li>
+          <a class="vente-mobile" href="#/ventes/${encodeURIComponent(v.id)}">
+            <div class="vente-mobile-haut">
+              <span class="gras">${esc(formatNumeroVente(v.numero))} · ${esc(formatDate(v.created_at, 'heure'))}</span>
+              <span class="tres-gras ${v.statut === 'annulee' ? 'montant-annule' : ''}">${formatGNF(v.total)}</span>
+            </div>
+            <div class="vente-mobile-bas">
+              <span class="ligne-sous">${esc(noms.get(v.client_id) || 'Client comptoir')} · ${esc(formatDate(v.created_at, 'jourMois'))}</span>
+              ${v.statut === 'annulee' ? '<span class="badge-paiement badge-annulee">Annulée</span>' : badgePaiement(MODES_PAIEMENT[v.mode_paiement] || MODES_PAIEMENT.especes)}
+            </div>
+          </a>
+        </li>`).join('')}
+    </ul>`;
 }
 
 /* ------------------------------------------------------------ Gabarit */

@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v4';
+const VERSION_CACHE = 'yb-statique-v5';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -30,6 +30,9 @@ const FICHIERS_STATIQUES = [
   './js/recu.js',
   './js/ventes.js',
   './js/depenses.js',
+  './js/vendeurs.js',
+  './js/rapports.js',
+  './js/parametres.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -37,7 +40,7 @@ const FICHIERS_STATIQUES = [
 
 self.addEventListener('install', (evenement) => {
   evenement.waitUntil(
-    caches.open(VERSION_CACHE).then((cache) => cache.addAll(FICHIERS_STATIQUES)).then(() => self.skipWaiting())
+    caches.open(VERSION_CACHE).then((cache) => cache.addAll(FICHIERS_STATIQUES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 
@@ -58,7 +61,9 @@ self.addEventListener('fetch', (evenement) => {
   if (url.origin !== self.location.origin || requete.method !== 'GET') return;
 
   evenement.respondWith(
-    fetch(requete)
+    // no-cache : revalide auprès du serveur (sinon le cache HTTP de 10 min de GitHub Pages peut servir
+    // une ancienne version de la CSS ou des modules malgré la stratégie « réseau d'abord »).
+    fetch(requete, { cache: 'no-cache' })
       .then((reponse) => {
         if (reponse.ok) {
           const copie = reponse.clone();

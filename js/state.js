@@ -6,7 +6,7 @@ import { sb } from './supabase.js';
 import { lireStockage, ecrireStockage, ecartJours, capitaliser } from './utils.js';
 
 const CLE_BOUTIQUE_ACTIVE = 'yb_boutique_active';
-const COLONNES_BOUTIQUE = 'id, nom, type_activite, ville, commune, telephone, logo_url, licence_formule, licence_fin, modules, compteur_ventes, created_at';
+export const COLONNES_BOUTIQUE = 'id, nom, type_activite, ville, commune, telephone, logo_url, licence_formule, licence_fin, modules, compteur_ventes, message_recu, created_at';
 
 /** État global (une seule instance). */
 export const etat = {
@@ -81,9 +81,43 @@ export function viderEtat() {
 }
 
 /** Vrai si le membre courant peut gérer le stock et les articles (propriétaire ou gérant). */
-export function peutGerer() {
-  return ['proprietaire', 'gerant'].includes(etat.membre?.role);
+/* ------------------------------------------------------------ Droits par rôle */
+
+const RESPONSABLES = ['proprietaire', 'gerant'];
+
+/**
+ * Qui peut faire quoi. Seule source de vérité côté interface : utiliser peut('…') partout.
+ * (La sécurité réelle reste assurée par la RLS et les fonctions serveur.)
+ */
+const DROITS = {
+  voir_chiffres_globaux: RESPONSABLES, // tableau de bord complet (CA, stock, crédits globaux)
+  voir_toutes_ventes: RESPONSABLES,    // sinon : uniquement ses propres ventes
+  voir_prix_achat: RESPONSABLES,
+  gerer_stock: RESPONSABLES,           // ajouter / modifier / entrée / inventaire
+  annuler_vente: RESPONSABLES,
+  supprimer_depense: RESPONSABLES,
+  rapports: RESPONSABLES,
+  equipe: RESPONSABLES,                // inviter, désactiver / réactiver un vendeur
+  nommer_gerant: ['proprietaire'],
+  parametres_boutique: RESPONSABLES,   // « Ma boutique » et « Mes boutiques »
+  ouvrir_boutique: ['proprietaire']
+};
+
+/** Vrai si le membre courant a le droit demandé dans la boutique active. */
+export function peut(action) {
+  return (DROITS[action] || []).includes(etat.membre?.role);
 }
+
+/** Gérant ou propriétaire de la boutique active. */
+export function estGerant() {
+  return RESPONSABLES.includes(etat.membre?.role);
+}
+
+export function estProprietaire() {
+  return etat.membre?.role === 'proprietaire';
+}
+
+export const LIBELLES_ROLES = { proprietaire: 'Propriétaire', gerant: 'Gérant', vendeur: 'Vendeur' };
 
 const FORMULES = { essai: 'Essai', essentiel: 'Essentiel', pro: 'Pro', premium: 'Premium' };
 /** Durée de référence de chaque formule (pour la barre de progression). */

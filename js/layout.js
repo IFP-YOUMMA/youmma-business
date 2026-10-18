@@ -3,14 +3,14 @@
  * en-tête et barre du bas (téléphone), panneau « Plus », carte licence,
  * bandeau de licence expirée et écran « Bientôt disponible ».
  */
-import { etat, infosLicence, choisirBoutique } from './state.js';
+import { etat, infosLicence, choisirBoutique, peut } from './state.js';
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import {
   esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, lienWhatsApp, TYPES_ACTIVITE
 } from './utils.js';
 
-/** Sections du menu. `active` = disponible dans cette version. */
+/** Sections du menu. `active` = disponible ; `droit` = réservée à un rôle (voir peut() dans state.js). */
 export const SECTIONS = [
   { route: 'tableau-de-bord', libelle: 'Tableau de bord', icone: 'tableau', active: true },
   { route: 'caisse', libelle: 'Caisse', icone: 'caisse', active: true },
@@ -18,15 +18,17 @@ export const SECTIONS = [
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
   { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
-  { route: 'rapports', libelle: 'Rapports', icone: 'rapports',
-    description: 'Chiffre d’affaires, marges et meilleurs articles par semaine, mois et année.' },
-  { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs',
-    description: 'Ajoutez vos vendeurs et gérants, avec des droits adaptés à chacun.' },
+  { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
+  { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
   { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', libelleCourt: 'En ligne', icone: 'enLigne', badge: 'Premium',
     description: 'Une vitrine en ligne pour recevoir des commandes de vos clients sur WhatsApp.' },
-  { route: 'parametres', libelle: 'Paramètres', icone: 'parametres',
-    description: 'Logo, coordonnées de la boutique, reçus et préférences.' }
+  { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true }
 ];
+
+/** Sections visibles pour le rôle du membre courant. */
+function sectionsVisibles() {
+  return SECTIONS.filter((section) => !section.droit || peut(section.droit));
+}
 
 /** Onglets de la barre du bas (téléphone). */
 const ONGLETS = [
@@ -62,6 +64,12 @@ export function preparerShell({ route, pleinEcran = false }) {
   return vue;
 }
 
+/** Met à jour le nom de la boutique affiché dans le menu et l'en-tête (après Paramètres). */
+export function majNomBoutiqueAffiche() {
+  document.querySelectorAll('.selecteur-bouton .selecteur-nom, .entete-mobile-nom').forEach((el) => { el.textContent = etat.boutique.nom; });
+  document.querySelectorAll('.selecteur-bouton .selecteur-sous').forEach((el) => { el.textContent = descriptionBoutique(etat.boutique); });
+}
+
 /** Supprime la coquille (écrans publics, onboarding, changement de boutique). */
 export function retirerShell() {
   document.querySelector('.shell')?.remove();
@@ -76,7 +84,7 @@ function construireShell() {
       <nav class="sidebar" aria-label="Menu principal">
         <a class="sidebar-logo" href="#/tableau-de-bord" aria-label="YOUMMA Business — Tableau de bord">${logoComplet('sombre')}</a>
         ${selecteurBoutique()}
-        <div class="menu-liens">${SECTIONS.map(lienMenu).join('')}</div>
+        <div class="menu-liens">${sectionsVisibles().map(lienMenu).join('')}</div>
         ${carteLicence('sombre')}
         <button type="button" class="lien-menu lien-deconnexion" data-action="deconnexion">
           ${icone('deconnexion', 20)}<span>Se déconnecter</span>
@@ -153,7 +161,8 @@ function selecteurBoutique() {
             <span class="selecteur-nom">${esc(x.boutique.nom)}</span>
             <span class="selecteur-sous">${esc(descriptionBoutique(x.boutique))}</span>
           </button>`).join('')}
-        <a class="item-boutique item-nouvelle" href="#/nouvelle-boutique">${icone('plus', 16, 2.2)} Créer une autre boutique</a>
+        ${peut('ouvrir_boutique') ? `<a class="item-boutique item-nouvelle" href="#/nouvelle-boutique?creer=1">${icone('plus', 16, 2.2)} Créer une autre boutique</a>` : ''}
+        <a class="item-boutique item-nouvelle" href="#/rejoindre">${icone('connexion', 16, 2.2)} Rejoindre une boutique avec un code</a>
       </div>
     </div>`;
 }
@@ -180,7 +189,8 @@ document.addEventListener('keydown', (e) => {
   document.querySelectorAll('.liste-boutiques').forEach((l) => { l.hidden = true; });
 });
 
-function changerBoutique(id) {
+/** Active une autre boutique et repart de son tableau de bord. */
+export function changerBoutique(id) {
   if (!choisirBoutique(id)) return;
   retirerShell();
   naviguer('tableau-de-bord');
@@ -189,16 +199,21 @@ function changerBoutique(id) {
 /* ------------------------------------------------------------ Licence */
 
 /** Message WhatsApp de renouvellement. */
-function lienRenouvellement() {
+export function lienRenouvellement() {
   return lienWhatsApp(`Bonjour YOUMMA, je souhaite renouveler la licence de ma boutique ${etat.boutique.nom}`);
+}
+
+/** Statut affiché d'une licence : Active, Bientôt (≤ 5 jours) ou Expirée. */
+export function statutLicence(l) {
+  if (l.expiree) return { libelle: 'Expirée', classe: 'statut-expire' };
+  if (l.joursRestants !== null && l.joursRestants <= 5) return { libelle: 'Bientôt', classe: 'statut-bientot' };
+  return { libelle: 'Active', classe: 'statut-actif' };
 }
 
 /** Carte licence : theme 'sombre' (menu latéral) ou 'clair' (panneau Plus / accueil téléphone). */
 export function carteLicence(theme = 'sombre') {
   const l = infosLicence();
-  let statut = { libelle: 'Active', classe: 'statut-actif' };
-  if (l.expiree) statut = { libelle: 'Expirée', classe: 'statut-expire' };
-  else if (l.joursRestants !== null && l.joursRestants <= 5) statut = { libelle: 'Bientôt', classe: 'statut-bientot' };
+  const statut = statutLicence(l);
 
   let texte = 'Date de fin non définie';
   if (l.expiree) texte = `Expirée depuis le <strong>${esc(formatDate(l.fin, 'court'))}</strong>`;
@@ -231,7 +246,7 @@ function bandeauLicence() {
 
 function ouvrirPanneauPlus() {
   const autres = etat.boutiques.filter((x) => x.boutique.id !== etat.boutique.id);
-  const sections = SECTIONS.filter((s) => !ROUTES_BARRE_BAS.includes(s.route));
+  const sections = sectionsVisibles().filter((s) => !ROUTES_BARRE_BAS.includes(s.route));
   const { el, fermer } = ouvrirModale({
     titre: 'Menu',
     variante: 'feuille',
@@ -254,7 +269,8 @@ function ouvrirPanneauPlus() {
             ${icone(s.icone, 20)}<span>${esc(s.libelle)}</span>
             ${s.badge ? `<span class="badge-premium">${esc(s.badge)}</span>` : ''}
           </a>`).join('')}
-        <a href="#/nouvelle-boutique" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>
+        ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
+        <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>
       </div>
       ${carteLicence('clair')}
       <button type="button" class="btn btn-secondaire btn-bloc" data-action="deconnexion-plus">

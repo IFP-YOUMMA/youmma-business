@@ -5,7 +5,7 @@
  * pas de modification (pour corriger : supprimer puis ressaisir).
  */
 import { sb } from './supabase.js';
-import { etat, peutGerer, utilisateur } from './state.js';
+import { etat, peut, utilisateur } from './state.js';
 import { chargerNomsMembres } from './clients-commun.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
@@ -35,7 +35,7 @@ function libelleCategorie(valeur) {
 
 export function afficherDepenses(conteneur) {
   const boutique = etat.boutique;
-  const gerer = peutGerer();
+  const gerer = peut('supprimer_depense');
   const aujourdhui = dateISO();
   const debutMois = bornesPeriode('mois').du;
   const s = {
