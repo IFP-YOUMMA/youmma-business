@@ -40,7 +40,8 @@ function imprimer(html) {
 /**
  * Reçu de vente.
  * recu : { numero, date, vendeur, client (nom ou null), lignes [{nom_produit, unite, quantite, prix_unitaire, total}],
- *          sousTotal, remise, total, mode, montantRecu (ou null), monnaie, echeance }
+ *          sousTotal, remise, total, mode, montantRecu (ou null), monnaie, echeance,
+ *          fraisLivraison (facultatif), commande (n° de commande en ligne, facultatif) }
  * mentions : textes affichés en haut, ex. ['DUPLICATA', 'ANNULÉE'].
  */
 export function imprimerRecuVente(recu, { mentions = [] } = {}) {
@@ -51,6 +52,7 @@ export function imprimerRecuVente(recu, { mentions = [] } = {}) {
     ${ligne('Date', formatDate(recu.date, 'complet'))}
     ${ligne('Vendeur', recu.vendeur || '—')}
     ${ligne('Client', recu.client || 'Client comptoir')}
+    ${recu.commande ? ligne('Commande en ligne', recu.commande) : ''}
     <div class="recu-sep"></div>
     ${recu.lignes.map((l) => `
       <div class="recu-article">
@@ -60,6 +62,7 @@ export function imprimerRecuVente(recu, { mentions = [] } = {}) {
     <div class="recu-sep"></div>
     ${ligne('Sous-total', formatGNF(recu.sousTotal))}
     ${recu.remise ? ligne('Remise', `− ${formatGNF(recu.remise)}`) : ''}
+    ${Number(recu.fraisLivraison) ? ligne('Livraison', formatGNF(recu.fraisLivraison)) : ''}
     ${ligne('TOTAL', formatGNF(recu.total), 'recu-total')}
     ${ligne('Paiement', MODES_PAIEMENT[recu.mode]?.libelle || recu.mode)}
     ${recu.montantRecu !== null && recu.montantRecu !== undefined

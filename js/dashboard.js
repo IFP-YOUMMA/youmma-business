@@ -2,6 +2,8 @@
  * dashboard.js — Tableau de bord (maquettes Main.dc.html et Mobile.dc.html) avec les vraies données.
  * Chaque bloc se charge indépendamment et affiche un squelette en attendant.
  */
+import { chargerAfficheDuJour, donneesAffiche, publierAffiche } from './affiche-jour.js';
+import { genererAffiche, versPng } from './affiche.js';
 import { sb } from './supabase.js';
 import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
@@ -37,6 +39,7 @@ export function afficherTableauDeBord(conteneur) {
   chargerCredits(situation, zone('credits'));
   if (peut('messages.voir')) afficherSoldeSms(zone('sms-restants'));
   chargerDernieresVentes(b.id, zone('ventes'));
+  chargerBlocEnLigne(zone('en-ligne'));
 }
 
 /* ------------------------------------------------------------ Tableau de bord vendeur */
@@ -61,6 +64,7 @@ function afficherTableauVendeur(conteneur) {
         ${[['caisse', 'Caisse', 'caisse'], ['clients', 'Clients', 'client'], ['stock', 'Stock', 'stock']]
           .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 24, 1.8)}${libelle}</a>`).join('')}
       </nav>
+      <section class="rangee dash-en-ligne" data-zone="en-ligne" hidden></section>
       <section class="carte bloc-liste">
         <div class="bloc-entete">
           <h2>Mes dernières ventes</h2>
@@ -72,6 +76,57 @@ function afficherTableauVendeur(conteneur) {
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   chargerMesVentesDuJour(b.id, uid, zone('mes-ventes'));
   chargerMesDernieresVentes(b.id, uid, zone('ventes'));
+  chargerBlocEnLigne(zone('en-ligne'));
+}
+
+/* ------------------------------------------------------------ Boutique en ligne : affiche du jour + commandes */
+
+async function chargerBlocEnLigne(zone) {
+  if (!zone) return;
+  const [commandes, afficheRes] = await Promise.all([
+    peut('commandes.voir')
+      ? sb.from('commandes_web').select('statut').eq('boutique_id', etat.boutique.id).in('statut', ['nouvelle', 'confirmee', 'prete'])
+      : Promise.resolve({ data: [] }),
+    peut('affiche.partager') ? chargerAfficheDuJour().catch(() => null) : Promise.resolve(null)
+  ]);
+  if (!zone.isConnected) return;
+  const actives = commandes.data || [];
+  const nouvelles = actives.filter((c) => c.statut === 'nouvelle').length;
+  const affiche = afficheRes?.affiche?.produit ? afficheRes : null;
+  if (!actives.length && !affiche) return;
+  zone.hidden = false;
+  zone.innerHTML = `
+    ${actives.length ? `
+      <a class="carte carte-commandes-dash" href="#/commandes">
+        <span class="kpi-icone" style="background:#FFF4EA;color:#7A3300">${icone('enLigne', 18, 2)}</span>
+        <span class="ccd-textes">
+          <span class="tres-gras">Commandes en ligne à traiter</span>
+          <span class="discret">${nouvelles ? `${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} à confirmer · ` : ''}${actives.length} au total</span>
+        </span>
+        <span class="ccd-nombre">${actives.length}</span>
+      </a>` : ''}
+    ${affiche ? `
+      <div class="carte carte-affiche-dash">
+        <a class="cad-miniature" href="#/affiche" aria-label="Ouvrir l’affiche du jour" data-zone="miniature"><span class="squelette"></span></a>
+        <span class="cad-textes">
+          <span class="tres-gras">Affiche du jour</span>
+          <span class="discret">${esc(affiche.affiche.produit.nom)} · ${formatNombre(affiche.affiche.produit.prix)} GNF</span>
+          <button type="button" class="btn btn-whatsapp btn-petit" data-action="publier-affiche">${icone('whatsapp', 16, 2)} Publier</button>
+        </span>
+      </div>` : ''}`;
+  if (!affiche) return;
+  const donnees = donneesAffiche(affiche.affiche, affiche.enLigne);
+  zone.querySelector('[data-action="publier-affiche"]').addEventListener('click', async (e) => {
+    const bouton = e.currentTarget;
+    bouton.disabled = true;
+    try { await publierAffiche(donnees); } catch (err) { console.error(err); }
+    bouton.disabled = false;
+  });
+  try {
+    const blob = await versPng(await genererAffiche(donnees, 'statut'));
+    const cadre = zone.querySelector('[data-zone="miniature"]');
+    if (cadre?.isConnected) cadre.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Affiche du jour : ${esc(donnees.produit.nom)}">`;
+  } catch (err) { console.warn('[YOUMMA] Miniature affiche :', err); }
 }
 
 async function chargerMesVentesDuJour(idBoutique, uid, zone) {
@@ -168,6 +223,8 @@ function gabarit(b) {
           b.type_activite === 'materiaux' ? ['chantiers', 'Chantiers', 'casque'] : ['rapports', 'Rapports', 'rapports']]
           .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 22, 1.8)}${libelle}</a>`).join('')}
       </nav>
+
+      <section class="rangee dash-en-ligne" data-zone="en-ligne" hidden></section>
 
       <section class="rangee dash-graphiques">
         <div class="carte bloc-graphique" data-zone="graphique">

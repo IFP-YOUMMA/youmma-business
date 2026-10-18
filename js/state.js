@@ -124,7 +124,16 @@ const DROITS = {
   'messages.modifier': RESPONSABLES,
   'campagnes.envoyer': RESPONSABLES,
   'fournisseurs.gerer': RESPONSABLES,
-  'clients.relancer': ['proprietaire', 'gerant', 'vendeur'] // le serveur limite à 1 relance par jour et par client
+  'clients.relancer': ['proprietaire', 'gerant', 'vendeur'], // le serveur limite à 1 relance par jour et par client
+  // Boutique en ligne, commandes, promos, photos, affiche du jour.
+  'commandes.voir': ['proprietaire', 'gerant', 'vendeur'],
+  'commandes.traiter': ['proprietaire', 'gerant', 'vendeur'], // confirmer, prête, livrer, refuser une nouvelle
+  'commandes.annuler': RESPONSABLES,                           // annuler après confirmation
+  'boutique_en_ligne.gerer': RESPONSABLES,
+  'articles.photo': RESPONSABLES,
+  'articles.promo': RESPONSABLES,
+  'affiche.modifier': RESPONSABLES,
+  'affiche.partager': ['proprietaire', 'gerant', 'vendeur']
 };
 
 /** Vrai si le membre courant a le droit demandé dans la boutique active. */

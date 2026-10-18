@@ -357,10 +357,23 @@ const MESSAGES_METIER = {
   MODELE_INCONNU: 'Ce type de message est inconnu.',
   CAMPAGNE_INTROUVABLE: 'Cette campagne est introuvable.',
   FOURNISSEUR_INTROUVABLE: 'Ce fournisseur est introuvable.',
-  COMMANDE_INTROUVABLE: 'Ce bon de commande est introuvable.',
+  COMMANDE_INTROUVABLE: 'Cette commande est introuvable.',
   DEJA_RELANCE: 'Ce client a déjà été relancé aujourd’hui.',
   AUCUNE_DETTE: 'Ce client ne doit rien.',
-  CLIENT_INTROUVABLE: 'Ce client est introuvable.'
+  CLIENT_INTROUVABLE: 'Ce client est introuvable.',
+  BOUTIQUE_INTROUVABLE: 'Cette boutique est introuvable.',
+  BOUTIQUE_FERMEE: 'La boutique ne prend pas de commandes pour le moment.',
+  RECEPTION_INVALIDE: 'Choisissez le retrait en boutique ou la livraison.',
+  ZONE_REQUISE: 'Choisissez une zone de livraison.',
+  ADRESSE_REQUISE: 'Indiquez votre quartier et un repère.',
+  PANIER_TROP_GRAND: 'Trop d’articles dans le panier (50 maximum).',
+  TROP_DE_COMMANDES: 'Trop de commandes avec ce numéro, réessayez dans une heure.',
+  ADRESSE_INVALIDE: 'Adresse : lettres sans accents, chiffres et tirets, 3 à 40 caractères.',
+  ADRESSE_PRISE: 'Cette adresse est déjà prise.',
+  HORAIRES_INVALIDES: 'Horaires invalides : vérifiez l’heure d’ouverture et de fermeture.',
+  COMMANDE_TERMINEE: 'Cette commande est déjà livrée ou annulée.',
+  STATUT_INVALIDE: 'Cette étape n’est pas possible pour cette commande.',
+  PROMO_INVALIDE: 'Le prix promo doit être inférieur au prix de détail.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -373,6 +386,9 @@ export function messageErreur(err) {
     return `Stock insuffisant pour « ${stock[1]} » : il n’en reste que ${reste}.`;
   }
   if (brut.includes('STOCK_INSUFFISANT')) return 'Stock insuffisant pour un article du panier.';
+  const epuise = brut.match(/PRODUIT_EPUISE\s*:?\s*(.+)$/i);
+  if (epuise) return `« ${epuise[1].trim()} » est épuisé : retirez-le du panier.`;
+  if (brut.includes('PRODUIT_EPUISE')) return 'Un article du panier est épuisé.';
   for (const [code, message] of Object.entries(MESSAGES_METIER)) {
     if (brut.includes(code)) return message;
   }
@@ -586,8 +602,51 @@ export const ICONES = {
   chemise: 'M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z',
   panier: 'M5 9h14l-1.5 11h-11zM9 9l3-6 3 6M9 13v3M15 13v3',
   outil: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z',
-  magasin: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6'
+  magasin: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
+  enLigne: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
+  qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2M6 6h1M17 6h1M6 17h1',
+  partager: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13',
+  image: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  livraison: 'M1 4h14v12H1zM15 9h4l3 3v4h-7M5.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'
 };
+
+/** Icône par défaut d'un article selon son unité (sac, barre, tôle…). */
+const ICONES_PAR_UNITE = { sac: 'sac', barre: 'barre', feuille: 'tole', 'tôle': 'tole', seau: 'seau', 'm²': 'carreau', m2: 'carreau', voyage: 'camion', kg: 'clou' };
+export function iconeUnite(unite) {
+  return ICONES_PAR_UNITE[String(unite || '').toLowerCase()] || 'stock';
+}
+
+/** Adresse publique de la boutique en ligne (?s=… : marche partout) et version courte (…/b/<slug>, via 404.html). */
+export function lienBoutique(slug) {
+  return new URL(`b/?s=${encodeURIComponent(slug)}`, racineSite()).href;
+}
+export function lienCourtBoutique(slug) {
+  return new URL(`b/${encodeURIComponent(slug)}`, racineSite()).href.replace(/^https?:\/\//, '');
+}
+function racineSite() {
+  const ici = location.href.split('#')[0].split('?')[0];
+  return new URL(/\/b\/[^/]*$/.test(new URL(ici).pathname) ? '../' : './', ici);
+}
+
+/* =========================================================================
+   Promotions (règle identique au serveur : prix_promo < prix_detail et non expirée)
+   ========================================================================= */
+
+/** Vrai si l'article a une promotion active aujourd'hui (fin incluse, fuseau Conakry). */
+export function promoActive(p, jour = dateISO()) {
+  if (p?.prix_promo === null || p?.prix_promo === undefined || p.prix_promo === '') return false;
+  return Number(p.prix_promo) < Number(p.prix_detail) && (!p.promo_fin || String(p.promo_fin).slice(0, 10) >= jour);
+}
+
+/** Prix de vente appliqué : détail (ou promo active) ; au gros, le plus bas du prix de gros et de la promo. */
+export function prixApplique(p, typePrix = 'detail') {
+  const promo = promoActive(p);
+  const detail = promo ? Number(p.prix_promo) : Number(p.prix_detail) || 0;
+  if (typePrix === 'gros' && p.prix_gros !== null && p.prix_gros !== undefined) {
+    return promo ? Math.min(Number(p.prix_gros), detail) : Number(p.prix_gros);
+  }
+  return detail;
+}
 
 /** Renvoie un SVG d'icône (trait). `nom` = clé de ICONES. */
 export function icone(nom, taille = 20, epaisseur = 1.8) {

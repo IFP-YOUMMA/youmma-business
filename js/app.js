@@ -20,6 +20,9 @@ import { afficherParametres } from './parametres.js';
 import { afficherChantiers } from './chantiers.js';
 import { afficherMessages } from './messages.js';
 import { afficherAdmin } from './admin.js';
+import { afficherCommandes } from './commandes.js';
+import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
+import { afficherAfficheJour } from './affiche-jour.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
@@ -54,7 +57,11 @@ const ROUTES = {
   },
   // #/messages (onglet dans l'adresse : #/messages/campagnes…), #/messages/campagne (nouvelle campagne)
   messages: { vue: afficherMessages, droit: 'messages.voir' },
-  admin: { vue: afficherAdmin, admin: true }
+  admin: { vue: afficherAdmin, admin: true },
+  // #/commandes, #/commandes/<id> (détail en page sur téléphone)
+  commandes: { vue: afficherCommandes, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
+  'boutique-en-ligne': { vue: afficherBoutiqueEnLigne, droit: 'boutique_en_ligne.gerer' },
+  affiche: { vue: afficherAfficheJour, droit: 'affiche.partager' }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };

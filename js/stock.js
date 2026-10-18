@@ -9,14 +9,15 @@ import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, capitaliser,
-  formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES
+  formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
 } from './utils.js';
+import { changerPhotoArticle, retirerPhotoArticle, choisirImage } from './images.js';
 
 /**
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
  * le gérant le reçoit par la fonction serveur produits_couts, fusionnée côté appli.
  */
-const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, fournisseur_id, created_at';
+const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, fournisseur_id, en_ligne, prix_promo, promo_fin, created_at';
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -156,22 +157,27 @@ export function afficherStock(conteneur, params) {
     const pastille = pastilleStock(p);
     const unite = esc(p.unite || 'unité');
     const gros = p.prix_gros !== null && p.prix_gros !== undefined;
+    const promo = promoActive(p);
+    const prixDetailHTML = promo
+      ? `<s class="discret">${formatNombre(p.prix_detail)}</s> <span class="gras texte-promo">${formatNombre(p.prix_promo)}</span>`
+      : `<span class="gras">${formatNombre(p.prix_detail)}</span>`;
     return `
       <li>
         <button type="button" class="ligne-stock ${p.actif ? '' : 'inactif'}" data-fiche="${esc(p.id)}">
           <span class="ls-article">
+            <span class="vignette-mini">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">` : icone('stock', 18, 1.8)}</span>
             <span class="ls-textes">
-              <span class="gras">${esc(p.nom)}</span>
+              <span class="gras">${esc(p.nom)}${promo ? ' <span class="badge-promo">Promo</span>' : ''}${p.en_ligne === false ? ' <span class="tag-masque">Masqué en ligne</span>' : ''}</span>
               <span class="discret">
                 <span class="seul-mobile">${esc(nomCategorie(p.categorie_id))}${p.code_barre ? ' · ' : ''}</span>${p.code_barre ? esc(p.code_barre) : ''}${p.actif ? '' : ' · Désactivé'}
               </span>
             </span>
           </span>
           <span class="ls-categorie seul-ordi">${esc(nomCategorie(p.categorie_id))}</span>
-          <span class="ls-prix seul-ordi"><span class="gras">${formatNombre(p.prix_detail)}</span> <span class="discret">/ ${unite}</span></span>
+          <span class="ls-prix seul-ordi">${prixDetailHTML} <span class="discret">/ ${unite}</span></span>
           <span class="ls-prix seul-ordi">${gros ? `<span class="gras">${formatNombre(p.prix_gros)}</span> <span class="discret">/ ${unite}</span>` : '<span class="discret">—</span>'}</span>
           <span class="ls-prix-mobile seul-mobile">
-            Détail <strong>${formatNombre(p.prix_detail)}</strong>${gros ? ` · Gros <strong>${formatNombre(p.prix_gros)}</strong>` : ''} <span class="discret">GNF / ${unite}</span>
+            Détail ${promo ? `<s>${formatNombre(p.prix_detail)}</s> <strong class="texte-promo">${formatNombre(p.prix_promo)}</strong>` : `<strong>${formatNombre(p.prix_detail)}</strong>`}${gros ? ` · Gros <strong>${formatNombre(p.prix_gros)}</strong>` : ''} <span class="discret">GNF / ${unite}</span>
           </span>
           <span class="ls-stock"><span class="pastille-stock ${pastille.classe}">${esc(pastille.texte)}</span></span>
           <span class="ls-chevron seul-ordi">${icone('chevronDroite', 18, 2)}</span>
@@ -233,6 +239,28 @@ export function afficherStock(conteneur, params) {
       if (!action) return;
       if (action === 'entree' || action === 'ajustement') ouvrirMouvement(produit, action, rafraichir);
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
+      if (action === 'photo' || action === 'retirer-photo') {
+        const bouton = e.target.closest('button');
+        if (action === 'retirer-photo' && !(await confirmer('La photo sera retirée de la caisse et de la boutique en ligne.', { titre: 'Retirer la photo', libelleOk: 'Retirer', danger: true }))) return;
+        const fichier = action === 'photo' ? await choisirImage() : null;
+        if (action === 'photo' && !fichier) return;
+        boutonOccupe(bouton, true, action === 'photo' ? 'Envoi de la photo…' : 'Suppression…');
+        try {
+          if (action === 'photo') {
+            const { url, taille } = await changerPhotoArticle(produit, fichier);
+            remplacerProduit({ ...produit, photo_url: url });
+            toast(`Photo enregistrée (${Math.round(taille / 1024)} Ko).`, 'succes');
+          } else {
+            await retirerPhotoArticle(produit);
+            remplacerProduit({ ...produit, photo_url: null });
+            toast('Photo retirée.', 'succes');
+          }
+          rafraichir();
+        } catch (err) {
+          toast(messageErreur(err), 'erreur');
+          if (bouton.isConnected) boutonOccupe(bouton, false);
+        }
+      }
       if (action === 'activer') {
         const desactiver = produit.actif;
         if (desactiver && !(await confirmer(`« ${produit.nom} » n’apparaîtra plus dans la caisse. Son historique est conservé et vous pourrez le réactiver.`, { titre: 'Désactiver l’article', libelleOk: 'Désactiver', danger: true }))) return;
@@ -249,8 +277,19 @@ export function afficherStock(conteneur, params) {
   function ficheHTML(p) {
     const pastille = pastilleStock(p);
     const info = (libelle, valeur) => `<div class="fiche-info"><dt>${esc(libelle)}</dt><dd>${valeur}</dd></div>`;
+    const promo = promoActive(p);
+    const photo = peut('articles.photo');
     return `
       <div class="fiche-stock">
+        <div class="fiche-photo">
+          <span class="fiche-photo-image">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="Photo de ${esc(p.nom)}">` : icone('image', 32, 1.6)}</span>
+          ${photo ? `
+            <span class="fiche-photo-actions">
+              <button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="photo">${icone('photo', 16, 2)} ${p.photo_url ? 'Changer la photo' : 'Ajouter une photo'}</button>
+              ${p.photo_url ? '<button type="button" class="btn-lien btn-lien-danger" data-action-fiche="retirer-photo">Retirer la photo</button>' : ''}
+              <small class="aide">Prise ou choisie, elle est réduite automatiquement (moins de 300 Ko).</small>
+            </span>` : ''}
+        </div>
         <div class="fiche-stock-actuel">
           <span class="discret">Stock actuel</span>
           <span class="pastille-stock pastille-grande ${pastille.classe}">${esc(pastille.texte)}</span>
@@ -260,6 +299,8 @@ export function afficherStock(conteneur, params) {
           ${info('Catégorie', esc(nomCategorie(p.categorie_id)))}
           ${info('Unité', esc(p.unite || '—'))}
           ${info('Prix détail', formatGNF(p.prix_detail))}
+          ${promo ? info('Prix promo', `<span class="texte-promo gras">${formatGNF(p.prix_promo)}</span>${p.promo_fin ? ` jusqu’au ${esc(formatDate(p.promo_fin, 'court'))}` : ' (sans fin)'}`) : ''}
+          ${info('En ligne', p.en_ligne === false ? 'Masqué sur la boutique en ligne' : 'Visible sur la boutique en ligne')}
           ${info('Prix gros', p.prix_gros !== null && p.prix_gros !== undefined ? formatGNF(p.prix_gros) : '—')}
           ${peut('voir_prix_achat') ? info('Prix d’achat', p.prix_achat !== null && p.prix_achat !== undefined ? formatGNF(p.prix_achat) : '—') : ''}
           ${info('Seuil d’alerte', p.sur_commande ? '—' : esc(formatQuantite(p.seuil_alerte, p.unite)))}
@@ -439,6 +480,28 @@ export function afficherStock(conteneur, params) {
             <small class="aide">Sert aux bons de commande (Messages › Fournisseurs).</small>
           </div>
 
+          ${peut('articles.promo') ? `
+            <fieldset class="bloc-promo">
+              <legend class="etiquette">Promotion (facultatif)</legend>
+              <div class="rangee-champs">
+                <div class="champ">
+                  <label for="art-prix-promo">Prix promo (GNF)</label>
+                  <input id="art-prix-promo" name="prix_promo" class="input" type="number" inputmode="numeric" min="0" step="1" value="${valeur(p.prix_promo)}" placeholder="Inférieur au prix détail">
+                </div>
+                <div class="champ">
+                  <label for="art-promo-fin">Fin de la promo (incluse)</label>
+                  <input id="art-promo-fin" name="promo_fin" class="input" type="date" min="${dateISO()}" value="${valeur(p.promo_fin ? String(p.promo_fin).slice(0, 10) : '')}">
+                  <small class="aide">Vide : sans fin. Appliquée aussi à la caisse.</small>
+                </div>
+              </div>
+              <button type="button" class="btn-lien btn-lien-gauche btn-lien-danger" data-action-form="retirer-promo" ${p.prix_promo ? '' : 'hidden'}>Retirer la promo</button>
+            </fieldset>` : ''}
+
+          <label class="case-option">
+            <input type="checkbox" name="en_ligne" ${p.en_ligne === false ? '' : 'checked'}>
+            <span><strong>Visible en ligne</strong> (sur votre boutique en ligne)</span>
+          </label>
+
           <label class="case-option">
             <input type="checkbox" name="sur_commande" ${p.sur_commande ? 'checked' : ''}>
             <span><strong>Article sur commande</strong> (pas de stock : sable, gravier, prestation…)</span>
@@ -483,6 +546,11 @@ export function afficherStock(conteneur, params) {
         el.querySelector('#art-nouvelle-categorie').focus();
       }
       if (action === 'creer-categorie') creerCategorie(e.target.closest('button'));
+      if (action === 'retirer-promo') {
+        formulaire.prix_promo.value = '';
+        formulaire.promo_fin.value = '';
+        e.target.closest('button').hidden = true;
+      }
     });
     el.querySelector('#art-nouvelle-categorie').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); creerCategorie(el.querySelector('[data-action-form="creer-categorie"]')); }
@@ -527,6 +595,10 @@ export function afficherStock(conteneur, params) {
       if (prixDetail === null || prixDetail <= 0) return erreur('Indiquez un prix détail supérieur à 0.');
       if ([prixGros, prixAchat].some((v) => v !== null && v < 0) || seuil < 0 || stockInitial < 0) return erreur('Les montants et quantités ne peuvent pas être négatifs.');
       if (!uniteDivisible(unite) && !Number.isInteger(stockInitial)) return erreur(`Stock entier attendu pour l’unité « ${unite} ».`);
+      const avecPromo = Boolean(formulaire.prix_promo);
+      const prixPromo = avecPromo ? lireNombre(formulaire.prix_promo.value) : null;
+      if (prixPromo !== null && (prixPromo <= 0 || prixPromo >= prixDetail)) return erreur('Le prix promo doit être inférieur au prix de détail.');
+      if (avecPromo && prixPromo === null && formulaire.promo_fin.value) return erreur('Indiquez le prix promo, ou videz la date de fin.');
       erreur('');
 
       const donnees = {
@@ -539,8 +611,13 @@ export function afficherStock(conteneur, params) {
         seuil_alerte: seuil,
         sur_commande: surCommande,
         code_barre: formulaire.code_barre.value.trim() || null,
-        fournisseur_id: formulaire.fournisseur.value || null
+        fournisseur_id: formulaire.fournisseur.value || null,
+        en_ligne: formulaire.en_ligne.checked
       };
+      if (avecPromo) {
+        donnees.prix_promo = prixPromo === null ? null : Math.round(prixPromo);
+        donnees.promo_fin = prixPromo === null ? null : formulaire.promo_fin.value || null;
+      }
 
       const bouton = formulaire.querySelector('[type=submit]');
       boutonOccupe(bouton, true, 'Enregistrement…');

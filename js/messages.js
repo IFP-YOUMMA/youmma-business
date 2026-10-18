@@ -55,6 +55,10 @@ const MODELES = {
     resume: () => 'Après chaque remboursement encaissé' },
   situation_chantier: { libelle: 'Situation chantier', variables: ['{prenom}', '{chantier}', '{operation}', '{montant}', '{solde}'],
     resume: () => 'Après chaque enlèvement ou versement' },
+  commande_web: { libelle: 'Nouvelle commande en ligne', variables: ['{numero}', '{client}', '{telephone}', '{total}', '{reception}'],
+    resume: () => 'Dès qu’un client commande sur votre boutique en ligne' },
+  commande_confirmee: { libelle: 'Commande en ligne confirmée', variables: ['{prenom}', '{numero}', '{total}', '{reception}'],
+    resume: () => 'Quand vous confirmez une commande en ligne' },
   bon_commande: { libelle: 'Bon de commande', variables: ['{fournisseur}', '{numero}', '{lignes}'],
     resume: () => 'À la création d’un bon, si « Envoyer aussi par SMS » est coché' },
   relance_livraison: { libelle: 'Relance livraison', variables: ['{fournisseur}', '{numero}', '{date}'], reglages: ['heure', 'jours'],
@@ -63,9 +67,9 @@ const MODELES = {
 
 const GROUPES = [
   { code: 'patron', titre: 'Pour le patron', sous: 'Gardez l’œil sur la boutique, même à distance', icone: 'vendeurs', teinte: '#E3EEFB', encre: '#0D47A1',
-    cles: ['rapport_soir', 'vente_annulee', 'grosse_remise', 'sous_prix_achat', 'stock_bas'], recoit: 'le patron' },
+    cles: ['rapport_soir', 'commande_web', 'vente_annulee', 'grosse_remise', 'sous_prix_achat', 'stock_bas'], recoit: 'le patron' },
   { code: 'clients', titre: 'Pour les clients', sous: 'Récupérez vos crédits sans y penser', icone: 'client', teinte: '#E8F5EA', encre: '#1B6E2A',
-    cles: ['recu_vente', 'rappel_echeance', 'relance_retard', 'recu_remboursement', 'situation_chantier'], recoit: 'le client' },
+    cles: ['recu_vente', 'commande_confirmee', 'rappel_echeance', 'relance_retard', 'recu_remboursement', 'situation_chantier'], recoit: 'le client' },
   { code: 'fournisseurs', titre: 'Pour les fournisseurs', sous: 'Commandez sans appeler', icone: 'camion', teinte: '#FFF1D6', encre: '#7A4A00',
     cles: ['bon_commande', 'relance_livraison'], recoit: 'le fournisseur' }
 ];

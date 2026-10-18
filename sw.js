@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v7';
+const VERSION_CACHE = 'yb-statique-v8';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -40,6 +40,18 @@ const FICHIERS_STATIQUES = [
   './js/messages.js',
   './js/campagne.js',
   './js/admin.js',
+  './js/images.js',
+  './js/qr.js',
+  './js/vendor/qrcode.js',
+  './js/affiche.js',
+  './js/affiche-jour.js',
+  './js/alertes-commandes.js',
+  './js/commandes.js',
+  './js/boutique-en-ligne.js',
+  // Boutique en ligne publique (page indépendante de l'appli)
+  './b/index.html',
+  './css/vitrine.css',
+  './js/vitrine.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -78,6 +90,22 @@ self.addEventListener('fetch', (evenement) => {
         }
         return reponse;
       })
-      .catch(() => caches.match(requete).then((enCache) => enCache || caches.match('./index.html')))
+      .catch(() => caches.match(requete).then((enCache) => enCache || repli(requete, url)))
   );
 });
+
+/**
+ * Hors ligne, rien en cache pour cette adresse :
+ *  - page de la boutique en ligne (b/…) → b/index.html (jamais l'appli) ;
+ *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
+ *  - autre navigation dans l'appli → index.html.
+ */
+function repli(requete, url) {
+  const chemin = url.pathname.slice(new URL(self.registration.scope).pathname.length);
+  if (chemin === 'b' || chemin.startsWith('b/')) {
+    return requete.mode === 'navigate' ? caches.match('./b/index.html').then((r) => r || Response.error()) : Response.error();
+  }
+  if (requete.mode !== 'navigate' || chemin === '404.html') return Response.error();
+  return caches.match('./index.html').then((r) => r || Response.error());
+}
+

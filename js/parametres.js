@@ -3,11 +3,15 @@
  *
  *  - Ma boutique (gérant / propriétaire) : coordonnées et message en bas des reçus.
  *  - Mon compte (tous) : nom (modifier_mon_nom), téléphone de connexion, mot de passe.
+ *  - Logo de la boutique (gérant / propriétaire), compressé à 512 px, bucket « produits ».
+ *  - Sur cet appareil (tous) : son des nouvelles commandes en ligne (préférence locale).
  *  - Licence (tous, lecture) · Mes boutiques (gérant / propriétaire) · Déconnexion.
  */
 import { sb } from './supabase.js';
 import { etat, utilisateur, peut, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLES } from './state.js';
 import { deconnecter } from './auth.js';
+import { changerLogo, choisirImage } from './images.js';
+import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
 import { changerBoutique, lienRenouvellement, statutLicence, majNomBoutiqueAffiche } from './layout.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, formatDate, formatTelephone,
@@ -57,6 +61,14 @@ export function afficherParametres(conteneur) {
         <h2 id="titre-boutique">Ma boutique</h2>
         <span class="badge-categorie">${esc(TYPES_ACTIVITE[b.type_activite] || 'Commerce')}</span>
       </div>
+      <div class="bloc-logo">
+        <span class="logo-boutique" data-zone="logo">${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="Logo de ${esc(b.nom)}">` : esc(initiales(b.nom))}</span>
+        <span class="bloc-logo-textes">
+          <span class="gras">Logo</span>
+          <span class="discret">Affiché sur votre boutique en ligne et l’affiche du jour. Carré de préférence.</span>
+          <button type="button" class="btn btn-secondaire btn-petit" data-action="logo">${icone('photo', 16, 2)} ${b.logo_url ? 'Changer le logo' : 'Ajouter un logo'}</button>
+        </span>
+      </div>
       <form class="form-modale" novalidate>
         <div class="rangee-champs">
           <div class="champ"><label for="par-nom">Nom de la boutique</label><input id="par-nom" name="nom" class="input" type="text" maxlength="80" required value="${esc(b.nom)}"></div>
@@ -72,6 +84,20 @@ export function afficherParametres(conteneur) {
         <p class="erreur-form" role="alert" hidden></p>
         <div class="actions-droite"><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
       </form>`;
+    zone('boutique').querySelector('[data-action="logo"]').addEventListener('click', async (e) => {
+      const bouton = e.currentTarget;
+      const fichier = await choisirImage();
+      if (!fichier) return;
+      boutonOccupe(bouton, true, 'Envoi du logo…');
+      try {
+        const { taille } = await changerLogo(fichier);
+        toast(`Logo enregistré (${Math.round(taille / 1024)} Ko).`, 'succes');
+        renderBoutique();
+      } catch (err) {
+        toast(messageErreur(err), 'erreur');
+        boutonOccupe(bouton, false);
+      }
+    });
     const formulaire = zone('boutique').querySelector('form');
     const zoneErreur = formulaire.querySelector('.erreur-form');
     const erreur = (m) => { zoneErreur.textContent = m; zoneErreur.hidden = !m; };
@@ -125,7 +151,16 @@ export function afficherParametres(conteneur) {
         <div class="champ"><label for="mdp-confirmation">Confirmer</label><input id="mdp-confirmation" name="confirmation" class="input" type="password" autocomplete="new-password" minlength="${LONGUEUR_MIN_MDP}"></div>
         <div class="champ champ-bouton"><button type="submit" class="btn btn-secondaire btn-bloc">Changer le mot de passe</button></div>
         <p class="erreur-form" role="alert" hidden></p>
-      </form>`;
+      </form>
+      <div class="sur-appareil">
+        <h3 class="fiche-sous-titre">Sur cet appareil</h3>
+        <label class="case-option"><input type="checkbox" data-action="son-commandes" ${sonCommandesActif() ? 'checked' : ''}> Son à chaque nouvelle commande en ligne</label>
+      </div>`;
+    zone('compte').querySelector('[data-action="son-commandes"]').addEventListener('change', (e) => {
+      reglerSonCommandes(e.target.checked);
+      if (e.target.checked) jouerSonCommande();
+      toast(e.target.checked ? 'Son des commandes activé sur cet appareil.' : 'Son des commandes désactivé sur cet appareil.', 'succes');
+    });
     const formulaire = zone('compte').querySelector('form');
     const zoneErreur = formulaire.querySelector('.erreur-form');
     const erreur = (m) => { zoneErreur.textContent = m; zoneErreur.hidden = !m; };

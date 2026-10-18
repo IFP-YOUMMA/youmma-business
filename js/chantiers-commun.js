@@ -14,6 +14,7 @@ import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, initiales, formatGNF,
   formatTelephone, formaterSaisieMontant, texteSolde, classeSolde, MODES_PAIEMENT
 } from './utils.js';
+import { compresserAvecEssais } from './images.js';
 
 
 export const COLONNES_CHANTIER = 'id, boutique_id, client_id, numero, nom, adresse, statut, solde, cree_par, created_at, cloture_at';
@@ -327,50 +328,12 @@ const ESSAIS_COMPRESSION = [
   [COTE_MAX_PHOTO, 0.7], [COTE_MAX_PHOTO, 0.55], [COTE_MAX_PHOTO, 0.4], [1024, 0.4], [800, 0.4], [640, 0.35]
 ];
 
-/** Charge une image (avec l'orientation de l'appareil photo si le navigateur la gère). */
-async function chargerImage(fichier) {
-  if ('createImageBitmap' in window) {
-    try { return await createImageBitmap(fichier, { imageOrientation: 'from-image' }); } catch { /* repli ci-dessous */ }
-  }
-  const url = URL.createObjectURL(fichier);
-  try {
-    const image = new Image();
-    image.src = url;
-    await image.decode();
-    return image;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-/** Dessine l'image réduite (côté le plus long = cote px) et l'encode en JPEG. */
-function encoderJpeg(image, cote, qualite) {
-  const echelle = Math.min(1, cote / Math.max(image.width, image.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(image.width * echelle);
-  canvas.height = Math.round(image.height * echelle);
-  canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-  return new Promise((resoudre, rejeter) => {
-    canvas.toBlob((blob) => (blob ? resoudre(blob) : rejeter(new Error('Compression impossible'))), 'image/jpeg', qualite);
-  });
-}
-
 /**
  * Compresse une photo dans le navigateur : côté le plus long 1280 px, JPEG qualité 0,7.
  * Si le fichier dépasse encore 400 Ko (photo très détaillée), on baisse la qualité puis la taille.
  */
-export async function compresserImage(fichier) {
-  const image = await chargerImage(fichier);
-  try {
-    let blob = null;
-    for (const [cote, qualite] of ESSAIS_COMPRESSION) {
-      blob = await encoderJpeg(image, cote, qualite);
-      if (blob.size <= TAILLE_MAX_PHOTO) break;
-    }
-    return blob;
-  } finally {
-    image.close?.();
-  }
+export function compresserImage(fichier) {
+  return compresserAvecEssais(fichier, ESSAIS_COMPRESSION, TAILLE_MAX_PHOTO);
 }
 
 /** Envoie la photo compressée dans le bucket privé « bons » et renvoie son chemin. */

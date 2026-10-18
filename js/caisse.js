@@ -14,7 +14,7 @@ import { chargerSoldeSms } from './sms.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
-  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, texteSolde, classeSolde, MODES_PAIEMENT, MODES_CAISSE
+  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, texteSolde, classeSolde, MODES_PAIEMENT, MODES_CAISSE, prixApplique, promoActive
 } from './utils.js';
 
 const ICONES_UNITES = {
@@ -60,10 +60,12 @@ export function afficherCaisse(conteneur, params) {
 
   /* ======================================================= Calculs */
 
-  /** Prix appliqué selon la bascule détail / gros (pas de prix gros → prix détail). */
+  /**
+   * Prix appliqué selon la bascule détail / gros (pas de prix gros → prix détail).
+   * Promo active : prix promo au détail ; au gros, le plus bas des deux (même règle que valider_vente).
+   */
   function prixArticle(p) {
-    return s.typePrix === 'gros' && p.prix_gros !== null && p.prix_gros !== undefined
-      ? Number(p.prix_gros) : Number(p.prix_detail) || 0;
+    return prixApplique(p, s.typePrix);
   }
 
   function quantiteMax(p) {
@@ -194,10 +196,10 @@ export function afficherCaisse(conteneur, params) {
       <div class="article ${quantite ? 'dans-panier' : ''} ${epuise ? 'epuise' : ''}">
         <button type="button" class="article-principal" data-ajouter="${esc(p.id)}" ${epuise ? 'disabled' : ''}
           aria-label="${esc(`${p.nom}, ${formatNombre(prixArticle(p))} GNF par ${p.unite || 'unité'}, ${stock.texte}${epuise ? '' : ' — ajouter au panier'}`)}">
-          <span class="article-vignette">${vignette}</span>
+          <span class="article-vignette">${vignette}${promoActive(p) ? '<span class="badge-promo badge-promo-vignette">Promo</span>' : ''}</span>
           <span class="article-infos">
             <span class="article-nom">${esc(p.nom)}</span>
-            <span class="article-prix"><strong>${formatNombre(prixArticle(p))}</strong> <span>GNF / ${esc(p.unite || 'unité')}</span></span>
+            <span class="article-prix">${promoActive(p) && prixArticle(p) < Number(p.prix_detail) ? `<s class="prix-barre">${formatNombre(p.prix_detail)}</s> ` : ''}<strong>${formatNombre(prixArticle(p))}</strong> <span>GNF / ${esc(p.unite || 'unité')}</span></span>
             <span class="article-stock ${stock.classe}"><span class="seul-ordi">Stock : </span>${esc(stock.texte)}</span>
           </span>
           ${quantite ? `<span class="article-pastille" aria-hidden="true">${formatNombre(quantite, 3)}</span>` : ''}
@@ -556,7 +558,7 @@ export function afficherCaisse(conteneur, params) {
     return vente.lignes.reduce((somme, l) => {
       const p = s.produits.find((x) => x.id === l.produit_id);
       if (!p) return somme;
-      const prix = vente.typePrix === 'gros' && p.prix_gros !== null ? Number(p.prix_gros) : Number(p.prix_detail);
+      const prix = prixApplique(p, vente.typePrix);
       return somme + prix * l.quantite;
     }, 0) - (Number(vente.remise) || 0);
   }
@@ -846,7 +848,7 @@ export function afficherCaisse(conteneur, params) {
   async function chargerDonnees() {
     const [produitsRes, categoriesRes] = await Promise.all([
       sb.from('produits')
-        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url')
+        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, seuil_alerte, sur_commande, code_barre, photo_url')
         .eq('boutique_id', boutique.id)
         .eq('actif', true)
         .order('nom'),

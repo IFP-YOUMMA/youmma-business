@@ -7,6 +7,7 @@ import { etat, infosLicence, choisirBoutique, peut } from './state.js';
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import { majCreditSmsAffiche } from './sms.js';
+import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import {
   esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, lienWhatsApp, TYPES_ACTIVITE
 } from './utils.js';
@@ -23,8 +24,9 @@ export const SECTIONS = [
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
   { route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true },
-  { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', libelleCourt: 'En ligne', icone: 'enLigne', badge: 'Premium',
-    description: 'Une vitrine en ligne pour recevoir des commandes de vos clients sur WhatsApp.' },
+  // Commandes de la boutique en ligne (badge : nombre de commandes « nouvelle », relu toutes les 60 s).
+  { route: 'commandes', libelle: 'Commandes en ligne', libelleCourt: 'Commandes', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true },
+  { route: 'affiche', libelle: 'Affiche du jour', icone: 'image', active: true, droit: 'affiche.partager' },
   { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
   // Administration de la plateforme : visible seulement pour l'équipe YOUMMA (est_admin_plateforme).
   { route: 'admin', libelle: 'Admin YOUMMA', icone: 'bouclier', active: true, admin: true }
@@ -131,6 +133,7 @@ function construireShell() {
   const shell = app.querySelector('.shell');
   brancherShell(shell);
   majCreditSmsAffiche(); // badge du menu et bandeau « crédit bas » (gérant / propriétaire)
+  demarrerSurveillanceCommandes(); // badge « Commandes » + toast et son à chaque nouvelle commande en ligne
   return shell;
 }
 
@@ -155,6 +158,7 @@ function lienMenu(section) {
       <span class="lien-menu-libelle">${esc(section.libelleCourt || section.libelle)}</span>
       ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
+      ${section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
     </a>`;
 }
 
@@ -284,6 +288,7 @@ function ouvrirPanneauPlus() {
           <a href="#/${s.route}" class="plus-lien">
             ${icone(s.icone, 20)}<span>${esc(s.libelle)}</span>
             ${s.badge ? `<span class="badge-premium">${esc(s.badge)}</span>` : ''}
+            ${s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
           </a>`).join('')}
         ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
         <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>
@@ -293,6 +298,10 @@ function ouvrirPanneauPlus() {
         ${icone('deconnexion', 18, 2)} Se déconnecter
       </button>`
   });
+  // Badge « Commandes » du panneau : même valeur que le menu, relue tout de suite.
+  const badgeMenu = document.querySelector('.sidebar [data-ref="badge-commandes"]')?.textContent || '';
+  el.querySelectorAll('[data-ref="badge-commandes"]').forEach((b) => { b.textContent = badgeMenu; });
+  verifierCommandes();
   el.addEventListener('click', (e) => {
     if (e.target.closest('[data-action="deconnexion-plus"]')) { fermer(); deconnecter(); }
     const boutonBoutique = e.target.closest('button[data-id]');

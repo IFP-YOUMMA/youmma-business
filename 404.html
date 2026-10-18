@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YOUMMA Business</title>
+  <meta name="robots" content="noindex">
+  <script>
+    // GitHub Pages sert cette page pour toute adresse inconnue.
+    // …/youmma-business/b/<adresse> → …/youmma-business/b/?s=<adresse> (lien court des boutiques en ligne) ;
+    // toute autre adresse → l'appli.
+    (function () {
+      var chemin = location.pathname;
+      var m = chemin.match(/^(.*?\/)b\/([A-Za-z0-9-]{3,40})\/?$/);
+      if (m) { location.replace(m[1] + 'b/?s=' + encodeURIComponent(m[2].toLowerCase()) + location.hash); return; }
+      var racine = chemin.match(/^(\/youmma-business\/)/);
+      location.replace((racine ? racine[1] : '/') + location.hash);
+    })();
+  </script>
+</head>
+<body style="font-family:system-ui,sans-serif;padding:24px">
+  <p>Redirection… <a href="./">Ouvrir YOUMMA Business</a></p>
+</body>
+</html>

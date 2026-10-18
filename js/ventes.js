@@ -209,7 +209,7 @@ function afficherHistorique(conteneur, idSelection) {
           <button type="button" class="ligne-vente ${choisie ? 'selectionnee' : ''}" data-vente="${esc(v.id)}" ${choisie ? 'aria-current="true"' : ''}>
             <span class="lv-numero">${esc(formatNumeroVente(v.numero))}</span>
             <span class="lv-date">${esc(dateCourte(v.created_at))}</span>
-            <span class="lv-client">${esc(nomClient(v))}</span>
+            <span class="lv-client">${esc(nomClient(v))}${v.commande_web_id ? ' <span class="tag-en-ligne">En ligne</span>' : ''}</span>
             <span class="lv-paiement">${badgeVente(v)}</span>
             <span class="lv-vendeur">${esc(vendeur ? prenom(vendeur.nom) : '—')}</span>
             <span class="lv-montant ${v.statut === 'annulee' ? 'annule' : ''}">${formatGNF(v.total)}</span>
@@ -272,7 +272,7 @@ function afficherHistorique(conteneur, idSelection) {
       const [ventes, refs] = await Promise.all([
         chargerParLots((debut, fin) => {
           let requete = sb.from('ventes')
-            .select('id, numero, created_at, client_id, vendeur_id, mode_paiement, total, statut')
+            .select('id, numero, created_at, client_id, vendeur_id, mode_paiement, total, statut, commande_web_id')
             .eq('boutique_id', boutique.id)
             .gte('created_at', `${du}T00:00:00Z`) // Conakry = UTC
             .lt('created_at', `${decalerDate(au, 1)}T00:00:00Z`);
@@ -381,7 +381,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
   try {
     const [venteRes, lignesRes, references] = await Promise.all([
       sb.from('ventes')
-        .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut, chantier_id')
+        .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut, chantier_id, frais_livraison, commande_web_id')
         .eq('boutique_id', boutique.id).eq('id', idVente).maybeSingle(),
       sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente),
       refsPromesse
@@ -414,6 +414,13 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
     chantier = data;
     if (!zone.isConnected || zone.dataset.vente !== idVente) return;
   }
+  // Vente issue d'une commande en ligne : numéro C-00xx.
+  let commande = null;
+  if (vente.commande_web_id) {
+    const { data } = await sb.from('commandes_web').select('id, numero, reception, zone_nom').eq('id', vente.commande_web_id).maybeSingle();
+    commande = data;
+    if (!zone.isConnected || zone.dataset.vente !== idVente) return;
+  }
   const vendeur = trouverMembre(refs, vente.vendeur_id);
 
   function rendre() {
@@ -437,6 +444,13 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
           <a class="client-bouton lien-chantier-vente" href="#/chantiers/${encodeURIComponent(chantier.id)}">
             <span class="avatar">${icone('casque', 18, 2)}</span>
             <span class="client-textes"><span class="gras">${esc(chantier.nom)}</span><span class="discret">Enlèvement sur le chantier ${esc(chantier.numero)} · voir le compte</span></span>
+            ${icone('chevronDroite', 16, 2)}
+          </a>` : ''}
+
+        ${commande ? `
+          <a class="client-bouton lien-commande-vente" href="#/commandes/${encodeURIComponent(commande.id)}">
+            <span class="avatar">${icone('enLigne', 18, 2)}</span>
+            <span class="client-textes"><span class="gras">Commande en ligne ${esc(commande.numero)}</span><span class="discret">${commande.reception === 'livraison' ? `Livraison${commande.zone_nom ? ' · ' + esc(commande.zone_nom) : ''}` : 'Retrait en boutique'} · voir la commande</span></span>
             ${icone('chevronDroite', 16, 2)}
           </a>` : ''}
 
@@ -468,6 +482,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
         <div class="totaux">
           <div class="totaux-ligne"><span class="discret">Sous-total${vente.type_prix === 'gros' ? ' (prix gros)' : ''}</span><span class="gras">${formatGNF(vente.sous_total)}</span></div>
           <div class="totaux-ligne"><span class="discret">Remise</span><span class="gras">${Number(vente.remise) ? '− ' : ''}${formatGNF(vente.remise)}</span></div>
+          ${Number(vente.frais_livraison) ? `<div class="totaux-ligne"><span class="discret">Frais de livraison</span><span class="gras">${formatGNF(vente.frais_livraison)}</span></div>` : ''}
           <div class="totaux-ligne totaux-final"><span>Total</span><span class="total-grand ${annulee ? 'annule' : ''}">${formatNombre(vente.total)} <span class="unite-gnf">GNF</span></span></div>
         </div>
 
@@ -491,7 +506,9 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
       total: Number(vente.total),
       mode: vente.mode_paiement,
       montantRecu: null,
-      echeance: vente.mode_paiement === 'credit' ? vente.echeance : null
+      echeance: vente.mode_paiement === 'credit' ? vente.echeance : null,
+      fraisLivraison: Number(vente.frais_livraison) || 0,
+      commande: commande?.numero || null
     }, { mentions: vente.statut === 'annulee' ? ['DUPLICATA', 'ANNULÉE'] : ['DUPLICATA'] });
   }
 
