@@ -44,6 +44,10 @@ export function afficherParametres(conteneur) {
           <section class="carte section-parametres" aria-labelledby="titre-compte" data-zone="compte"></section>
         </div>
         <div class="parametres-droite">
+          ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/documents">
+            <span class="avatar">${icone('document', 20, 2)}</span>
+            <span class="client-textes"><span class="gras">Documents : factures, reçus, devis</span><span class="discret">Modèle, couleurs, logo, RCCM/NIF, cachet et signature, QR de vérification</span></span>
+            ${icone('chevronDroite', 18, 2)}</a>` : ''}
           <section class="licence-parametres" aria-labelledby="titre-licence" data-zone="licence"></section>
           ${gerer ? '<section class="carte section-parametres" aria-labelledby="titre-boutiques" data-zone="boutiques"></section>' : ''}
           <button type="button" class="btn btn-annuler-vente btn-grand btn-bloc" data-action="deconnexion">${icone('deconnexion', 18, 2)} Se déconnecter</button>

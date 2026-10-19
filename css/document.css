@@ -1,0 +1,47 @@
+/* document.css — Page d'impression des documents A4 (document.html). Le document lui-même est stylé
+   par js/documents/rendu.js (préfixe .ybd) ; ici : barre d'outils, cadre d'aperçu et règles d'impression. */
+
+body.page-document { background: #E9ECEF; min-height: 100vh; }
+.page-document .ecran-chargement { background: #E9ECEF; color: var(--muted); }
+.page-document .ecran-chargement img { background: #FFFFFF; border-radius: 50%; padding: 3px; }
+
+.barre-doc {
+  position: sticky; top: 0; z-index: 20; background: var(--navy); color: #FFFFFF;
+  padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+}
+.barre-doc-titre { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; }
+.barre-doc-titre strong { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barre-doc-titre span { font-size: 12px; color: var(--navy-text); }
+.barre-doc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.barre-doc .btn { min-height: 42px; }
+.barre-doc .segments { background: var(--navy-2); }
+.barre-doc .segment { color: var(--navy-lien); }
+.barre-doc .segment.actif { background: #FFFFFF; color: var(--navy); }
+.barre-doc-retour { color: #FFFFFF; border-color: var(--navy-border); background: transparent; }
+.barre-doc-retour:hover { background: var(--navy-2); color: #FFFFFF; }
+.doc-option { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--navy-lien); min-height: 42px; }
+.doc-option input { width: 18px; height: 18px; accent-color: var(--accent-light); }
+
+.doc-rappel { max-width: 794px; margin: 12px auto 0; padding: 0 16px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.doc-rappel svg { flex: none; color: var(--primary); }
+.doc-cadre { padding: 16px; display: flex; justify-content: center; }
+.doc-echelle { position: relative; }
+.doc-echelle .ybd { transform-origin: 0 0; box-shadow: 0 14px 34px rgba(10, 61, 51, .18); border-radius: 4px; }
+.doc-erreur { max-width: 520px; margin: 40px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+
+@page {
+  size: A4;
+  margin: 12mm;
+  @bottom-right { content: "Page " counter(page) " / " counter(pages); font-family: 'Manrope', Arial, sans-serif; font-size: 8.5pt; color: #6B7280; }
+}
+@media print {
+  html, body.page-document { background: #FFFFFF !important; }
+  /* app.css masque tout sauf #recu à l'impression (ticket 80 mm) : ici, c'est le document A4 qui s'imprime. */
+  body.page-document > #doc-app { display: block !important; }
+  body.page-document > #recu { display: none !important; }
+  .barre-doc, .doc-rappel, #toasts { display: none !important; }
+  .doc-cadre { padding: 0; display: block; }
+  .doc-echelle { width: auto !important; height: auto !important; }
+  .doc-echelle .ybd { transform: none !important; box-shadow: none; border-radius: 0; }
+}

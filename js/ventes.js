@@ -12,6 +12,7 @@ import { sb } from './supabase.js';
 import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { imprimerRecuVente } from './recu.js';
+import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatNumeroVente, dateISO, decalerDate,
@@ -422,6 +423,19 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
     if (!zone.isConnected || zone.dataset.vente !== idVente) return;
   }
   const vendeur = trouverMembre(refs, vente.vendeur_id);
+  // Documents A4 (type selon les réglages) et devis d'origine (lien croisé devis ↔ vente).
+  const [reglagesDocs, devisOrigine] = await Promise.all([
+    chargerReglages(boutique.id).catch(() => ({})),
+    sb.from('proformas').select('id').eq('vente_id', idVente).limit(1).then((x) => x.data?.[0] || null, () => null)
+  ]);
+  let numeroDevis = null;
+  if (devisOrigine) {
+    const { data } = await sb.from('documents_emis').select('numero').eq('type', 'proforma').eq('proforma_id', devisOrigine.id).limit(1);
+    numeroDevis = data?.[0]?.numero || 'Devis';
+  }
+  if (!zone.isConnected || zone.dataset.vente !== idVente) return;
+  const typeA4 = typeVente(reglagesDocs);
+  const ticketParDefaut = reglagesDocs.format_defaut === '80mm';
 
   function rendre() {
     const annulee = vente.statut === 'annulee';
@@ -486,8 +500,19 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
           <div class="totaux-ligne totaux-final"><span>Total</span><span class="total-grand ${annulee ? 'annule' : ''}">${formatNombre(vente.total)} <span class="unite-gnf">GNF</span></span></div>
         </div>
 
+        ${devisOrigine ? `
+          <a class="client-bouton" href="#/proformas/${encodeURIComponent(devisOrigine.id)}">
+            <span class="avatar">${icone('document', 18, 2)}</span>
+            <span class="client-textes"><span class="gras">Issue du devis ${esc(numeroDevis)}</span><span class="discret">voir le devis</span></span>
+            ${icone('chevronDroite', 16, 2)}
+          </a>` : ''}
+
+        <div class="dv-actions boutons-documents">
+          <button type="button" class="btn ${ticketParDefaut ? 'btn-secondaire' : 'btn-primaire'}" data-document="${typeA4}">${icone('document', 18, 2)} ${typeA4 === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>
+          <button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>
+          <button type="button" class="btn ${ticketParDefaut ? 'btn-primaire' : 'btn-secondaire'}" data-action="reimprimer">${icone('imprimante', 18, 2)} Ticket 80 mm</button>
+        </div>
         <div class="dv-actions">
-          <button type="button" class="btn btn-secondaire" data-action="reimprimer">${icone('imprimante', 18, 2)} Réimprimer le reçu</button>
           ${gerer && !annulee ? `<button type="button" class="btn btn-annuler-vente" data-action="annuler">${icone('annuler', 18, 2)} Annuler la vente</button>` : ''}
         </div>
         ${gerer && !annulee ? '<p class="discret dv-note">L’annulation remet les articles en stock et retire le montant de la dette du client. Réservée au gérant.</p>' : ''}
@@ -509,7 +534,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
       echeance: vente.mode_paiement === 'credit' ? vente.echeance : null,
       fraisLivraison: Number(vente.frais_livraison) || 0,
       commande: commande?.numero || null
-    }, { mentions: vente.statut === 'annulee' ? ['DUPLICATA', 'ANNULÉE'] : ['DUPLICATA'] });
+    }, { mentions: vente.statut === 'annulee' ? ['DUPLICATA', 'ANNULÉE'] : ['DUPLICATA'], idVente: vente.id });
   }
 
   function confirmerAnnulation() {
@@ -557,6 +582,8 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
 
   zone.onclick = (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
+    const doc = e.target.closest('[data-document]');
+    if (doc) ouvrirDocument({ type: doc.dataset.document, vente: vente.id, retour: `#/ventes/${encodeURIComponent(vente.id)}` });
     if (action === 'reimprimer') reimprimer();
     if (action === 'annuler') confirmerAnnulation();
   };

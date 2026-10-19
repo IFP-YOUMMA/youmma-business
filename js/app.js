@@ -25,6 +25,8 @@ import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion, aff
 import { afficherCommandes } from './commandes.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
 import { afficherAfficheJour } from './affiche-jour.js';
+import { afficherProformas } from './proformas.js';
+import { afficherReglagesDocuments } from './documents/reglages.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
@@ -66,7 +68,11 @@ const ROUTES = {
   // #/commandes, #/commandes/<id> (détail en page sur téléphone)
   commandes: { vue: afficherCommandes, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
   'boutique-en-ligne': { vue: afficherBoutiqueEnLigne, droit: 'boutique_en_ligne.gerer' },
-  affiche: { vue: afficherAfficheJour, droit: 'affiche.partager' }
+  affiche: { vue: afficherAfficheJour, droit: 'affiche.partager' },
+  // #/proformas (liste), #/proformas/nouveau, #/proformas/<id> (éditeur)
+  proformas: { vue: afficherProformas, droit: 'devis.creer', pleinEcran: detailPleinEcran },
+  // Paramètres → Documents (réglages des factures, reçus, devis)
+  documents: { vue: afficherReglagesDocuments, droit: 'documents.reglages' }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };

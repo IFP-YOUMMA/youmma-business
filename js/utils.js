@@ -382,7 +382,9 @@ const MESSAGES_METIER = {
   HORAIRES_INVALIDES: 'Horaires invalides : vérifiez l’heure d’ouverture et de fermeture.',
   COMMANDE_TERMINEE: 'Cette commande est déjà livrée ou annulée.',
   STATUT_INVALIDE: 'Cette étape n’est pas possible pour cette commande.',
-  PROMO_INVALIDE: 'Le prix promo doit être inférieur au prix de détail.'
+  PROMO_INVALIDE: 'Le prix promo doit être inférieur au prix de détail.',
+  PROFORMA_INTROUVABLE: 'Ce devis est introuvable dans votre boutique.',
+  PROFORMA_VERROUILLEE: 'Ce devis a déjà été accepté ou transformé en vente : il ne peut plus être modifié.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */

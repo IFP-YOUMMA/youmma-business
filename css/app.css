@@ -2416,3 +2416,191 @@ body.lecture-seule [data-verrou-licence] { cursor: not-allowed; }
 .prix-formule { font-size: 20px; font-weight: 800; color: var(--navy); }
 .prix-formule small { font-size: 12px; color: var(--muted); }
 .total-renouvellement { font-size: 15px; }
+
+/* =============================================================================
+   Étape 9 — documents A4, devis, réglages des documents
+   ============================================================================= */
+.champ-recherche { position: relative; display: flex; align-items: center; }
+.champ-recherche > svg { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
+.champ-recherche .input { padding-left: 40px; width: 100%; }
+.entete-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Lien Paramètres → Documents */
+.lien-reglages-documents { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-decoration: none; color: var(--text); }
+.lien-reglages-documents:hover { border-color: var(--primary); color: var(--text); }
+.lien-reglages-documents .avatar { background: var(--primary-soft); color: var(--primary); }
+.lien-reglages-documents > svg:last-child { margin-left: auto; color: var(--muted); flex: none; }
+
+/* Interrupteur (case à cocher) */
+.bascule-doc { appearance: none; -webkit-appearance: none; flex: none; width: 44px; height: 26px; border-radius: 999px; background: #C9D3CF; position: relative; cursor: pointer; margin: 0; transition: background .15s; }
+.bascule-doc::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .15s; }
+.bascule-doc:checked { background: var(--primary); }
+.bascule-doc:checked::after { transform: translateX(18px); }
+
+/* Page des réglages */
+.page-reglages-docs .page-entete { align-items: flex-end; }
+.reglages-docs { display: flex; gap: 20px; align-items: flex-start; }
+.reglages-docs-form { flex: 1 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.reglages-section { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.reglages-section h2 { font-size: 15px; font-weight: 800; }
+.reglages-docs-apercu { flex: 0 0 520px; position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
+.cartes-modeles { display: flex; gap: 10px; }
+.carte-modele-doc { flex: 1; padding: 10px; border-radius: 12px; border: 2px solid var(--border-input); background: #FFFFFF; font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 12.5px; font-weight: 800; color: var(--text); min-height: var(--cible); }
+.carte-modele-doc[aria-checked="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.mini-doc { width: 64px; height: 88px; border-radius: 4px; background: #FFFFFF; border: 1px solid var(--border-input); display: flex; flex-direction: column; overflow: hidden; }
+.mini-doc span { display: block; }
+.ligne-couleurs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.libelle-couleur { font-size: 12.5px; font-weight: 700; width: 120px; }
+.pastille-doc { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px var(--border-input); cursor: pointer; flex: none; padding: 0; }
+.pastille-doc[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--text); }
+.code-couleur { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.code-couleur .input { width: 96px; min-height: 38px; padding: 0 8px; font-size: 13px; text-transform: uppercase; }
+.ligne-couleurs input[type="color"] { width: 40px; height: 38px; padding: 2px; border: 1px solid var(--border-input); border-radius: 8px; background: #FFFFFF; cursor: pointer; }
+.bloc-logo-doc { display: flex; gap: 14px; align-items: center; }
+.bloc-logo-doc .btn { margin-left: auto; }
+.grille-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grille-champs.grille-3 { grid-template-columns: repeat(3, 1fr); }
+.champ-large { grid-column: 1 / -1; }
+.champ-court { max-width: 200px; }
+.grille-prefixes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.prefixe { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.prefixe .input { text-transform: uppercase; font-weight: 800; }
+.grille-options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+.option-doc { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border-doux); cursor: pointer; min-height: var(--cible); }
+.option-doc.option-seule { border-top: none; }
+.option-textes { flex: 1; display: flex; flex-direction: column; font-size: 13.5px; }
+.option-textes .discret { font-size: 11.5px; }
+.cachet-signature { display: flex; gap: 12px; flex-wrap: wrap; }
+.bloc-image-doc { flex: 1 1 260px; border: 1px dashed #9FB3AB; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.bloc-image-actions { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.damier {
+  background-color: #FFFFFF;
+  background-image: linear-gradient(45deg, #E5EAE7 25%, transparent 25%), linear-gradient(-45deg, #E5EAE7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #E5EAE7 75%), linear-gradient(-45deg, transparent 75%, #E5EAE7 75%);
+  background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  border-radius: 10px; border: 1px solid var(--border-input); display: flex; align-items: center; justify-content: center; min-height: 140px; padding: 10px;
+}
+.mini-damier { width: 72px; height: 56px; min-height: 0; padding: 4px; flex: none; color: var(--succes); font-size: 11px; }
+.mini-damier img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.apercu-sans-fond { max-width: 100%; max-height: 220px; object-fit: contain; }
+.editeur-cachet { display: flex; flex-direction: column; gap: 12px; }
+.cadre-signature { width: 100%; aspect-ratio: 5 / 2; border: 2px dashed var(--border-bouton); border-radius: 12px; background: #FFFFFF; touch-action: none; cursor: crosshair; display: block; }
+.editeur-boutons { display: flex; justify-content: flex-end; margin-top: 8px; }
+.reglage-seuil { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 13px; }
+.reglage-seuil input { width: 100%; accent-color: var(--primary); min-height: 32px; }
+
+/* Aperçu A4 / ticket */
+.apercu-doc { width: 100%; max-width: 520px; }
+.apercu-a4 { position: relative; overflow: hidden; border-radius: 6px; box-shadow: 0 14px 34px rgba(10, 61, 51, .18); background: #FFFFFF; }
+.apercu-a4 .ybd { transform-origin: 0 0; }
+.apercu-ticket-cadre { display: flex; justify-content: center; }
+.apercu-ticket { width: 302px; background: #FFFFFF; padding: 14px 12px 20px; box-shadow: 0 14px 34px rgba(10, 61, 51, .18); color: #000000; font-family: 'Manrope', Arial, sans-serif; font-size: 11px; line-height: 1.35; text-align: left; }
+.apercu-ticket .recu-logiciel { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 9px; margin-bottom: 4px; }
+.apercu-ticket .recu-logiciel img { width: 17px; height: 17px; object-fit: contain; filter: grayscale(1); }
+.apercu-ticket .recu-entete { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1px; }
+.apercu-ticket .recu-boutique { font-size: 15px; font-weight: 800; }
+.apercu-ticket .recu-slogan { font-size: 10px; font-style: italic; }
+.apercu-ticket .recu-sep { border-top: 1px dashed #000000; margin: 6px 0; }
+.apercu-ticket .recu-ligne { display: flex; justify-content: space-between; gap: 6px; }
+.apercu-ticket .recu-ligne span:last-child { text-align: right; white-space: nowrap; }
+.apercu-ticket .recu-article { margin-bottom: 3px; }
+.apercu-ticket .recu-article-nom { font-weight: 700; }
+.apercu-ticket .recu-total { font-size: 14px; font-weight: 800; margin: 3px 0; }
+.apercu-ticket .recu-titre { text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 1px; margin: 0 0 4px; }
+.apercu-ticket .recu-merci { text-align: center; font-weight: 700; margin-top: 4px; }
+
+/* Devis */
+.pastille-devis { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; white-space: nowrap; vertical-align: middle; }
+.pastille-devis.gris { background: var(--border-doux); color: var(--text-2); }
+.pastille-devis.bleu { background: var(--primary-soft); color: var(--primary-dark); }
+.pastille-devis.vert { background: var(--succes-bg); color: var(--succes); }
+.pastille-devis.rouge { background: var(--danger-bg); color: var(--danger); }
+.pastille-devis.nuit { background: var(--navy); color: #FFFFFF; }
+.barre-filtres { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.barre-filtres .champ-recherche { flex: 1 1 260px; }
+.segments-defilants { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+.segments-defilants .segment { white-space: nowrap; }
+.liste-devis { padding: 0; overflow: hidden; }
+.tableau-devis { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tableau-devis th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 14px; background: var(--surface-douce); border-bottom: 1px solid var(--border); }
+.tableau-devis td { padding: 12px 14px; border-bottom: 1px solid var(--border-doux); }
+.tableau-devis tbody tr { cursor: pointer; }
+.tableau-devis tbody tr:hover { background: var(--surface-douce); }
+.vide-liste { padding: 20px; color: var(--muted); }
+.page-devis .etat-vide { align-items: center; text-align: center; padding: 32px 16px; gap: 8px; display: flex; flex-direction: column; }
+.etat-vide-icone { color: var(--primary); }
+.lien-vente-devis { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; margin-top: 4px; }
+.devis-detail { display: flex; gap: 20px; align-items: flex-start; }
+.devis-actions { flex: 0 0 280px; padding: 16px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: 16px; }
+.devis-statuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.devis-statuts .btn { flex: 1 1 auto; }
+.btn-discret-danger { color: var(--danger); }
+.apercu-devis { flex: 1; max-width: 794px; }
+.devis-editeur { display: flex; gap: 20px; align-items: flex-start; }
+.devis-editeur-gauche { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.devis-editeur-droite { flex: 0 0 320px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: 16px; }
+.liste-resultats, .resultats-clients { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.liste-resultats .item-client, .resultats-clients .item-client { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #FFFFFF; font: inherit; cursor: pointer; min-height: var(--cible); }
+.client-choisi { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-douce); }
+.client-choisi .btn-lien { margin-left: auto; }
+.lignes-devis { display: flex; flex-direction: column; gap: 8px; }
+.ligne-devis { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto 120px 110px 44px; gap: 8px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; }
+.ligne-devis-nom { display: flex; flex-direction: column; gap: 4px; min-width: 0; align-self: center; }
+.ligne-devis-champ { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 0; }
+.ligne-devis-champ .input { min-height: 40px; padding: 0 8px; width: 100%; }
+.ligne-devis-unite { font-size: 13px; color: var(--muted); align-self: center; min-width: 50px; }
+.ligne-devis-total { text-align: right; align-self: center; white-space: nowrap; }
+.tag-negocie, .tag-libre { align-self: flex-start; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+.tag-negocie { background: var(--alerte-bg); color: var(--alerte); }
+.tag-libre { background: var(--border-doux); color: var(--text-2); }
+
+/* Caisse : vente issue d'un devis, boutons de documents */
+.bandeau-devis { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-dark); font-size: 13px; }
+.bandeau-devis[hidden] { display: none; }
+.bandeau-devis > span:first-child { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.bandeau-devis-alerte { color: var(--alerte); font-weight: 700; }
+.bandeau-devis .btn-lien { align-self: flex-start; font-size: 12.5px; }
+.boutons-documents { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.boutons-documents .btn { flex: 1 1 150px; }
+
+/* Fiche client : documents émis */
+.documents-client h2 { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+.liste-documents-client { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.item-document { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer; min-height: var(--cible); color: var(--text); }
+.item-document > svg { color: var(--primary); flex: none; }
+.item-document .client-textes { flex: 1; min-width: 0; }
+.item-document:hover { border-color: var(--primary); }
+
+@media (max-width: 1199.98px) {
+  .reglages-docs { flex-direction: column; }
+  .reglages-docs-apercu { position: static; flex: none; width: 100%; align-self: center; }
+  .devis-detail, .devis-editeur { flex-direction: column; }
+  .devis-actions, .devis-editeur-droite { position: static; flex: none; width: 100%; }
+  .apercu-devis { width: 100%; }
+}
+@media (max-width: 899.98px) {
+  .grille-champs, .grille-champs.grille-3, .grille-options { grid-template-columns: 1fr; }
+  .grille-prefixes { grid-template-columns: 1fr 1fr; }
+  .cartes-modeles { gap: 6px; }
+  .libelle-couleur { width: 100%; }
+  .page-reglages-docs .entete-actions, .page-devis .entete-actions { width: 100%; }
+  .page-reglages-docs .entete-actions .btn, .page-devis .entete-actions .btn { flex: 1; }
+  .tableau-devis thead { display: none; }
+  .tableau-devis, .tableau-devis tbody, .tableau-devis tr, .tableau-devis td { display: block; width: 100%; }
+  .tableau-devis tr { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .tableau-devis td { padding: 2px 0; border: none; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .tableau-devis td::before { content: attr(data-label); color: var(--muted); font-weight: 600; font-size: 12px; text-align: left; }
+  .ligne-devis { grid-template-columns: 1fr 1fr; align-items: end; }
+  .ligne-devis-nom { grid-column: 1 / -1; }
+  .ligne-devis-unite { align-self: end; padding-bottom: 10px; }
+  .ligne-devis-total { grid-column: 1 / 2; text-align: left; }
+  .ligne-devis > .btn-icone { justify-self: end; }
+}
+@media print {
+  .recu-slogan { font-size: 10px; font-style: italic; }
+  .recu-qr { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 6px; font-size: 9px; }
+  .recu-qr svg { width: 28mm; height: 28mm; }
+}
+.reglages-docs-form > *, .devis-editeur-gauche > *, .reglages-section > * { min-width: 0; max-width: 100%; }
+.reglages-section .segments .segment, .devis-editeur .segments .segment { min-width: 0; flex: 1 1 auto; white-space: normal; }
+@media (max-width: 399.98px) { .reglages-section { padding: 14px 12px; } .cartes-modeles .carte-modele-doc { padding: 8px 4px; } }

@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v11';
+const VERSION_CACHE = 'yb-statique-v12';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -69,6 +69,19 @@ const FICHIERS_STATIQUES = [
   './b/index.html',
   './css/vitrine.css',
   './js/vitrine.js',
+  // Étape 9 : documents A4 (page d'impression), devis, réglages, page publique de vérification v/.
+  './document.html',
+  './css/document.css',
+  './js/documents/rendu.js',
+  './js/documents/lettres.js',
+  './js/documents/donnees.js',
+  './js/documents/page.js',
+  './js/documents/reglages.js',
+  './js/documents/cachet.js',
+  './js/proformas.js',
+  './v/index.html',
+  './css/verification.css',
+  './js/verification.js',
   // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
   // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
   './js/detourage.js',
@@ -135,6 +148,8 @@ self.addEventListener('fetch', (evenement) => {
  * Hors ligne, rien en cache pour cette adresse :
  *  - page de la boutique en ligne (b/…) → b/index.html (jamais l'appli) ;
  *  - panneau d'administration (admin/…) → admin/index.html (jamais l'appli) ;
+ *  - vérification d'un document (v/…) → v/index.html (jamais l'appli) ;
+ *  - page d'impression (document.html) → elle-même si elle est en cache ;
  *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
  *  - autre navigation dans l'appli → index.html.
  */
@@ -146,6 +161,13 @@ function repli(requete, url) {
   // Panneau d'administration : sa propre page, jamais l'index.html de l'appli.
   if (chemin === 'admin' || chemin.startsWith('admin/')) {
     return requete.mode === 'navigate' ? caches.match('./admin/index.html').then((r) => r || Response.error()) : Response.error();
+  }
+  // Vérification publique des documents : sa propre page, jamais l'index.html de l'appli.
+  if (chemin === 'v' || chemin.startsWith('v/')) {
+    return requete.mode === 'navigate' ? caches.match('./v/index.html').then((r) => r || Response.error()) : Response.error();
+  }
+  if (chemin === 'document.html') {
+    return requete.mode === 'navigate' ? caches.match('./document.html').then((r) => r || Response.error()) : Response.error();
   }
   if (requete.mode !== 'navigate' || chemin === '404.html') return Response.error();
   return caches.match('./index.html').then((r) => r || Response.error());

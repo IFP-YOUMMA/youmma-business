@@ -139,7 +139,12 @@ const DROITS = {
   'articles.photo': RESPONSABLES,
   'articles.promo': RESPONSABLES,
   'affiche.modifier': RESPONSABLES,
-  'affiche.partager': ['proprietaire', 'gerant', 'vendeur']
+  'affiche.partager': ['proprietaire', 'gerant', 'vendeur'],
+  // Documents A4 (facture, reçu, bon de livraison), devis et réglages des documents.
+  'documents.imprimer': ['proprietaire', 'gerant', 'vendeur'],
+  'devis.creer': ['proprietaire', 'gerant', 'vendeur'],
+  'devis.statut': ['proprietaire', 'gerant', 'vendeur'],
+  'documents.reglages': RESPONSABLES
 };
 
 /** Vrai si le membre courant a le droit demandé dans la boutique active. */

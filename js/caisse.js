@@ -11,6 +11,8 @@ import { imprimerRecuVente } from './recu.js';
 import { naviguer } from './router.js';
 import { chargerChantierOuvert } from './chantiers-commun.js';
 import { chargerSoldeSms } from './sms.js';
+import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
+import { CLE_DEVIS_CAISSE } from './proformas.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -52,7 +54,11 @@ export function afficherCaisse(conteneur, params) {
     echeance: dateISO(ECHEANCE_PAR_DEFAUT_JOURS),
     recuSms: false,
     enCours: false,
-    panierOuvert: false
+    panierOuvert: false,
+    /** Devis en cours de transformation en vente : { id, numero, total, lignes, libres } (sessionStorage). */
+    devis: null,
+    /** Réglages des documents (facture A4 / reçu A4, format par défaut). */
+    reglagesDocs: null
   };
   const cleAttente = `yb_attente_${boutique.id}`;
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
@@ -126,6 +132,7 @@ export function afficherCaisse(conteneur, params) {
 
       <div class="caisse-corps">
         <section class="catalogue" aria-label="Articles">
+          <div class="bandeau-devis" data-zone="devis" hidden></div>
           <label class="recherche-caisse">
             ${icone('recherche', 20, 2)}
             <span class="sr-only">Rechercher un article ou scanner un code-barres</span>
@@ -397,6 +404,7 @@ export function afficherCaisse(conteneur, params) {
     refs('sous-total').forEach((el) => { el.textContent = formatNombre(sousTotal); });
     refs('libelle-total').forEach((el) => { el.textContent = remise ? `Total (remise − ${formatNombre(remise)})` : 'Total'; });
     refs('monnaie').forEach((el) => { el.textContent = texteMonnaie(total); });
+    if (s.devis) renderBandeauDevis();
   }
 
   function renderAttente() {
@@ -406,6 +414,7 @@ export function afficherCaisse(conteneur, params) {
   function renderTout() {
     renderGrille();
     renderPanier();
+    if (s.devis) renderBandeauDevis();
   }
 
   /* ======================================================= Panier : actions */
@@ -747,7 +756,9 @@ export function afficherCaisse(conteneur, params) {
       });
       if (error) throw error;
       const vente = (Array.isArray(data) ? data[0] : data) || {};
+      const devis = s.devis;
       s.enCours = false;
+      if (devis && vente.id) lierDevis(devis, vente);
       viderPanier();
       s.panierOuvert = false;
       document.body.classList.remove('panier-plein-ecran');
@@ -797,8 +808,8 @@ export function afficherCaisse(conteneur, params) {
           ${monnaie !== null ? `<div class="confirmation-monnaie"><span>Monnaie à rendre</span><strong>${formatGNF(Math.max(0, monnaie))}</strong></div>` : ''}
           ${instantane.echeance ? `<p class="discret">Ajouté au crédit du client · échéance le ${esc(formatDate(instantane.echeance, 'court'))}</p>` : ''}
         </div>
+        ${boutonsDocuments()}
         <div class="modale-actions">
-          <button type="button" class="btn btn-secondaire btn-grand" data-action="imprimer">${icone('imprimante', 18, 2)} Imprimer le reçu</button>
           <button type="button" class="btn btn-primaire btn-grand" data-action="nouvelle-vente">Nouvelle vente</button>
         </div>`,
       onFermer: () => conteneur.querySelector('#recherche-caisse')?.focus()
@@ -810,10 +821,82 @@ export function afficherCaisse(conteneur, params) {
       if (boutonImprimer) {
         boutonOccupe(boutonImprimer, true, 'Préparation…');
         const recuFinal = await recuServeur;
-        imprimerRecuVente({ ...recuFinal, client: recuFinal.client?.nom || null, vendeur: etat.membre?.nom });
+        imprimerRecuVente({ ...recuFinal, client: recuFinal.client?.nom || null, vendeur: etat.membre?.nom }, { idVente: vente.id });
         boutonOccupe(boutonImprimer, false);
       }
+      const boutonDoc = e.target.closest('[data-document]');
+      if (boutonDoc && vente.id) ouvrirDocument({ type: boutonDoc.dataset.document, vente: vente.id, retour: '#/caisse' });
     });
+  }
+
+  /** Boutons d'impression : facture (ou reçu) A4, bon de livraison, ticket 80 mm ; le format par défaut en premier. */
+  function boutonsDocuments() {
+    const reglages = s.reglagesDocs || {};
+    const type = typeVente(reglages);
+    const ticket80 = reglages.format_defaut === '80mm';
+    const a4 = `<button type="button" class="btn ${ticket80 ? 'btn-secondaire' : 'btn-primaire'}" data-document="${type}">${icone('document', 18, 2)} ${type === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>`;
+    const ticket = `<button type="button" class="btn ${ticket80 ? 'btn-primaire' : 'btn-secondaire'}" data-action="imprimer">${icone('imprimante', 18, 2)} Ticket 80 mm</button>`;
+    const bl = `<button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>`;
+    return `<div class="boutons-documents">${ticket80 ? ticket + a4 : a4 + ticket}${bl}</div>`;
+  }
+
+  /* ======================================================= Devis → vente */
+
+  /** Remplit le panier avec le devis (articles du stock), la remise et le client du devis. */
+  async function appliquerDevis(idDevis) {
+    let devis = null;
+    try { devis = JSON.parse(sessionStorage.getItem(CLE_DEVIS_CAISSE) || 'null'); } catch { /* rien */ }
+    if (!devis || devis.id !== idDevis) { toast('Devis introuvable sur cet appareil : rouvrez-le depuis « Devis ».', 'erreur'); return; }
+    if (s.panier.size && !(await confirmer('Le panier en cours sera remplacé par le devis.', { libelleOk: 'Remplacer' }))) return;
+    viderPanier();
+    s.typePrix = 'detail';
+    const manquants = [];
+    devis.lignes.forEach((l) => {
+      const produit = s.produits.find((p) => p.id === l.produit_id);
+      if (!produit) { manquants.push(l.nom); return; }
+      const quantite = Math.min(Number(l.quantite) || 0, quantiteMax(produit));
+      if (quantite < Number(l.quantite)) manquants.push(`${l.nom} (stock insuffisant)`);
+      if (quantite > 0) s.panier.set(produit.id, { produit, quantite });
+    });
+    if (devis.client?.id) {
+      try { const c = await chargerClient(boutique.id, devis.client.id); if (c) s.client = c; } catch { /* client comptoir */ }
+    }
+    // Total visé : le devis, moins les lignes libres (hors stock), qui ne peuvent pas entrer dans la vente.
+    const totalLibres = devis.libres.reduce((t, l) => t + (Number(l.total) || 0), 0);
+    const cible = Math.max(0, devis.total - totalLibres);
+    const { sousTotal } = totaux();
+    s.remise = sousTotal > cible ? sousTotal - cible : 0;
+    s.devis = { ...devis, cible, totalLibres, manquants };
+    majBasculePrix();
+    renderTout();
+    renderBandeauDevis();
+  }
+
+  function renderBandeauDevis() {
+    const zoneDevis = zone('devis');
+    if (!zoneDevis) return;
+    if (!s.devis) { zoneDevis.hidden = true; zoneDevis.innerHTML = ''; return; }
+    const { cible, totalLibres, manquants } = s.devis;
+    const { total } = totaux();
+    const alertes = [];
+    if (s.devis.libres.length) alertes.push(`Lignes libres du devis à ajouter manuellement ou en remise : ${s.devis.libres.map((l) => `${l.nom} (${formatGNF(l.total)})`).join(', ')}.`);
+    if (manquants.length) alertes.push(`Non repris : ${manquants.join(', ')}.`);
+    if (total !== cible) alertes.push(`Attention : le total de la vente (${formatGNF(total)}) diffère du devis (${formatGNF(cible)}${totalLibres ? ' hors lignes libres' : ''}).`);
+    zoneDevis.hidden = false;
+    zoneDevis.innerHTML = `
+      <span>${icone('document', 18, 2)} Vente issue du devis <strong>${esc(s.devis.numero)}</strong> · total du devis ${formatGNF(s.devis.total)}${s.devis.client_nom ? ` · ${esc(s.devis.client_nom)}` : ''}</span>
+      ${alertes.map((a) => `<span class="bandeau-devis-alerte">${esc(a)}</span>`).join('')}
+      <button type="button" class="btn-lien" data-action="abandonner-devis">Ne plus lier au devis</button>`;
+  }
+
+  /** Après la vente : devis « converti » avec le lien vers la vente. */
+  async function lierDevis(devis, vente) {
+    s.devis = null;
+    try { sessionStorage.removeItem(CLE_DEVIS_CAISSE); } catch { /* rien */ }
+    renderBandeauDevis();
+    const { error } = await sb.rpc('statut_proforma', { p_proforma: devis.id, p_statut: 'converti', p_vente: vente.id });
+    if (error) toast(`Vente enregistrée, mais le devis n’a pas pu être marqué : ${messageErreur(error)}`, 'erreur', 8000);
+    else toast(`Devis ${devis.numero} transformé en vente.`, 'succes', 6000, { libelle: 'Voir le devis', href: `#/proformas/${encodeURIComponent(devis.id)}` });
   }
 
   /** Relit la vente et ses lignes enregistrées ; garde l'aperçu local en cas d'échec. */
@@ -909,6 +992,10 @@ export function afficherCaisse(conteneur, params) {
       case 'enlevement-chantier': return versEnlevementChantier();
       case 'mettre-en-attente': return mettreEnAttente();
       case 'liste-attente': return ouvrirListeAttente();
+      case 'abandonner-devis':
+        s.devis = null;
+        try { sessionStorage.removeItem(CLE_DEVIS_CAISSE); } catch { /* rien */ }
+        return renderBandeauDevis();
       case 'valider': return valider();
       case 'ouvrir-panier': return basculerPanier(true);
       case 'fermer-panier': return basculerPanier(false);
@@ -956,8 +1043,9 @@ export function afficherCaisse(conteneur, params) {
 
   renderPanier();
   renderAttente();
-  chargerDonnees();
+  chargerDonnees().then(() => { if (params?.get('devis') && conteneur.isConnected) appliquerDevis(params.get('devis')); });
   chargerReglageRecuSms();
+  chargerReglages(boutique.id).then((r) => { s.reglagesDocs = r; }).catch(() => { /* boutons par défaut */ });
   if (params?.get('client')) preselectionnerClient(params.get('client'));
   if (params?.get('vendre') !== null || window.matchMedia('(min-width: 900px)').matches) {
     conteneur.querySelector('#recherche-caisse').focus({ preventScroll: true });

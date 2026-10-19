@@ -18,6 +18,7 @@ import {
   envoyerPhotoBon, afficherPhotoBon
 } from './chantiers-commun.js';
 import { imprimerBonEnlevement } from './recu.js';
+import { ouvrirDocument } from './documents/donnees.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
@@ -490,11 +491,16 @@ function afficherCompte(conteneur, id, params) {
           <div class="confirmation-monnaie"><span>Solde après</span><strong class="${classeSolde(bon.soldeApres)}">${esc(texteSolde(bon.soldeApres))}</strong></div>
         </div>
         <div class="modale-actions">
-          <button type="button" class="btn btn-secondaire btn-grand" data-action="imprimer">${icone('imprimante', 18, 2)} Imprimer le bon d’enlèvement</button>
+          <button type="button" class="btn btn-secondaire btn-grand" data-action="imprimer">${icone('imprimante', 18, 2)} Bon d’enlèvement 80 mm</button>
+          <button type="button" class="btn btn-secondaire btn-grand" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison A4</button>
+          <button type="button" class="btn btn-secondaire btn-grand" data-document="facture">${icone('document', 18, 2)} Facture A4</button>
           <button type="button" class="btn btn-primaire btn-grand" data-fermer>Terminé</button>
         </div>`
     });
     el.querySelector('[data-action="imprimer"]').addEventListener('click', () => { imprimerBonEnlevement(bon); fermer(); });
+    el.querySelectorAll('[data-document]').forEach((b) => b.addEventListener('click', () => {
+      ouvrirDocument({ type: b.dataset.document, vente: idVente, retour: `#/chantiers/${encodeURIComponent(id)}` });
+    }));
   }
 
   /* ---------------- Actions du gérant */

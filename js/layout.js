@@ -19,6 +19,7 @@ export const SECTIONS = [
   { route: 'tableau-de-bord', libelle: 'Tableau de bord', icone: 'tableau', active: true },
   { route: 'caisse', libelle: 'Caisse', icone: 'caisse', active: true },
   { route: 'ventes', libelle: 'Ventes', icone: 'ventes', active: true },
+  { route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer' },
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
   { route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true },

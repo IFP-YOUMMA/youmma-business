@@ -16,6 +16,8 @@ import {
   chargerNomsMembres, badgeEcheance, ouvrirFormulaireClient
 } from './clients-commun.js';
 import { imprimerRecuRemboursement } from './recu.js';
+import { ouvrirDocument } from './documents/donnees.js';
+import { LIBELLES_DOCUMENTS } from './documents/rendu.js';
 import { COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier } from './chantiers-commun.js';
 import { relancerParSms } from './sms.js';
 import {
@@ -456,11 +458,50 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
             <h2>Historique</h2>
             <div data-zone="historique">${histo.html || squelettesHistorique()}</div>
           </section>
+
+          <section class="documents-client" aria-label="Documents émis" data-zone="documents-client" hidden></section>
         </div>
       </div>`;
     majApercu();
     chargerHistorique();
     chargerChantiersClient();
+    chargerDocumentsClient();
+  }
+
+  /* ---------------- Documents émis pour ce client (factures, reçus, bons, devis) */
+
+  async function chargerDocumentsClient() {
+    const zoneDocs = zone.querySelector('[data-zone="documents-client"]');
+    try {
+      const [ventes, devis] = await Promise.all([
+        sb.from('ventes').select('id').eq('boutique_id', boutique.id).eq('client_id', client.id).order('created_at', { ascending: false }).limit(300),
+        sb.from('proformas').select('id').eq('boutique_id', boutique.id).eq('client_id', client.id).limit(300)
+      ]);
+      const docs = [];
+      const parPaquets = async (colonne, ids) => {
+        for (let i = 0; i < ids.length; i += 100) {
+          const { data } = await sb.from('documents_emis').select('id, type, numero, total, created_at, vente_id, proforma_id').in(colonne, ids.slice(i, i + 100));
+          docs.push(...(data || []));
+        }
+      };
+      await parPaquets('vente_id', (ventes.data || []).map((v) => v.id));
+      await parPaquets('proforma_id', (devis.data || []).map((p) => p.id));
+      if (!zoneDocs.isConnected || !docs.length) return;
+      docs.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      zoneDocs.hidden = false;
+      zoneDocs.innerHTML = `<h2>Documents émis</h2>
+        <ul class="liste-documents-client">${docs.slice(0, 30).map((d) => `
+          <li><button type="button" class="item-document" data-doc-type="${esc(d.type)}" data-doc-vente="${esc(d.vente_id || '')}" data-doc-proforma="${esc(d.proforma_id || '')}">
+            ${icone('document', 18, 2)}
+            <span class="client-textes"><span class="gras">${esc(d.numero)}</span><span class="discret">${esc(LIBELLES_DOCUMENTS[d.type] || d.type)} · ${esc(formatDate(d.created_at, 'court'))}</span></span>
+            <span class="gras">${d.type === 'bon_livraison' ? '' : formatGNF(d.total)}</span>
+          </button></li>`).join('')}</ul>`;
+      zoneDocs.onclick = (e) => {
+        const b = e.target.closest('.item-document');
+        if (!b) return;
+        ouvrirDocument({ type: b.dataset.docType, vente: b.dataset.docVente || null, proforma: b.dataset.docProforma || null });
+      };
+    } catch { /* section facultative */ }
   }
 
   function squelettesHistorique() {

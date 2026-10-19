@@ -9,6 +9,7 @@ import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
 import { naviguer } from './router.js';
 import { imprimerRecuVente } from './recu.js';
+import { ouvrirDocument } from './documents/donnees.js';
 import { chargerSoldeSms } from './sms.js';
 import { verifierCommandes } from './alertes-commandes.js';
 import {
@@ -326,7 +327,8 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
         ${c.statut === 'nouvelle' && peut('commandes.traiter') ? '<button type="button" class="btn btn-primaire btn-action-principale" data-action="confirmer">Confirmer la commande</button>' : ''}
         ${c.statut === 'confirmee' && peut('commandes.traiter') ? '<button type="button" class="btn btn-primaire btn-action-principale" data-action="prete">Marquer prête</button>' : ''}
         ${(c.statut === 'prete' || c.statut === 'confirmee') && peut('commandes.traiter') ? `<button type="button" class="btn ${c.statut === 'prete' ? 'btn-primaire btn-action-principale' : 'btn-secondaire'}" data-action="livrer">Livrée et encaissée</button>` : ''}
-        ${vente ? `<button type="button" class="btn btn-secondaire" data-action="recu">${icone('imprimante', 18, 2)} Reçu</button>` : ''}
+        ${vente ? `<button type="button" class="btn btn-secondaire" data-action="facture">${icone('document', 18, 2)} Facture A4</button>` : ''}
+        ${vente ? `<button type="button" class="btn btn-secondaire" data-action="recu">${icone('imprimante', 18, 2)} Ticket</button>` : ''}
         ${telephone ? `<a class="btn btn-whatsapp" href="${esc(lienWhatsAppClient(c))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} WhatsApp</a>` : ''}
         ${telephone ? `<a class="btn btn-secondaire" href="tel:+${esc(telephone)}">${icone('telephone', 18, 2)} Appeler</a>` : ''}
         ${peutRefuser ? `<button type="button" class="btn btn-refuser" data-action="refuser">${c.statut === 'nouvelle' ? 'Refuser' : 'Annuler'}</button>` : ''}
@@ -350,6 +352,7 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
     if (action === 'livrer') ouvrirLivraison(c, apresAction);
     if (action === 'refuser') ouvrirRefus(c, apresAction);
     if (action === 'recu') imprimerRecuCommande(c, vente, bouton);
+    if (action === 'facture') ouvrirDocument({ type: 'facture', vente: vente.id, retour: `#/commandes/${encodeURIComponent(c.id)}` });
   };
 }
 
@@ -473,5 +476,5 @@ async function imprimerRecuCommande(c, vente, bouton) {
     sousTotal: Number(v.sous_total), remise: Number(v.remise), total: Number(v.total), mode: v.mode_paiement,
     montantRecu: null, echeance: v.mode_paiement === 'credit' ? v.echeance : null,
     fraisLivraison: Number(v.frais_livraison) || 0, commande: c.numero
-  });
+  }, { idVente: vente.id });
 }
