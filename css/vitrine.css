@@ -69,27 +69,42 @@ img { display: block; max-width: 100%; }
 .v-contenu { padding: 14px 16px 120px; display: flex; flex-direction: column; gap: 12px; }
 .v-bandeau { padding: 10px 14px; border-radius: 12px; background: #FFF1D6; color: var(--commande); font-weight: 800; font-size: 13px; }
 
-/* Affiche du jour */
+/* Affiche du jour : même style que le modèle de l'affiche (Impact, Catalogue, Sélection — AffichesPro.dc.html). */
+@font-face { font-family: 'YB Bebas'; src: url('../fonts/bebas-neue-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 .v-affiche {
-  display: flex; align-items: stretch; border: none; padding: 0; border-radius: 16px; overflow: hidden; text-align: left; cursor: pointer;
-  color: #FFFFFF; background: linear-gradient(135deg, var(--promo) 0%, var(--promo-2) 100%); box-shadow: 0 6px 16px rgba(196,62,0,.25);
+  position: relative; display: flex; align-items: stretch; border: none; padding: 0; border-radius: 16px; overflow: hidden; text-align: left; cursor: pointer;
+  color: #FFFFFF; box-shadow: 0 8px 20px rgba(6,20,42,.3);
+  /* Impact (promo) : nuit en dégradé radial + bande diagonale orange. */
+  background: radial-gradient(120% 90% at 70% 35%, #1B3A66 0%, #0B1F3A 55%, #06142A 100%);
 }
-.v-affiche-jour { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 55%, var(--primary) 100%); box-shadow: 0 6px 16px rgba(11,31,58,.25); }
-.v-affiche-arrivage { background: #FFFFFF; color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+.v-affiche-promo::before {
+  content: ''; position: absolute; left: -20%; right: -20%; top: 58%; height: 40px; transform: rotate(-12deg);
+  background: linear-gradient(90deg, #EF6C00, #FF9A3C); opacity: .95;
+}
+.v-affiche > * { position: relative; }
+.v-affiche-jour { background: #F6F3EE; color: var(--text); box-shadow: 0 8px 20px rgba(6,20,42,.12); border: 1px solid #E8E2D8; }
+.v-affiche-arrivage { background: linear-gradient(165deg, #1565C0 0%, #0D47A1 60%, #0B1F3A 100%); }
 .v-affiche:disabled { cursor: default; opacity: .8; }
 .v-affiche-textes { flex: 1; min-width: 0; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
-.v-affiche-tag { align-self: flex-start; padding: 3px 8px; border-radius: 7px; background: #FFFFFF; color: var(--promo-2); font-weight: 800; font-size: 11px; letter-spacing: .05em; }
-.v-affiche-jour .v-affiche-tag { background: #4FC3F7; color: var(--navy); }
-.v-affiche-arrivage .v-affiche-tag { background: var(--primary); color: #FFFFFF; }
+.v-affiche-tag { align-self: flex-start; padding: 3px 8px; border-radius: 7px; background: #FF9A3C; color: #3B1700; font-weight: 800; font-size: 11px; letter-spacing: .05em; }
+.v-affiche-jour .v-affiche-tag { background: transparent; color: var(--primary); padding: 0; letter-spacing: .12em; }
+.v-affiche-arrivage .v-affiche-tag { background: #4FC3F7; color: var(--navy); border-radius: 999px; }
 .v-affiche-nom { font-weight: 800; font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; }
+.v-affiche-promo .v-affiche-nom, .v-affiche-arrivage .v-affiche-nom {
+  font-family: 'YB Bebas', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-weight: 400; font-size: 30px; line-height: .95; letter-spacing: .01em; text-transform: uppercase;
+}
+.v-affiche-promo .v-affiche-nom { color: #FF9A3C; }
 .v-affiche-barre { font-size: 12px; opacity: .75; }
-.v-affiche-prix { font-weight: 800; font-size: 22px; line-height: 1; }
-.v-affiche-prix small { font-size: 11px; }
-.v-affiche-arrivage .v-affiche-prix { color: var(--primary-dark); }
+.v-affiche-prix { font-weight: 800; font-size: 24px; line-height: 1; }
+.v-affiche-promo .v-affiche-prix { font-family: 'YB Bebas', 'Bebas Neue', Impact, sans-serif; font-weight: 400; font-size: 34px; text-shadow: 0 2px 6px rgba(60,20,0,.35); }
+.v-affiche-jour .v-affiche-prix { color: var(--navy); letter-spacing: -.02em; }
+.v-affiche-prix small { font-size: 11px; font-family: 'Manrope', system-ui, sans-serif; font-weight: 800; }
 .v-affiche-phrase { font-size: 12px; opacity: .9; }
-.v-affiche-visuel { width: 112px; flex: none; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; color: #FFFFFF; }
-.v-affiche-arrivage .v-affiche-visuel { background: var(--primary-soft); color: var(--primary); }
-.v-affiche-visuel img { width: 100%; height: 100%; object-fit: cover; }
+.v-affiche-jour .v-affiche-phrase { color: #44546B; opacity: 1; }
+.v-affiche-visuel { width: 112px; flex: none; display: flex; align-items: center; justify-content: center; color: #FFFFFF; padding: 10px; }
+.v-affiche-visuel img { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; filter: drop-shadow(0 8px 10px rgba(0,0,0,.3)); }
+.v-affiche-jour .v-affiche-visuel { color: var(--primary); background: radial-gradient(circle at 60% 50%, #E3EEFB 0 58%, transparent 59%); }
+.v-affiche-jour .v-affiche-visuel img { filter: drop-shadow(0 6px 8px rgba(11,31,58,.18)); }
 
 /* Recherche et catégories */
 .v-recherche { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; background: #FFFFFF; border: 1px solid var(--border-input); border-radius: 14px; color: var(--muted); }

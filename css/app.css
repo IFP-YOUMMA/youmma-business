@@ -2294,3 +2294,60 @@ a.client-bouton svg { color: var(--muted); flex: none; }
 }
 .ben-stats { gap: 8px; }
 .lien-commande-vente .avatar { background: #FFF4EA; color: #7A3300; }
+
+/* =========================================================================
+   Étape 7b — Affiches pro (Facebook 4:5), texte de publication, photo sans fond
+   ========================================================================= */
+
+.formats-affiche { align-self: flex-start; max-width: 100%; }
+.affiche-image.facebook { max-width: 300px; }
+.affiche-apercu { flex-basis: 280px; }
+.texte-publication textarea { resize: vertical; font-size: 14px; line-height: 1.5; min-height: 170px; }
+.affiche-partage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.affiche-partage .btn { min-height: 56px; font-size: 15px; }
+.btn-facebook { background: #1877F2; color: #FFFFFF; font-weight: 800; }
+.btn-facebook:hover { background: #166FE5; color: #FFFFFF; }
+.autre-article { display: flex; align-items: center; gap: 6px; }
+.autre-article + .autre-article { margin-top: 6px; }
+.btn-retirer-autre {
+  flex: none; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border-input); background: #FFFFFF; color: var(--danger);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.btn-retirer-autre[hidden] { display: none; }
+.couleurs-affiche { display: flex; flex-wrap: wrap; gap: 10px; }
+.pastille-couleur {
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 3px solid #FFFFFF;
+  background: linear-gradient(135deg, var(--c1) 0 50%, var(--c2) 50% 100%); box-shadow: 0 0 0 1px var(--border-input);
+}
+.pastille-couleur[aria-checked="true"] { box-shadow: 0 0 0 3px var(--primary); }
+.photo-affiche-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-affiche-actions [hidden] { display: none; }
+
+/* Fenêtre « Retirer le fond » */
+.detourage { display: flex; flex-direction: column; gap: 14px; }
+.detourage-progres { display: flex; flex-direction: column; gap: 10px; }
+.detourage-progres[hidden], .detourage-resultat[hidden] { display: none; }
+.detourage-etape { font-size: 14px; font-weight: 700; color: var(--text-2); }
+.barre-progres { height: 10px; border-radius: 999px; background: var(--border-doux); overflow: hidden; }
+.barre-progres span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--accent-light)); transition: width .25s; }
+.detourage-resultat { display: flex; flex-direction: column; gap: 12px; }
+.avant-apres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.avant-apres figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.avant-apres figcaption { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
+.aa-image { aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-douce); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.aa-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.damier {
+  background-color: #FFFFFF;
+  background-image: linear-gradient(45deg, #E6EAF0 25%, transparent 25%), linear-gradient(-45deg, #E6EAF0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #E6EAF0 75%), linear-gradient(-45deg, transparent 75%, #E6EAF0 75%);
+  background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
+.cad-miniature { width: 80px; height: 100px; }
+
+@media (max-width: 899.98px) {
+  .affiche-partage { grid-template-columns: 1fr; }
+  .affiche-image.facebook { max-width: 100%; }
+}
+.champ[hidden], [data-zone="autres"][hidden] { display: none; }
+.autre-article .choix-produit-affiche { flex: 1; min-width: 0; width: auto; }

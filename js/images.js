@@ -71,10 +71,10 @@ export function cheminDansBucket(url) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-/** Envoie un JPEG dans le bucket « produits » sous <boutique_id>/<nom> et renvoie l'URL publique. */
-export async function envoyerImage(nom, blob) {
+/** Envoie une image (JPEG par défaut, PNG pour les photos sans fond) dans le bucket « produits ». */
+export async function envoyerImage(nom, blob, contentType = 'image/jpeg') {
   const chemin = `${etat.boutique.id}/${nom}`;
-  const { error } = await sb.storage.from(BUCKET_PRODUITS).upload(chemin, blob, { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' });
+  const { error } = await sb.storage.from(BUCKET_PRODUITS).upload(chemin, blob, { contentType, upsert: true, cacheControl: '31536000' });
   if (error) throw error;
   return sb.storage.from(BUCKET_PRODUITS).getPublicUrl(chemin).data.publicUrl;
 }
@@ -94,6 +94,19 @@ export async function supprimerImage(url) {
 export async function changerPhotoArticle(produit, fichier) {
   const blob = await compresserPhotoArticle(fichier);
   const url = await envoyerImage(`${produit.id}-${Date.now()}.jpg`, blob);
+  const { error } = await sb.from('produits').update({ photo_url: url }).eq('id', produit.id);
+  if (error) throw error;
+  if (produit.photo_url && produit.photo_url !== url) await supprimerImage(produit.photo_url);
+  return { url, taille: blob.size };
+}
+
+/**
+ * Remplace la photo d'un article par une image déjà prête (JPEG compressé ou PNG sans fond) :
+ * <boutique>/<produit>-<horodatage>.<ext>, produits.photo_url, ancienne photo supprimée.
+ */
+export async function remplacerPhotoArticle(produit, blob, extension = 'jpg') {
+  const type = extension === 'png' ? 'image/png' : 'image/jpeg';
+  const url = await envoyerImage(`${produit.id}-${Date.now()}.${extension}`, blob, type);
   const { error } = await sb.from('produits').update({ photo_url: url }).eq('id', produit.id);
   if (error) throw error;
   if (produit.photo_url && produit.photo_url !== url) await supprimerImage(produit.photo_url);

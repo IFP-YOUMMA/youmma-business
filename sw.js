@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v8';
+const VERSION_CACHE = 'yb-statique-v9';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -52,6 +52,13 @@ const FICHIERS_STATIQUES = [
   './b/index.html',
   './css/vitrine.css',
   './js/vitrine.js',
+  // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
+  // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
+  './js/detourage.js',
+  './fonts/manrope-500.woff2',
+  './fonts/manrope-700.woff2',
+  './fonts/manrope-800.woff2',
+  './fonts/bebas-neue-400.woff2',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -66,7 +73,8 @@ self.addEventListener('install', (evenement) => {
 self.addEventListener('activate', (evenement) => {
   evenement.waitUntil(
     caches.keys()
-      .then((cles) => Promise.all(cles.filter((cle) => cle !== VERSION_CACHE).map((cle) => caches.delete(cle))))
+      // Seules les anciennes versions statiques sont supprimées (le cache du détourage est gardé).
+      .then((cles) => Promise.all(cles.filter((cle) => cle.startsWith('yb-statique-') && cle !== VERSION_CACHE).map((cle) => caches.delete(cle))))
       .then(() => self.clients.claim())
   );
 });
@@ -77,6 +85,9 @@ self.addEventListener('fetch', (evenement) => {
 
   // Jamais Supabase, jamais d'autre origine, jamais autre chose que GET : le navigateur gère seul.
   if (url.hostname.endsWith('.supabase.co') || url.hostname.endsWith('.supabase.in')) return;
+  // Détourage (11 Mo de moteur + 4,4 Mo de modèle) : jamais dans le cache statique. Le worker garde
+  // le modèle dans son propre cache après le premier téléchargement ; le reste passe par le cache HTTP.
+  if (/\/(models\/|js\/vendor\/onnxruntime\/|js\/detourage-worker\.js)/.test(url.pathname)) return;
   if (url.origin !== self.location.origin || requete.method !== 'GET') return;
 
   evenement.respondWith(

@@ -12,6 +12,7 @@ import {
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
 } from './utils.js';
 import { changerPhotoArticle, retirerPhotoArticle, choisirImage } from './images.js';
+import { ouvrirDetourage, detourageDisponible } from './detourage.js';
 
 /**
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
@@ -239,6 +240,10 @@ export function afficherStock(conteneur, params) {
       if (!action) return;
       if (action === 'entree' || action === 'ajustement') ouvrirMouvement(produit, action, rafraichir);
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
+      if (action === 'retirer-fond') {
+        ouvrirDetourage(produit, { apres: ({ url }) => { remplacerProduit({ ...produit, photo_url: url }); rafraichir(); } });
+        return;
+      }
       if (action === 'photo' || action === 'retirer-photo') {
         const bouton = e.target.closest('button');
         if (action === 'retirer-photo' && !(await confirmer('La photo sera retirée de la caisse et de la boutique en ligne.', { titre: 'Retirer la photo', libelleOk: 'Retirer', danger: true }))) return;
@@ -286,6 +291,7 @@ export function afficherStock(conteneur, params) {
           ${photo ? `
             <span class="fiche-photo-actions">
               <button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="photo">${icone('photo', 16, 2)} ${p.photo_url ? 'Changer la photo' : 'Ajouter une photo'}</button>
+              ${p.photo_url && detourageDisponible() ? `<button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="retirer-fond">${icone('image', 16, 2)} Retirer le fond</button>` : ''}
               ${p.photo_url ? '<button type="button" class="btn-lien btn-lien-danger" data-action-fiche="retirer-photo">Retirer la photo</button>' : ''}
               <small class="aide">Prise ou choisie, elle est réduite automatiquement (moins de 300 Ko).</small>
             </span>` : ''}

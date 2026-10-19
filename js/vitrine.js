@@ -317,7 +317,7 @@ function carteAffiche(a) {
   if (!p || !s.produits.has(p.id)) return '';
   const produit = { ...s.produits.get(p.id), ...p };
   const modele = ['promo', 'jour', 'arrivage'].includes(a.modele) ? a.modele : 'jour';
-  const etiquette = { promo: 'PROMO DU JOUR', jour: 'PRODUIT DU JOUR', arrivage: 'NOUVEL ARRIVAGE' }[modele];
+  const etiquette = { promo: 'PROMO DU JOUR', jour: 'LE CHOIX DU JOUR', arrivage: 'NOUVEL ARRIVAGE' }[modele];
   const epuise = produit.dispo === 'epuise';
   return `
     <button type="button" class="v-affiche v-affiche-${modele}" data-ajouter="${esc(produit.id)}" ${epuise ? 'disabled' : ''}

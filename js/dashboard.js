@@ -3,7 +3,7 @@
  * Chaque bloc se charge indépendamment et affiche un squelette en attendant.
  */
 import { chargerAfficheDuJour, donneesAffiche, publierAffiche } from './affiche-jour.js';
-import { genererAffiche, versPng } from './affiche.js';
+import { genererAffiche, versImage } from './affiche.js';
 import { sb } from './supabase.js';
 import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
@@ -115,15 +115,15 @@ async function chargerBlocEnLigne(zone) {
         </span>
       </div>` : ''}`;
   if (!affiche) return;
-  const donnees = donneesAffiche(affiche.affiche, affiche.enLigne);
+  const donnees = donneesAffiche(affiche.affiche, affiche);
   zone.querySelector('[data-action="publier-affiche"]').addEventListener('click', async (e) => {
     const bouton = e.currentTarget;
     bouton.disabled = true;
-    try { await publierAffiche(donnees); } catch (err) { console.error(err); }
+    try { await publierAffiche(donnees, 'facebook'); } catch (err) { console.error(err); }
     bouton.disabled = false;
   });
   try {
-    const blob = await versPng(await genererAffiche(donnees, 'statut'));
+    const blob = await versImage(await genererAffiche(donnees, 'facebook'), 'facebook');
     const cadre = zone.querySelector('[data-zone="miniature"]');
     if (cadre?.isConnected) cadre.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Affiche du jour : ${esc(donnees.produit.nom)}">`;
   } catch (err) { console.warn('[YOUMMA] Miniature affiche :', err); }
