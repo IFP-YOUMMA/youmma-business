@@ -24,7 +24,6 @@ export const STATUTS_DEVIS = {
   converti: { libelle: 'Transformé en vente', classe: 'nuit' }
 };
 const CLE_DUPLICATION = 'yb_devis_duplique';
-export const CLE_DEVIS_CAISSE = 'yb_devis_caisse';
 
 const finValidite = (pf) => new Date(new Date(pf.created_at).getTime() + Number(pf.validite_jours || 0) * 86400000);
 function texteValidite(pf) {
@@ -241,21 +240,9 @@ function afficherDetail(conteneur, id) {
     charger();
   }
 
+  /** La caisse relit le devis en base : fonctionne depuis n'importe quel appareil et pour tous les rôles. */
   function convertir() {
-    const pf = s.d.proforma;
-    const libres = (pf.lignes || []).filter((l) => !l.produit_id);
-    try {
-      sessionStorage.setItem(CLE_DEVIS_CAISSE, JSON.stringify({
-        id: pf.id, numero: s.doc?.numero || 'Devis', total: Number(pf.total),
-        client: pf.client_id ? { id: pf.client_id } : null, client_nom: s.d.client?.nom || null,
-        lignes: (pf.lignes || []).filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
-        libres: libres.map((l) => ({ nom: l.nom, total: Number(l.total) }))
-      }));
-    } catch {
-      toast('Impossible de préparer la caisse sur cet appareil.', 'erreur');
-      return;
-    }
-    naviguer(`caisse?devis=${encodeURIComponent(pf.id)}`);
+    naviguer(`caisse?devis=${encodeURIComponent(s.d.proforma.id)}`);
   }
 
   window.addEventListener('resize', ajuster);

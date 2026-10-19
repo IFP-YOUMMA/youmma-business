@@ -207,18 +207,34 @@ export function rendreDocument(p) {
   // Tableau des articles.
   const qte = (l) => esc(formatNombre(l.quantite, 3));
   let tete;
-  let corps;
+  let rangs;
+  let colonnes; // largeurs fixes : les deux morceaux du tableau restent alignés
+  const pair = (i) => (i % 2 ? ' class="ybd-pair"' : '');
   if (bl) {
     tete = `<th class="ybd-n">N°</th><th>Désignation</th><th>Unité</th><th class="ybd-d">Qté commandée</th><th class="ybd-d">Qté livrée</th>${avecPrix ? '<th class="ybd-d">Montant (GNF)</th>' : ''}`;
-    corps = lignes.map((l, i) => `<tr><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td>${esc(l.unite)}</td><td class="ybd-d">${qte(l)}</td><td class="ybd-d ybd-a-remplir"></td>${avecPrix ? `<td class="ybd-d ybd-g">${nb(l.total)}</td>` : ''}</tr>`).join('');
+    colonnes = [34, null, 80, 120, 110, ...(avecPrix ? [130] : [])];
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td>${esc(l.unite)}</td><td class="ybd-d">${qte(l)}</td><td class="ybd-d ybd-a-remplir"></td>${avecPrix ? `<td class="ybd-d ybd-g">${nb(l.total)}</td>` : ''}</tr>`);
   } else if (modele === 'moderne') {
     tete = `<th>Article</th><th class="ybd-d">Qté</th>${pu ? '<th class="ybd-d">Prix</th>' : ''}<th class="ybd-d">Montant</th>`;
-    corps = lignes.map((l) => `<tr><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`).join('');
+    colonnes = [null, pu ? 80 : 130, ...(pu ? [110] : []), 130];
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
   } else {
     tete = `<th class="ybd-n">N°</th><th>Désignation</th><th class="ybd-d">Qté</th>${pu ? '<th>Unité</th><th class="ybd-d">P.U. (GNF)</th>' : ''}<th class="ybd-d">Montant (GNF)</th>`;
-    corps = lignes.map((l, i) => `<tr><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td>${esc(l.unite)}</td><td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`).join('');
+    colonnes = [34, null, pu ? 60 : 130, ...(pu ? [76, 110] : []), 130];
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td>${esc(l.unite)}</td><td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
   }
-  const tableau = `<table class="ybd-table"><thead><tr>${tete}</tr></thead><tbody>${corps || `<tr><td colspan="6" class="ybd-vide">Aucun article</td></tr>`}</tbody></table>`;
+  if (!rangs.length) rangs = [`<tr><td colspan="${colonnes.length}" class="ybd-vide">Aucun article</td></tr>`];
+  const colgroup = `<colgroup>${colonnes.map((l) => (l ? `<col style="width:${l}px">` : '<col>')).join('')}</colgroup>`;
+  // Les 3 dernières lignes partent avec les totaux et les signatures (bloc insécable) : jamais de page
+  // qui ne contiendrait que des signatures. Avec 3 lignes ou moins, tout le tableau est dans ce bloc.
+  const NB_LIGNES_GARDEES = 3;
+  const coupe = rangs.length > NB_LIGNES_GARDEES ? rangs.length - NB_LIGNES_GARDEES : 0;
+  const tableau = coupe
+    ? `<table class="ybd-table">${colgroup}<thead><tr>${tete}</tr></thead><tbody>${rangs.slice(0, coupe).join('')}</tbody></table>`
+    : '';
+  const tableauFin = `<table class="ybd-table ${coupe ? 'ybd-table-suite' : ''}">${colgroup}${coupe ? '' : `<thead><tr>${tete}</tr></thead>`}<tbody>${rangs.slice(coupe).join('')}</tbody></table>`;
+  // Document de plus d'une page (estimation) : zones de signature réduites.
+  const long = lignes.length > 14;
 
   // Totaux.
   const lignesTotaux = [];
@@ -294,16 +310,18 @@ export function rendreDocument(p) {
     : `<div class="ybd-fin"><div class="ybd-fin-gauche">${signatures}</div>${qr}</div>`;
 
   return `<style>${CSS_DOCUMENT}</style>
-  <article class="ybd ybd-${modele} ybd-type-${type}" style="${style}" lang="fr">
+  <article class="ybd ybd-${modele} ybd-type-${type}${long ? ' ybd-long' : ''}" style="${style}" lang="fr">
     ${filigrane}
     ${entete}
     <div class="ybd-contenu">
       ${blocs}
       ${tableau}
-      <div class="ybd-garder">${sousTableau}</div>
     </div>
-    ${fin}
-    ${pied}
+    <div class="ybd-final">
+      <div class="ybd-final-corps">${tableauFin}<div class="ybd-garder">${sousTableau}</div></div>
+      ${fin}
+      ${pied}
+    </div>
   </article>`;
 }
 
@@ -341,7 +359,7 @@ export const CSS_DOCUMENT = `
 .ybd-etiquette{font-size:10px;font-weight:800;letter-spacing:.1em}
 .ybd-bloc-titre{font-size:14px;font-weight:800;overflow-wrap:anywhere}
 .ybd-bloc-texte{font-size:11px;color:var(--gris);line-height:1.5}
-.ybd-table{width:100%;border-collapse:collapse;font-size:12px}
+.ybd-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .ybd-table thead{display:table-header-group}
 .ybd-table tr{break-inside:avoid;page-break-inside:avoid}
 .ybd-table th{text-align:left;font-weight:800;padding:9px 10px}
@@ -354,6 +372,13 @@ export const CSS_DOCUMENT = `
 .ybd-vide{text-align:center;color:var(--gris-clair)}
 .ybd-a-remplir{min-width:90px;border-bottom:1px dotted #9CA3AF}
 .ybd-garder{break-inside:avoid;page-break-inside:avoid}
+/* Bloc final insécable : 3 dernières lignes + totaux + lettres + paiement + signatures + QR + pied */
+.ybd-final{flex:1;display:flex;flex-direction:column;break-inside:avoid;page-break-inside:avoid}
+.ybd-final-corps{display:flex;flex-direction:column;gap:18px}
+.ybd-classique .ybd-final .ybd-table-suite,.ybd-sobre .ybd-final .ybd-table-suite{margin-top:-18px}
+.ybd-moderne .ybd-final-corps{padding:18px 48px 0}
+.ybd-moderne .ybd-final-corps:has(.ybd-table-suite){padding-top:0}
+.ybd-long .ybd-sig{height:70px}
 .ybd-sous{display:flex;gap:18px;align-items:flex-start}
 .ybd-sous-gauche{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
 .ybd-lettres{padding:10px 12px;font-size:11.5px;line-height:1.5}
@@ -394,7 +419,7 @@ export const CSS_DOCUMENT = `
 .ybd-classique .ybd-bloc{border:1px solid var(--filet)}
 .ybd-classique .ybd-etiquette{color:var(--c-encre)}
 .ybd-classique .ybd-table thead tr{background:var(--c);color:var(--c-texte)}
-.ybd-classique .ybd-table tbody tr:nth-child(even){background:#F5F7FA}
+.ybd-classique .ybd-table tbody tr.ybd-pair{background:#F5F7FA}
 .ybd-classique .ybd-lettres{background:#F8FAFC;border-left:4px solid var(--c)}
 .ybd-classique .ybd-total{background:var(--c);color:var(--c-texte)}
 
@@ -433,7 +458,8 @@ export const CSS_DOCUMENT = `
 .ybd-moderne .ybd-qr{border-radius:12px;background:var(--fond-doux);padding:10px 12px;justify-content:center}
 .ybd-moderne .ybd-qr svg{width:76px;height:76px}
 .ybd-moderne .ybd-fin{padding:18px 48px 0}
-.ybd-moderne .ybd-sig{border:none;border-top:2px solid #10231D;border-radius:0;height:80px;padding:6px 0 0;color:#55665F}
+.ybd-moderne:not(.ybd-long) .ybd-sig{height:80px}
+.ybd-moderne .ybd-sig{border:none;border-top:2px solid #10231D;border-radius:0;min-height:0;padding:6px 0 0;color:#55665F}
 .ybd-moderne .ybd-pied{margin-top:20px;background:var(--fond-doux);border-top:none;padding:14px 48px 22px;color:#55665F}
 
 /* Sobre : noir et blanc, filets fins, aucun aplat (économie d'encre) */
@@ -461,7 +487,13 @@ export const CSS_DOCUMENT = `
   .ybd-contenu{display:block}
   .ybd-contenu>*+*{margin-top:16px}
   .ybd-fin{margin-top:22px}
-  .ybd-pied{break-before:avoid;page-break-before:avoid;break-inside:avoid}
+  .ybd-final{display:block;break-inside:avoid;page-break-inside:avoid}
+  .ybd-final-corps{display:block}
+  .ybd-final-corps>*+*{margin-top:16px}
+  .ybd>.ybd-final:has(.ybd-table-suite){margin-top:0}
+  .ybd-classique .ybd-final .ybd-table-suite,.ybd-sobre .ybd-final .ybd-table-suite{margin-top:0}
+  .ybd-moderne .ybd-final-corps{padding:16px 0 0}
+  .ybd-moderne .ybd-final-corps:has(.ybd-table-suite){padding-top:0}
   .ybd-moderne>*+*{margin-top:0}
   .ybd-classique,.ybd-sobre{padding:0}
   .ybd-moderne .ybd-entete{padding:24px 28px 20px}

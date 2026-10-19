@@ -12,7 +12,6 @@ import { naviguer } from './router.js';
 import { chargerChantierOuvert } from './chantiers-commun.js';
 import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
-import { CLE_DEVIS_CAISSE } from './proformas.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -55,7 +54,7 @@ export function afficherCaisse(conteneur, params) {
     recuSms: false,
     enCours: false,
     panierOuvert: false,
-    /** Devis en cours de transformation en vente : { id, numero, total, lignes, libres } (sessionStorage). */
+    /** Devis en cours de transformation en vente (relu en base) : { id, numero, total, lignes, libres, client_nom }. */
     devis: null,
     /** Réglages des documents (facture A4 / reçu A4, format par défaut). */
     reglagesDocs: null
@@ -844,9 +843,8 @@ export function afficherCaisse(conteneur, params) {
 
   /** Remplit le panier avec le devis (articles du stock), la remise et le client du devis. */
   async function appliquerDevis(idDevis) {
-    let devis = null;
-    try { devis = JSON.parse(sessionStorage.getItem(CLE_DEVIS_CAISSE) || 'null'); } catch { /* rien */ }
-    if (!devis || devis.id !== idDevis) { toast('Devis introuvable sur cet appareil : rouvrez-le depuis « Devis ».', 'erreur'); return; }
+    const devis = await lireDevis(idDevis);
+    if (!devis || !conteneur.isConnected) return;
     if (s.panier.size && !(await confirmer('Le panier en cours sera remplacé par le devis.', { libelleOk: 'Remplacer' }))) return;
     viderPanier();
     s.typePrix = 'detail';
@@ -872,6 +870,39 @@ export function afficherCaisse(conteneur, params) {
     renderBandeauDevis();
   }
 
+  /** Relit le devis en base (lignes, remise, client) ; refuse un devis déjà transformé ou refusé. */
+  async function lireDevis(idDevis) {
+    const [res, docRes] = await Promise.all([
+      sb.from('proformas').select('id, statut, vente_id, client_id, client_nom, lignes, total')
+        .eq('boutique_id', boutique.id).eq('id', idDevis).maybeSingle(),
+      sb.from('documents_emis').select('numero').eq('type', 'proforma').eq('proforma_id', idDevis).limit(1)
+    ]);
+    if (res.error) { toast(messageErreur(res.error), 'erreur', 6000); return null; }
+    const pf = res.data;
+    if (!pf) { toast(messageErreur('PROFORMA_INTROUVABLE'), 'erreur', 6000); return null; }
+    const numero = docRes.data?.[0]?.numero || 'Devis';
+    const lienDevis = { libelle: 'Voir le devis', href: `#/proformas/${encodeURIComponent(pf.id)}` };
+    if (pf.statut === 'converti') {
+      let vente = null;
+      if (pf.vente_id) vente = (await sb.from('ventes').select('id, numero').eq('id', pf.vente_id).maybeSingle()).data;
+      toast(`Le devis ${numero} a déjà été transformé en vente${vente ? ` (${formatNumeroVente(vente.numero)})` : ''}.`, 'erreur', 9000,
+        vente ? { libelle: 'Voir la vente', href: `#/ventes/${encodeURIComponent(vente.id)}` } : lienDevis);
+      return null;
+    }
+    if (pf.statut === 'refuse') {
+      toast(`Le devis ${numero} a été refusé : il ne peut pas être transformé en vente.`, 'erreur', 9000, lienDevis);
+      return null;
+    }
+    let clientNom = pf.client_nom;
+    if (pf.client_id && !clientNom) clientNom = (await sb.from('clients').select('nom').eq('id', pf.client_id).maybeSingle()).data?.nom || null;
+    const lignes = pf.lignes || [];
+    return {
+      id: pf.id, numero, total: Number(pf.total) || 0, client: pf.client_id ? { id: pf.client_id } : null, client_nom: clientNom,
+      lignes: lignes.filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
+      libres: lignes.filter((l) => !l.produit_id).map((l) => ({ nom: l.nom, total: Number(l.total) || 0 }))
+    };
+  }
+
   function renderBandeauDevis() {
     const zoneDevis = zone('devis');
     if (!zoneDevis) return;
@@ -892,7 +923,6 @@ export function afficherCaisse(conteneur, params) {
   /** Après la vente : devis « converti » avec le lien vers la vente. */
   async function lierDevis(devis, vente) {
     s.devis = null;
-    try { sessionStorage.removeItem(CLE_DEVIS_CAISSE); } catch { /* rien */ }
     renderBandeauDevis();
     const { error } = await sb.rpc('statut_proforma', { p_proforma: devis.id, p_statut: 'converti', p_vente: vente.id });
     if (error) toast(`Vente enregistrée, mais le devis n’a pas pu être marqué : ${messageErreur(error)}`, 'erreur', 8000);
@@ -994,7 +1024,6 @@ export function afficherCaisse(conteneur, params) {
       case 'liste-attente': return ouvrirListeAttente();
       case 'abandonner-devis':
         s.devis = null;
-        try { sessionStorage.removeItem(CLE_DEVIS_CAISSE); } catch { /* rien */ }
         return renderBandeauDevis();
       case 'valider': return valider();
       case 'ouvrir-panier': return basculerPanier(true);

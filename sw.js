@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v12';
+const VERSION_CACHE = 'yb-statique-v13';
 
 const FICHIERS_STATIQUES = [
   './',
