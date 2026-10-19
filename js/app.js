@@ -27,6 +27,7 @@ import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
 import { afficherAfficheJour } from './affiche-jour.js';
 import { afficherProformas } from './proformas.js';
 import { afficherReglagesDocuments } from './documents/reglages.js';
+import { afficherIdentite } from './identite.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
@@ -72,7 +73,9 @@ const ROUTES = {
   // #/proformas (liste), #/proformas/nouveau, #/proformas/<id> (éditeur)
   proformas: { vue: afficherProformas, droit: 'devis.creer', pleinEcran: detailPleinEcran },
   // Paramètres → Documents (réglages des factures, reçus, devis)
-  documents: { vue: afficherReglagesDocuments, droit: 'documents.reglages' }
+  documents: { vue: afficherReglagesDocuments, droit: 'documents.reglages' },
+  // Paramètres → Logo & images (logo, couverture, paiements, partenaires, miniatures)
+  identite: { vue: afficherIdentite, droit: 'documents.reglages' }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };

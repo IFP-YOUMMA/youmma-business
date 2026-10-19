@@ -14,7 +14,6 @@ import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, initiales, formatGNF,
   formatTelephone, formaterSaisieMontant, texteSolde, classeSolde, MODES_PAIEMENT
 } from './utils.js';
-import { compresserAvecEssais } from './images.js';
 
 
 export const COLONNES_CHANTIER = 'id, boutique_id, client_id, numero, nom, adresse, statut, solde, cree_par, created_at, cloture_at';
@@ -320,21 +319,6 @@ function proposerRecuVersement(recu) {
 }
 
 /* ------------------------------------------------------------ Photo du bon signé */
-
-const COTE_MAX_PHOTO = 1280;
-const TAILLE_MAX_PHOTO = 400 * 1024;
-/** Essais successifs [côté le plus long, qualité JPEG] jusqu'à passer sous 400 Ko. */
-const ESSAIS_COMPRESSION = [
-  [COTE_MAX_PHOTO, 0.7], [COTE_MAX_PHOTO, 0.55], [COTE_MAX_PHOTO, 0.4], [1024, 0.4], [800, 0.4], [640, 0.35]
-];
-
-/**
- * Compresse une photo dans le navigateur : côté le plus long 1280 px, JPEG qualité 0,7.
- * Si le fichier dépasse encore 400 Ko (photo très détaillée), on baisse la qualité puis la taille.
- */
-export function compresserImage(fichier) {
-  return compresserAvecEssais(fichier, ESSAIS_COMPRESSION, TAILLE_MAX_PHOTO);
-}
 
 /** Envoie la photo compressée dans le bucket privé « bons » et renvoie son chemin. */
 export async function envoyerPhotoBon(idChantier, blob) {

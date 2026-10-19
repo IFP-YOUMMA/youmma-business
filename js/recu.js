@@ -25,9 +25,12 @@ function enteteBoutique(r = {}) {
   const lieu = [r.adresse, [b.commune, b.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   const tels = r.telephones || (b.telephone ? formatTelephone(b.telephone) : '');
   const legal = [r.rccm ? `RCCM ${r.rccm}` : '', r.nif ? `NIF ${r.nif}` : ''].filter(Boolean).join(' · ');
+  const logo = b.logo_url && r.logo_usages?.ticket !== false
+    ? `<img class="recu-logo" src="${esc(b.logo_url)}" alt="" width="64" height="64" decoding="async">` : '';
   return `
     <div class="recu-logiciel">${logoSymbole(18)}<span>Logiciel YOUMMA Business</span></div>
     <div class="recu-entete">
+      ${logo}
       <strong class="recu-boutique">${esc(r.nom_affiche || b.nom)}</strong>
       ${r.slogan ? `<span class="recu-slogan">${esc(r.slogan)}</span>` : ''}
       ${lieu ? `<span>${esc(lieu)}</span>` : ''}

@@ -14,6 +14,7 @@ import {
   normaliserTelephone, lireNombre, uniteDivisible, prixApplique, differer, chargerParLots, formatNumeroVente
 } from './utils.js';
 import { rendreDocument, lienVerification } from './documents/rendu.js';
+import { vignetteProduit } from './images/affichage.js';
 import { chargerReglages, chargerProforma, imagesSignature, ouvrirDocument } from './documents/donnees.js';
 
 export const STATUTS_DEVIS = {
@@ -266,7 +267,7 @@ function afficherEditeur(conteneur, id) {
   async function charger() {
     try {
       const [produits, reglages] = await Promise.all([
-        chargerParLots((d, f) => sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande')
+        chargerParLots((d, f) => sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, photo_url, photo_mini_url')
           .eq('boutique_id', boutique.id).eq('actif', true).order('nom').range(d, f)),
         chargerReglages(boutique.id)
       ]);
@@ -402,7 +403,7 @@ function afficherEditeur(conteneur, id) {
     if (!r) { zone.innerHTML = ''; return; }
     const trouves = s.produits.filter((p) => p.nom.toLowerCase().includes(r)).slice(0, 8);
     zone.innerHTML = trouves.length ? `<ul class="liste-resultats">${trouves.map((p) => `
-      <li><button type="button" class="item-client" data-produit="${esc(p.id)}"><span class="gras">${esc(p.nom)}</span>
+      <li><button type="button" class="item-client item-produit-devis" data-produit="${esc(p.id)}"><span class="vignette-mini">${vignetteProduit(p, 40, icone('stock', 18, 1.8))}</span><span class="gras">${esc(p.nom)}</span>
         <span class="discret">${formatGNF(prixApplique(p, 'detail'))} / ${esc(p.unite)}${p.sur_commande ? ' · sur commande' : ` · stock ${formatNombre(p.stock, 3)}`}</span></button></li>`).join('')}</ul>`
       : '<p class="discret">Aucun article. Utilisez « Ligne libre » pour un article hors stock.</p>';
   }

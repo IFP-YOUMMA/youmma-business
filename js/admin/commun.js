@@ -88,6 +88,11 @@ export function ilYa(date) {
   return formatDate(d, 'court');
 }
 
+/** Avatar d'une boutique : son logo s'il existe, sinon ses initiales. */
+export function avatarBoutique(b = {}, grand = false) {
+  return `<span class="adm-avatar ${grand ? 'grand' : ''} ${b.logo_url ? 'avec-logo' : ''}">${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="" width="${grand ? 56 : 36}" height="${grand ? 56 : 36}" loading="lazy" decoding="async">` : esc(initiales(b.nom))}</span>`;
+}
+
 export function initiales(nom) {
   const mots = String(nom || '').trim().split(/\s+/).filter(Boolean);
   return ((mots[0]?.[0] || '') + (mots[1]?.[0] || '')).toUpperCase() || '?';

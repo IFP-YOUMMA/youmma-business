@@ -12,8 +12,9 @@ import {
   genererAffiche, versImage, nomFichierAffiche, extensionAffiche, familleArticle, lireCouleurAffiche, ecrireCouleurAffiche,
   FORMATS_AFFICHE, LIBELLES_MODELES_AFFICHE, COULEURS_AFFICHE
 } from './affiche.js';
-import { choisirImage, changerPhotoArticle } from './images.js';
-import { ouvrirDetourage, detourageDisponible } from './detourage.js';
+import { modifierPhotoArticle } from './images/actions.js';
+import { chargerReglages, reglagesEnCache } from './documents/donnees.js';
+import { vignetteProduit } from './images/affichage.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatDate,
   formatTelephone, capitaliser, dateISO, decalerDate, promoActive, prixApplique, lienBoutique, lienCourtBoutique,
@@ -38,7 +39,9 @@ export async function chargerAfficheDuJour(jour = null) {
   const [afficheRes, enLigne, zones] = await Promise.all([
     sb.rpc('affiche_du_jour', jour ? { p_boutique: idB, p_jour: jour } : { p_boutique: idB }),
     sb.from('boutiques_en_ligne').select('slug, actif, whatsapp').eq('boutique_id', idB).maybeSingle(),
-    sb.from('zones_livraison').select('nom, ordre').eq('boutique_id', idB).eq('actif', true).order('ordre')
+    sb.from('zones_livraison').select('nom, ordre').eq('boutique_id', idB).eq('actif', true).order('ordre'),
+    // Réglages des documents : « logo sur les affiches » (logo_usages.affiches), lus par donneesAffiche.
+    chargerReglages(idB).catch(() => null)
   ]);
   if (afficheRes.error) throw afficheRes.error;
   const affiche = premiere(afficheRes.data);
@@ -71,7 +74,7 @@ export function donneesAffiche(affiche, contexte = {}) {
   const p = affiche?.produit || {};
   const ip = infos(p.id);
   return {
-    boutique: { nom: b.nom, ville: b.ville, commune: b.commune, type: TYPES_ACTIVITE[b.type_activite] || '', type_activite: b.type_activite, logo_url: b.logo_url },
+    boutique: { nom: b.nom, ville: b.ville, commune: b.commune, type: TYPES_ACTIVITE[b.type_activite] || '', type_activite: b.type_activite, logo_url: reglagesEnCache(b.id)?.logo_usages?.affiches === false ? null : b.logo_url },
     produit: { ...p, prix_gros: ip.prix_gros ?? p.prix_gros, categorie: ip.categorie ?? p.categorie, promo_fin: ip.promo_fin ?? p.promo_fin, dispo: ip.sur_commande ? 'sur_commande' : p.dispo },
     autres: (affiche?.autres || []).slice(0, 2),
     modele: affiche?.modele || 'jour',
@@ -286,7 +289,7 @@ export function afficherAfficheJour(conteneur) {
               <div class="champ"><span class="etiquette">Photo du produit</span>
                 <div class="photo-affiche-actions">
                   <button type="button" class="btn-ajout-pointille" data-action="photo">${icone('photo', 18, 2)} <span data-ref="libelle-photo">Prendre ou choisir une photo</span></button>
-                  ${detourageDisponible() ? `<button type="button" class="btn-ajout-pointille" data-action="detourer" hidden>${icone('image', 18, 2)} Retirer le fond</button>` : ''}
+                  <button type="button" class="btn-ajout-pointille" data-action="detourer" hidden>${icone('image', 18, 2)} Recadrer / retirer le fond</button>
                 </div></div>
               <p class="erreur-form" role="alert" hidden></p>
               <div class="affiche-actions-modifier">
@@ -358,7 +361,7 @@ export function afficherAfficheJour(conteneur) {
     ref('compteur-phrase').textContent = `${phrase.value.length} / ${MAX_PHRASE}`;
     ref('libelle-photo').textContent = a.produit?.photo_url ? 'Changer la photo' : 'Prendre ou choisir une photo';
     const detourer = q('[data-action="detourer"]');
-    if (detourer) detourer.hidden = !a.produit?.photo_url || /\.png(\?|$)/i.test(a.produit.photo_url);
+    if (detourer) detourer.hidden = !a.produit?.photo_url;
     q('[data-action="enregistrer"]').disabled = !s.brouillon;
   }
 
@@ -392,7 +395,7 @@ export function afficherAfficheJour(conteneur) {
     zone.innerHTML = tuiles.length ? tuiles.map(({ a, jour }) => `
       <button type="button" class="tuile-affiche ${esc(a.modele || 'jour')}" data-jour="${esc(jour)}" aria-label="Télécharger l’affiche du ${esc(formatDate(`${jour}T12:00:00Z`, 'long'))}">
         <span class="tuile-jour">${esc(new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${jour}T12:00:00Z`)))}</span>
-        <span class="tuile-icone">${a.produit.photo_url ? `<img src="${esc(a.produit.photo_url)}" alt="" loading="lazy">` : icone(iconeUnite(a.produit.unite), 26, 1.6)}</span>
+        <span class="tuile-icone">${vignetteProduit(a.produit, 56, icone(iconeUnite(a.produit.unite), 26, 1.6))}</span>
         <span class="tuile-nom">${esc(a.produit.nom)}</span>
       </button>`).join('') : '<p class="discret">Les affiches des 7 derniers jours apparaîtront ici.</p>';
     zone.onclick = async (e) => {
@@ -416,7 +419,7 @@ export function afficherAfficheJour(conteneur) {
 
   async function chargerProduits() {
     if (s.produits) return s.produits;
-    const { data, error } = await sb.from('produits').select('id, nom, unite, photo_url, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, categorie_id')
+    const { data, error } = await sb.from('produits').select('id, nom, unite, photo_url, photo_mini_url, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, categorie_id')
       .eq('boutique_id', boutique.id).eq('actif', true).order('nom');
     if (error) throw error;
     s.produits = data;
@@ -424,7 +427,7 @@ export function afficherAfficheJour(conteneur) {
   }
 
   const versProduitAffiche = (p) => ({
-    id: p.id, nom: p.nom, unite: p.unite, photo_url: p.photo_url, prix: prixApplique(p),
+    id: p.id, nom: p.nom, unite: p.unite, photo_url: p.photo_url, photo_mini_url: p.photo_mini_url, prix: prixApplique(p),
     prix_barre: promoActive(p) ? Number(p.prix_detail) : null,
     dispo: p.sur_commande ? 'sur_commande' : (Number(p.stock) || 0) > 0 ? 'disponible' : 'epuise'
   });
@@ -447,7 +450,7 @@ export function afficherAfficheJour(conteneur) {
         const pa = versProduitAffiche(p);
         return `
           <button type="button" class="item-client" data-produit="${esc(p.id)}" ${pa.dispo === 'epuise' ? 'disabled' : ''}>
-            <span class="avatar">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : icone(iconeUnite(p.unite), 18, 2)}</span>
+            <span class="avatar">${vignetteProduit(p, 40, icone(iconeUnite(p.unite), 18, 2))}</span>
             <span class="client-textes"><span class="gras">${esc(p.nom)}</span><span class="discret">${formatNombre(pa.prix)} GNF / ${esc(p.unite || 'unité')}${pa.prix_barre ? ' · promo' : ''}${pa.dispo === 'epuise' ? ' · épuisé' : ''}</span></span>
           </button>`;
       }).join('') : '<p class="discret">Aucun article.</p>';
@@ -473,34 +476,23 @@ export function afficherAfficheJour(conteneur) {
     });
   }
 
-  function photoMiseAJour(url) {
+  function photoMiseAJour(url, mini = null) {
     const a = afficheCourante();
-    if (s.ctx?.affiche?.produit?.id === a.produit.id) s.ctx.affiche.produit.photo_url = url;
-    if (s.brouillon?.produit) s.brouillon.produit.photo_url = url;
+    if (s.ctx?.affiche?.produit?.id === a.produit.id) Object.assign(s.ctx.affiche.produit, { photo_url: url, photo_mini_url: mini });
+    if (s.brouillon?.produit) Object.assign(s.brouillon.produit, { photo_url: url, photo_mini_url: mini });
     const p = s.produits?.find((x) => x.id === a.produit.id);
-    if (p) p.photo_url = url;
+    if (p) Object.assign(p, { photo_url: url, photo_mini_url: mini });
     renderInfos();
     majApercu();
   }
 
-  async function ajouterPhoto(bouton) {
+  /** Outil d'image (photo d'article : grande photo pour l'affiche + miniature pour les listes). */
+  function ajouterPhoto(retoucher = false) {
     const a = afficheCourante();
     if (!a.produit?.id) { toast('Choisissez d’abord le produit.', 'erreur'); return; }
-    const fichier = await choisirImage();
-    if (!fichier) return;
-    const produit = { id: a.produit.id, nom: a.produit.nom, photo_url: a.produit.photo_url };
-    // Le fond peut être retiré tout de suite (avant / après), sinon la photo est envoyée telle quelle.
-    if (detourageDisponible()) { ouvrirDetourage(produit, { fichier, apres: ({ url }) => photoMiseAJour(url) }); return; }
-    boutonOccupe(bouton, true, 'Envoi de la photo…');
-    try {
-      const { url, taille } = await changerPhotoArticle(produit, fichier);
-      toast(`Photo ajoutée (${Math.round(taille / 1024)} Ko).`, 'succes');
-      photoMiseAJour(url);
-    } catch (err) {
-      toast(messageErreur(err), 'erreur');
-    } finally {
-      boutonOccupe(bouton, false);
-    }
+    const p = s.produits?.find((x) => x.id === a.produit.id);
+    const produit = { id: a.produit.id, nom: a.produit.nom, prix: a.produit.prix, photo_url: a.produit.photo_url, photo_mini_url: p?.photo_mini_url || a.produit.photo_mini_url || null };
+    modifierPhotoArticle(produit, { source: retoucher ? a.produit.photo_url : null, apres: ({ url, mini }) => photoMiseAJour(url, mini) });
   }
 
   async function enregistrer(bouton) {
@@ -581,11 +573,8 @@ export function afficherAfficheJour(conteneur) {
       autres.splice(Number(bouton.dataset.rang) - 1, 1);
       brouillon({ autres });
     }
-    if (action === 'photo') ajouterPhoto(bouton);
-    if (action === 'detourer') {
-      const a = afficheCourante();
-      ouvrirDetourage({ id: a.produit.id, nom: a.produit.nom, photo_url: a.produit.photo_url }, { apres: ({ url }) => photoMiseAJour(url) });
-    }
+    if (action === 'photo') ajouterPhoto(false);
+    if (action === 'detourer') ajouterPhoto(true);
     if (action === 'enregistrer') enregistrer(bouton);
     if (action === 'suggestion') autreSuggestion(bouton);
   });

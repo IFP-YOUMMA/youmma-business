@@ -12,6 +12,7 @@ import { naviguer } from './router.js';
 import { chargerChantierOuvert } from './chantiers-commun.js';
 import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
+import { vignetteProduit } from './images/affichage.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -189,9 +190,7 @@ export function afficherCaisse(conteneur, params) {
     const quantite = s.panier.get(p.id)?.quantite || 0;
     const epuise = !p.sur_commande && (Number(p.stock) || 0) <= 0;
     const stock = etatStock(p);
-    const vignette = p.photo_url
-      ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">`
-      : icone(iconeArticle(p), 28, 1.7);
+    const vignette = vignetteProduit(p, 120, icone(iconeArticle(p), 28, 1.7));
     let actionsMobile = '';
     if (quantite > 0) {
       actionsMobile = stepperHTML(p, quantite, 'article');
@@ -961,7 +960,7 @@ export function afficherCaisse(conteneur, params) {
   async function chargerDonnees() {
     const [produitsRes, categoriesRes] = await Promise.all([
       sb.from('produits')
-        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, seuil_alerte, sur_commande, code_barre, photo_url')
+        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url')
         .eq('boutique_id', boutique.id)
         .eq('actif', true)
         .order('nom'),

@@ -10,6 +10,7 @@
 import { sb } from './supabase.js';
 import { etat } from './state.js';
 import { svgQr } from './qr.js';
+import { vignetteProduit } from './images/affichage.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatGNF,
   formatTelephone, normaliserTelephone, formaterSaisieMontant, lireNombre, dateISO, promoActive, prixApplique,
@@ -190,7 +191,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
       const promo = promoActive(p);
       return `
         <li class="ligne-article-en-ligne">
-          <span class="vignette-mini">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">` : icone('image', 18, 1.8)}</span>
+          <span class="vignette-mini">${vignetteProduit(p, 44, icone('image', 18, 1.8))}</span>
           <span class="aol-textes">
             <span class="gras">${esc(p.nom)}</span>
             <span class="discret">${promo ? `<s>${formatNombre(p.prix_detail)}</s> ` : ''}${formatGNF(prixApplique(p))}${promo ? ' <span class="badge-promo">Promo</span>' : ''} · <span class="gras ${d.classe}">${d.texte}</span></span>
@@ -435,7 +436,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
     const [reglages, zones, produits] = await Promise.all([
       sb.rpc('obtenir_boutique_en_ligne', { p_boutique: boutique.id }),
       sb.from('zones_livraison').select('id, nom, frais, ordre, actif').eq('boutique_id', boutique.id).order('ordre').order('nom'),
-      sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, en_ligne, photo_url')
+      sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, en_ligne, photo_url, photo_mini_url')
         .eq('boutique_id', boutique.id).eq('actif', true).order('nom')
     ]);
     if (!conteneur.isConnected) return;

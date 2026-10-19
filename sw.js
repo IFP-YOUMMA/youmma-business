@@ -1,12 +1,16 @@
 /**
  * sw.js — Service worker : met en cache les fichiers statiques de l'application.
  *
- * Règle absolue : AUCUNE requête vers Supabase (*.supabase.co) n'est interceptée ni
- * mise en cache. Seuls les fichiers de ce site (même origine, GET) sont gérés,
- * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
- * ne sert qu'en cas de coupure.
+ * Règle : AUCUNE requête vers Supabase (*.supabase.co) n'est interceptée ni mise en cache,
+ * SAUF les images publiques (…/storage/v1/object/public/…) : cache « d'abord le cache »
+ * dédié (yb-images, 400 entrées maximum, les plus anciennes supprimées). Leurs noms de
+ * fichiers sont uniques (horodatage) : une image ne change jamais à la même adresse.
+ * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
+ * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v13';
+const VERSION_CACHE = 'yb-statique-v14';
+const CACHE_IMAGES = 'yb-images';
+const MAX_IMAGES = 400;
 
 const FICHIERS_STATIQUES = [
   './',
@@ -57,7 +61,16 @@ const FICHIERS_STATIQUES = [
   './js/admin/support.js',
   './js/admin/equipe.js',
   './js/admin/parametres.js',
-  './js/images.js',
+  // Étape 10 : outil d'image unique, identité de la boutique, stockage (admin).
+  './js/images/traitement.js',
+  './js/images/prereglages.js',
+  './js/images/envoi.js',
+  './js/images/outil.js',
+  './js/images/actions.js',
+  './js/images/affichage.js',
+  './js/images/couverture.js',
+  './js/identite.js',
+  './js/admin/stockage.js',
   './js/qr.js',
   './js/vendor/qrcode.js',
   './js/affiche.js',
@@ -77,7 +90,6 @@ const FICHIERS_STATIQUES = [
   './js/documents/donnees.js',
   './js/documents/page.js',
   './js/documents/reglages.js',
-  './js/documents/cachet.js',
   './js/proformas.js',
   './v/index.html',
   './css/verification.css',
@@ -122,7 +134,13 @@ self.addEventListener('fetch', (evenement) => {
   const requete = evenement.request;
   const url = new URL(requete.url);
 
-  // Jamais Supabase, jamais d'autre origine, jamais autre chose que GET : le navigateur gère seul.
+  // Images publiques du Storage : cache dédié, « d'abord le cache ».
+  if (requete.method === 'GET' && url.pathname.includes('/storage/v1/object/public/')) {
+    evenement.respondWith(imagePublique(requete));
+    return;
+  }
+  // Jamais le reste de Supabase (API, authentification, fichiers privés), jamais d'autre origine,
+  // jamais autre chose que GET : le navigateur gère seul.
   if (url.hostname.endsWith('.supabase.co') || url.hostname.endsWith('.supabase.in')) return;
   // Détourage (11 Mo de moteur + 4,4 Mo de modèle) : jamais dans le cache statique. Le worker garde
   // le modèle dans son propre cache après le premier téléchargement ; le reste passe par le cache HTTP.
@@ -143,6 +161,29 @@ self.addEventListener('fetch', (evenement) => {
       .catch(() => caches.match(requete).then((enCache) => enCache || repli(requete, url)))
   );
 });
+
+/** Image publique : servie depuis le cache si possible ; sinon téléchargée (CORS) puis gardée. */
+async function imagePublique(requete) {
+  const cache = await caches.open(CACHE_IMAGES);
+  const enCache = await cache.match(requete.url);
+  if (enCache) return enCache;
+  try {
+    const reponse = await fetch(new Request(requete.url, { mode: 'cors', credentials: 'omit' }));
+    if (reponse.ok) {
+      await cache.put(requete.url, reponse.clone());
+      limiterImages(cache);
+    }
+    return reponse;
+  } catch {
+    return fetch(requete);
+  }
+}
+
+/** Garde au plus MAX_IMAGES images (les plus anciennes, en tête de liste, sont supprimées). */
+async function limiterImages(cache) {
+  const cles = await cache.keys();
+  for (let i = 0; i < cles.length - MAX_IMAGES; i++) await cache.delete(cles[i]);
+}
 
 /**
  * Hors ligne, rien en cache pour cette adresse :

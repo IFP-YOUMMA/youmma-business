@@ -7,6 +7,9 @@ import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
 import { REGLAGES_DEFAUT, OPTIONS_DEFAUT } from './rendu.js';
 
+/** Où apparaît le logo (Paramètres → Logo & images) : tout est activé par défaut. */
+export const USAGES_LOGO_DEFAUT = { factures: true, ticket: true, vitrine: true, affiches: true, devis: true, apercu: true };
+
 const cacheReglages = new Map();
 
 /** Réglages des documents de la boutique (la ligne est créée au premier appel). */
@@ -20,13 +23,22 @@ export async function chargerReglages(idBoutique = etat.boutique?.id, { recharge
   return reglages;
 }
 export const oublierReglages = (idBoutique) => cacheReglages.delete(idBoutique);
+/** Réglages déjà chargés (sans requête) ; null s'ils ne l'ont pas encore été. */
+export const reglagesEnCache = (idBoutique) => cacheReglages.get(idBoutique) || null;
 
 export function normaliserReglages(ligne = {}) {
   return {
     ...REGLAGES_DEFAUT,
     ...Object.fromEntries(Object.entries(ligne).filter(([, v]) => v !== null && v !== undefined)),
     prefixes: { ...REGLAGES_DEFAUT.prefixes, ...(ligne.prefixes || {}) },
-    options: { ...OPTIONS_DEFAUT, ...(ligne.options || {}) }
+    options: { ...OPTIONS_DEFAUT, ...(ligne.options || {}) },
+    logo_usages: { ...USAGES_LOGO_DEFAUT, ...(ligne.logo_usages || {}) },
+    paiements: {
+      om: { actif: false, numero: '', logo_url: null, ...(ligne.paiements?.om || {}) },
+      momo: { actif: false, numero: '', logo_url: null, ...(ligne.paiements?.momo || {}) },
+      especes: { actif: true, ...(ligne.paiements?.especes || {}) }
+    },
+    partenaires: Array.isArray(ligne.partenaires) ? ligne.partenaires.slice(0, 6) : []
   };
 }
 

@@ -11,14 +11,15 @@ import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
 } from './utils.js';
-import { changerPhotoArticle, retirerPhotoArticle, choisirImage } from './images.js';
-import { ouvrirDetourage, detourageDisponible } from './detourage.js';
+import { modifierPhotoArticle } from './images/actions.js';
+import { retirerPhotoArticle } from './images/envoi.js';
+import { vignetteProduit } from './images/affichage.js';
 
 /**
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
  * le gérant le reçoit par la fonction serveur produits_couts, fusionnée côté appli.
  */
-const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, actif, fournisseur_id, en_ligne, prix_promo, promo_fin, created_at';
+const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url, actif, fournisseur_id, en_ligne, prix_promo, promo_fin, created_at';
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -166,7 +167,7 @@ export function afficherStock(conteneur, params) {
       <li>
         <button type="button" class="ligne-stock ${p.actif ? '' : 'inactif'}" data-fiche="${esc(p.id)}">
           <span class="ls-article">
-            <span class="vignette-mini">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">` : icone('stock', 18, 1.8)}</span>
+            <span class="vignette-mini">${vignetteProduit(p, 44, icone('stock', 18, 1.8))}</span>
             <span class="ls-textes">
               <span class="gras">${esc(p.nom)}${promo ? ' <span class="badge-promo">Promo</span>' : ''}${p.en_ligne === false ? ' <span class="tag-masque">Masqué en ligne</span>' : ''}</span>
               <span class="discret">
@@ -240,26 +241,22 @@ export function afficherStock(conteneur, params) {
       if (!action) return;
       if (action === 'entree' || action === 'ajustement') ouvrirMouvement(produit, action, rafraichir);
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
-      if (action === 'retirer-fond') {
-        ouvrirDetourage(produit, { apres: ({ url }) => { remplacerProduit({ ...produit, photo_url: url }); rafraichir(); } });
+      if (action === 'photo' || action === 'retoucher') {
+        // Outil d'image : recadrer, nettoyer le fond (blanc ou détourage automatique), grande photo + miniature.
+        modifierPhotoArticle(produit, {
+          source: action === 'retoucher' ? produit.photo_url : null,
+          apres: ({ url, mini }) => { remplacerProduit({ ...produit, photo_url: url, photo_mini_url: mini }); rafraichir(); }
+        });
         return;
       }
-      if (action === 'photo' || action === 'retirer-photo') {
+      if (action === 'retirer-photo') {
         const bouton = e.target.closest('button');
-        if (action === 'retirer-photo' && !(await confirmer('La photo sera retirée de la caisse et de la boutique en ligne.', { titre: 'Retirer la photo', libelleOk: 'Retirer', danger: true }))) return;
-        const fichier = action === 'photo' ? await choisirImage() : null;
-        if (action === 'photo' && !fichier) return;
-        boutonOccupe(bouton, true, action === 'photo' ? 'Envoi de la photo…' : 'Suppression…');
+        if (!(await confirmer('La photo sera retirée de la caisse et de la boutique en ligne.', { titre: 'Retirer la photo', libelleOk: 'Retirer', danger: true }))) return;
+        boutonOccupe(bouton, true, 'Suppression…');
         try {
-          if (action === 'photo') {
-            const { url, taille } = await changerPhotoArticle(produit, fichier);
-            remplacerProduit({ ...produit, photo_url: url });
-            toast(`Photo enregistrée (${Math.round(taille / 1024)} Ko).`, 'succes');
-          } else {
-            await retirerPhotoArticle(produit);
-            remplacerProduit({ ...produit, photo_url: null });
-            toast('Photo retirée.', 'succes');
-          }
+          await retirerPhotoArticle(produit);
+          remplacerProduit({ ...produit, photo_url: null, photo_mini_url: null });
+          toast('Photo retirée.', 'succes');
           rafraichir();
         } catch (err) {
           toast(messageErreur(err), 'erreur');
@@ -287,13 +284,13 @@ export function afficherStock(conteneur, params) {
     return `
       <div class="fiche-stock">
         <div class="fiche-photo">
-          <span class="fiche-photo-image">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="Photo de ${esc(p.nom)}">` : icone('image', 32, 1.6)}</span>
+          <span class="fiche-photo-image">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="Photo de ${esc(p.nom)}" width="1080" height="1080" decoding="async">` : icone('image', 32, 1.6)}</span>
           ${photo ? `
             <span class="fiche-photo-actions">
               <button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="photo">${icone('photo', 16, 2)} ${p.photo_url ? 'Changer la photo' : 'Ajouter une photo'}</button>
-              ${p.photo_url && detourageDisponible() ? `<button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="retirer-fond">${icone('image', 16, 2)} Retirer le fond</button>` : ''}
+              ${p.photo_url ? `<button type="button" class="btn btn-secondaire btn-petit" data-action-fiche="retoucher">${icone('image', 16, 2)} Recadrer / retirer le fond</button>` : ''}
               ${p.photo_url ? '<button type="button" class="btn-lien btn-lien-danger" data-action-fiche="retirer-photo">Retirer la photo</button>' : ''}
-              <small class="aide">Prise ou choisie, elle est réduite automatiquement (moins de 300 Ko).</small>
+              <small class="aide">Recadrée et allégée automatiquement : grande photo ≤ 150 Ko et miniature ≈ 25 Ko pour les listes.</small>
             </span>` : ''}
         </div>
         <div class="fiche-stock-actuel">

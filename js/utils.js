@@ -400,6 +400,10 @@ export function messageErreur(err) {
   const epuise = brut.match(/PRODUIT_EPUISE\s*:?\s*(.+)$/i);
   if (epuise) return `« ${epuise[1].trim()} » est épuisé : retirez-le du panier.`;
   if (brut.includes('PRODUIT_EPUISE')) return 'Un article du panier est épuisé.';
+  const quota = brut.match(/QUOTA_PHOTOS\s*:?\s*(\d+)/);
+  if (quota || brut.includes('QUOTA_PHOTOS')) {
+    return `Limite de ${quota ? formatNombre(Number(quota[1])) + ' ' : ''}photos atteinte pour votre formule. Retirez des photos ou passez à une formule supérieure.`;
+  }
   for (const [code, message] of Object.entries(MESSAGES_METIER)) {
     if (brut.includes(code)) return message;
   }

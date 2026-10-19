@@ -7,10 +7,9 @@ import { sb } from '../supabase.js';
 import { esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, differer, formatDate, normaliserTelephone, lireNombre, formaterSaisieMontant, formatNombre } from '../utils.js';
 import { PACKS_SMS } from '../sms.js';
 import {
-  estSuper, rpc, premiere, champ, liste, appelComptes, erreurAdmin, badgeLicence, etatLicenceTexte, ilYa, initiales, telLocal, lienWa,
+  estSuper, rpc, premiere, champ, liste, appelComptes, erreurAdmin, badgeLicence, etatLicenceTexte, ilYa, telLocal, lienWa,
   urlVitrine, gnf, nombre, exporterCsv, afficherMotDePasse, nouveauMotDePasse, tableau, blocErreur, squelette, libelleAction,
-  detailsAction, TYPES, MODES_PAIEMENT_YOUMMA
-} from './commun.js';
+  detailsAction, TYPES, MODES_PAIEMENT_YOUMMA, avatarBoutique } from './commun.js';
 import { ouvrirEnregistrerPaiement } from './licences.js';
 
 const FILTRES = [['toutes', 'Toutes'], ['actives', 'Actives'], ['essai', 'Essai'], ['expirent_7j', 'Expirent < 7 j'], ['expirees', 'Expirées'], ['suspendues', 'Suspendues'], ['inactives', 'Inactives 7 j']];
@@ -75,7 +74,7 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
 
   function renderListe() {
     zone('liste').innerHTML = tableau([
-      ['Boutique', (b) => `<span class="adm-cellule-nom"><strong>${esc(b.nom)}</strong><span class="discret">${esc([TYPES[b.type_activite] || b.type_activite, b.ville].filter(Boolean).join(' · '))}</span></span>`],
+      ['Boutique', (b) => `<span class="adm-cellule-boutique">${avatarBoutique(b)}<span class="adm-cellule-nom"><strong>${esc(b.nom)}</strong><span class="discret">${esc([TYPES[b.type_activite] || b.type_activite, b.ville].filter(Boolean).join(' · '))}</span></span></span>`],
       ['Licence', (b) => badgeLicence(b)],
       ['Fin', (b) => `<span class="gras ${couleurFin(b)}">${esc(finTexte(b))}</span>`],
       ['Ventes 30 j', (b) => nombre(champ(b, 'ventes_30j', 'nb_ventes_30j') || 0), { droite: true }],
@@ -257,7 +256,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
     const membres = liste(f, 'membres');
     cadre.innerHTML = `
       <div class="adm-fiche-entete">
-        <span class="adm-avatar grand">${esc(initiales(b.nom))}</span>
+        ${avatarBoutique(b, true)}
         <div class="adm-fiche-titres">
           <h2>${esc(b.nom || 'Boutique')}</h2>
           <span class="discret">${esc([TYPES[b.type_activite] || b.type_activite, b.ville, b.created_at ? `créée le ${formatDate(b.created_at, 'court')}` : '', `ID ${String(b.id || idBoutique).slice(0, 4)}…${String(b.id || idBoutique).slice(-3)}`].filter(Boolean).join(' · '))}</span>

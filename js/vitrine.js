@@ -46,7 +46,8 @@ const ICONES = {
   magasin: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
   valide: 'M20 6L9 17l-5-5',
   alerte: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
-  cadenas: 'M6 11V8a6 6 0 0 1 12 0v3M5 11h14v10H5z'
+  cadenas: 'M6 11V8a6 6 0 0 1 12 0v3M5 11h14v10H5z',
+  partager: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13'
 };
 const ICONES_UNITES = { sac: 'sac', barre: 'barre', feuille: 'tole', 'tôle': 'tole', seau: 'seau', 'm²': 'carreau', m2: 'carreau', voyage: 'camion', kg: 'clou' };
 
@@ -260,15 +261,55 @@ function router() {
 
 /* ------------------------------------------------------------ Vue boutique */
 
-function initiales(nom) {
-  const mots = String(nom || '').trim().split(/\s+/);
-  return ((mots[0]?.[0] || '') + (mots[1]?.[0] || '')).toUpperCase();
+/** Miniature de l'article (≈ 25 Ko) ; repli sur la grande photo, puis sur l'icône. */
+function vignette(p, taille = 44) {
+  const mini = p.photo_mini_url || null;
+  const grande = p.photo_url || null;
+  if (!mini && !grande) return icone(ICONES_UNITES[String(p.unite || '').toLowerCase()] || 'stock', taille, 1.5);
+  return `<img class="v-img" src="${esc(mini || grande)}" ${mini && grande ? `data-repli="${esc(grande)}"` : ''} alt="" width="300" height="300" loading="lazy" decoding="async"
+    onerror="if(this.dataset.repli){var r=this.dataset.repli;this.removeAttribute('data-repli');this.src=r;}else{this.remove();}">`;
 }
 
-function vignette(p, taille = 44) {
-  return p.photo_url
-    ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy" decoding="async">`
-    : icone(ICONES_UNITES[String(p.unite || '').toLowerCase()] || 'stock', taille, 1.5);
+/* ------------------------------------------------------------ Couverture et identité */
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const PICTOS_ACTIVITE = {
+  materiaux: 'M8 30 V16 L24 8 L40 16 V30 M18 30 v-8 h12 v8',
+  habillement: 'M14 10 l6 -4 h8 l6 4 l6 8 -6 4 v14 h-20 v-14 l-6 -4z',
+  alimentation: 'M10 18 h28 l-3 14 h-22z M16 18 l4 -8 M32 18 l-4 -8',
+  services: 'M24 10 a12 12 0 1 0 0.1 0 M24 15 v9 l6 4',
+  general: 'M8 18 h32 l-3 -8 h-26z M10 18 v18 h28 v-18 M20 36 v-10 h8 v10'
+};
+/** Couverture par défaut (aucune photo) : dégradé aux couleurs des documents, pictogramme de l'activité, liseré d'accent. */
+function couvertureDefaut(type, couleur, accent) {
+  const c = HEX.test(couleur || '') ? couleur : '#0F7B5F';
+  const a = HEX.test(accent || '') ? accent : '#F2B33D';
+  const picto = PICTOS_ACTIVITE[type] || PICTOS_ACTIVITE.general;
+  return `<div class="v-couverture-defaut" style="background:linear-gradient(135deg,${c} 0%,${c}cc 100%)">
+    <svg class="v-couverture-picto" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${picto}"/></svg>
+    <span class="v-couverture-liseret" style="background:${a}"></span></div>`;
+}
+
+/** Logos de paiement importés par la boutique (sinon badge texte sobre, jamais une imitation de logo). */
+function logosPaiement(id) {
+  const p = id?.paiements || {};
+  const elements = [];
+  if (p.om?.actif) elements.push(p.om.logo_url ? `<img src="${esc(p.om.logo_url)}" alt="Orange Money" height="24" loading="lazy" decoding="async">` : '<span class="v-badge-paiement">Orange Money</span>');
+  if (p.momo?.actif) elements.push(p.momo.logo_url ? `<img src="${esc(p.momo.logo_url)}" alt="MTN MoMo" height="24" loading="lazy" decoding="async">` : '<span class="v-badge-paiement">MTN MoMo</span>');
+  if (p.especes?.actif !== false) elements.push('<span class="v-badge-paiement v-badge-especes">Espèces</span>');
+  return elements;
+}
+
+async function partager() {
+  const url = location.href.split('#')[0];
+  const titre = s.donnees?.boutique?.nom || 'Boutique';
+  try {
+    if (navigator.share) { await navigator.share({ title: titre, text: `${titre} · commandez en ligne`, url }); return; }
+    await navigator.clipboard.writeText(url);
+    toast('Lien de la boutique copié.', 'succes');
+  } catch (err) {
+    if (err?.name !== 'AbortError') toast('Copiez l’adresse de la page pour la partager.', 'info');
+  }
 }
 
 function badgePromo(p) {
@@ -342,26 +383,42 @@ function renderBoutique() {
     ? `Livraison ${nomsZones.length > 3 ? `${nomsZones.slice(0, 3).join(', ')}…` : nomsZones.join(' & ').replace(/ & (?=.* & )/g, ', ')}`
     : (b.retrait ? 'Retrait en boutique' : '');
   const categoriesAvecArticles = categories.filter((c) => (s.donnees.produits || []).some((p) => p.categorie_id === c.id));
+  const id = s.donnees.identite || {};
+  const sousTitre = [TYPES[b.type] || '', [b.commune, b.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  const photo = id.couverture_url || id.couverture_mini;
+  const couverture = photo
+    ? `<img class="v-couverture-photo" src="${esc(id.couverture_mini || id.couverture_url)}" ${id.couverture_mini && id.couverture_url ? `srcset="${esc(id.couverture_mini)} 800w, ${esc(id.couverture_url)} 1600w" sizes="(min-width: 560px) 560px, 100vw"` : ''}
+        alt="" width="1600" height="900" decoding="async" fetchpriority="high">`
+    : couvertureDefaut(b.type, id.couleur, id.accent);
+  const logoVisible = b.logo_url && id.logo_vitrine !== false;
+  const paiements = logosPaiement(id);
+  const partenaires = (id.partenaires || []).filter((x) => x?.logo_url).slice(0, 6);
   racine.innerHTML = `
-    <header class="v-entete">
-      <div class="v-entete-identite">
-        <span class="v-logo">${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="">` : esc(initiales(b.nom))}</span>
-        <div class="v-entete-textes">
-          <h1>${esc(b.nom)}</h1>
-          <span>${esc([TYPES[b.type] || '', [b.commune, b.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</span>
-        </div>
+    <header class="v-couverture ${photo ? 'avec-photo' : 'sans-photo'}">
+      <div class="v-couverture-fond">${couverture}</div>
+      <span class="v-couverture-degrade"></span>
+      <div class="v-couverture-haut">
+        ${statut ? `<span class="v-pastille-ouverture ${statut.ouvert ? 'ouvert' : 'ferme'}"><span class="v-point"></span>${esc(statut.texte)}</span>` : '<span></span>'}
+        <button type="button" class="v-partager" data-action="partager" aria-label="Partager la boutique">${icone('partager', 18)}</button>
       </div>
-      <div class="v-pastilles">
-        ${statut ? `<span class="v-pastille-ouverture ${statut.ouvert ? 'ouvert' : 'ferme'}"><span class="v-point"></span>${esc(statut.texte)}</span>` : ''}
-        ${texteZones ? `<span class="v-pastille">${esc(texteZones)}</span>` : ''}
-      </div>
-      ${b.message ? `<p class="v-message">${esc(b.message)}</p>` : ''}
-      <div class="v-entete-actions">
-        ${b.whatsapp ? `<a class="v-btn v-btn-whatsapp" href="https://wa.me/${esc(b.whatsapp)}" target="_blank" rel="noopener">${icone('whatsapp', 16)} WhatsApp</a>` : ''}
-        ${b.telephone ? `<a class="v-btn v-btn-verre" href="tel:+${esc(String(b.telephone).replace(/\D/g, ''))}">${icone('telephone', 16)} Appeler</a>` : ''}
+      <div class="v-couverture-textes">
+        <h1>${esc(b.nom)}</h1>
+        ${sousTitre ? `<span>${esc(sousTitre)}</span>` : ''}
       </div>
     </header>
+    <section class="v-carte-infos">
+      ${logoVisible ? `<span class="v-logo"><img src="${esc(b.logo_url)}" alt="" width="58" height="58" decoding="async"></span>` : ''}
+      <div class="v-infos-textes">
+        ${texteZones ? `<span class="v-infos-zones">${esc(texteZones)}</span>` : ''}
+        ${b.message ? `<p class="v-message">${esc(b.message)}</p>` : ''}
+      </div>
+    </section>
     <main class="v-contenu">
+      <div class="v-entete-actions">
+        ${b.whatsapp ? `<a class="v-btn v-btn-whatsapp" href="https://wa.me/${esc(b.whatsapp)}" target="_blank" rel="noopener">${icone('whatsapp', 16)} WhatsApp</a>` : ''}
+        ${b.telephone ? `<a class="v-btn v-btn-contour" href="tel:+${esc(String(b.telephone).replace(/\D/g, ''))}">${icone('telephone', 16)} Appeler</a>` : ''}
+      </div>
+      ${paiements.length ? `<div class="v-paiements"><span>Paiement à la livraison :</span>${paiements.join('')}</div>` : ''}
       ${b.bandeau ? `<p class="v-bandeau" role="note">${esc(b.bandeau)}</p>` : ''}
       ${affiche ? carteAffiche(affiche) : ''}
       <label class="v-recherche">
@@ -375,6 +432,7 @@ function renderBoutique() {
             <button type="button" class="v-categorie" data-categorie="${esc(c.id)}" aria-pressed="${c.id === s.categorie}">${esc(c.nom)}</button>`).join('')}
         </div>` : ''}
       <div class="v-grille" data-zone="grille"></div>
+      ${partenaires.length ? `<div class="v-partenaires" aria-label="Partenaires">${partenaires.map((x) => `<img src="${esc(x.logo_url)}" alt="${esc(x.nom || '')}" title="${esc(x.nom || '')}" height="28" loading="lazy" decoding="async">`).join('')}</div>` : ''}
       ${pied()}
     </main>
     <div class="v-barre-panier" data-zone="barre"></div>`;
@@ -587,6 +645,7 @@ function renderConfirmation() {
 /* ------------------------------------------------------------ Évènements */
 
 racine.addEventListener('click', (e) => {
+  if (e.target.closest('[data-action="partager"]')) { partager(); return; }
   const ajouter = e.target.closest('[data-ajouter]');
   if (ajouter) {
     const id = ajouter.dataset.ajouter;

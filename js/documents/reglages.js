@@ -8,11 +8,12 @@
 import { sb } from '../supabase.js';
 import { etat } from '../state.js';
 import { esc, icone, toast, boutonOccupe, messageErreur, confirmer, differer, initiales, formatTelephone } from '../utils.js';
-import { changerLogo, choisirImage } from '../images.js';
+import { modifierLogo } from '../images/actions.js';
+import { ouvrirOutilImage } from '../images/outil.js';
+import { envoyerImageDocument, supprimerImageDocument } from '../images/envoi.js';
 import { htmlRecuVente } from '../recu.js';
 import { rendreDocument, donneesExemple, contraste } from './rendu.js';
 import { chargerReglages, oublierReglages, normaliserReglages, typeVente, chargerVente, imagesSignature, ouvrirDocument } from './donnees.js';
-import { ouvrirEditeurImage, envoyerImageDocument, supprimerImageDocument } from './cachet.js';
 
 const COULEURS = ['#1F3A5F', '#0F7B5F', '#A51C1C', '#5B2A8C', '#7A4A00', '#111111'];
 const ACCENTS = ['#C8102E', '#F2B33D', '#EF6C00', '#1F3A5F', '#0F7B5F', '#111111'];
@@ -321,7 +322,7 @@ export function afficherReglagesDocuments(conteneur) {
       majApercu(); return;
     }
     const logo = e.target.closest('[data-action="logo"]');
-    if (logo) { await envoyerLogo(logo); return; }
+    if (logo) { modifierLogo({ nom: s.r.nom_affiche || boutique.nom, apres: () => render() }); return; }
     const image = e.target.closest('[data-image]');
     if (image) { preparerImage(image.dataset.image); return; }
     const suppr = e.target.closest('[data-supprimer]');
@@ -333,27 +334,18 @@ export function afficherReglagesDocuments(conteneur) {
     }
   });
 
-  async function envoyerLogo(bouton) {
-    const fichier = await choisirImage();
-    if (!fichier) return;
-    boutonOccupe(bouton, true, 'Envoi…');
-    try {
-      const { taille } = await changerLogo(fichier);
-      toast(`Logo enregistré (${Math.round(taille / 1024)} Ko).`, 'succes');
-      render();
-    } catch (err) {
-      boutonOccupe(bouton, false);
-      toast(messageErreur(err), 'erreur');
-    }
-  }
-
+  /** Cachet ou signature : outil d'image (fond blanc retiré, PNG transparent) → bucket privé « documents ». */
   function preparerImage(cle) {
-    ouvrirEditeurImage(cle, async (blob) => {
-      const chemin = await envoyerImageDocument(cle, blob);
-      await enregistrerChamps({ [`${cle}_path`]: chemin });
-      s.signatures = await imagesSignature({ ...s.r, cachet_vendeurs: true });
-      toast(`${cle === 'cachet' ? 'Cachet' : 'Signature'} enregistré${cle === 'cachet' ? '' : 'e'} (${Math.round(blob.size / 1024)} Ko).`, 'succes');
-      render();
+    ouvrirOutilImage({
+      usage: cle,
+      contexte: { nom: boutique.nom },
+      enregistrer: async ({ grande }) => {
+        const chemin = await envoyerImageDocument(cle, grande);
+        await enregistrerChamps({ [`${cle}_path`]: chemin });
+        s.signatures = await imagesSignature({ ...s.r, cachet_vendeurs: true });
+        toast(`${cle === 'cachet' ? 'Cachet' : 'Signature'} enregistré${cle === 'cachet' ? '' : 'e'} (${Math.round(grande.blob.size / 1024)} Ko).`, 'succes');
+        render();
+      }
     });
   }
 

@@ -255,3 +255,21 @@ body.page-admin-youmma { background: var(--bg); }
   .adm-journal li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .mdp-provisoire { font-size: 34px; }
 }
+
+/* Étape 10 : stockage, logo des boutiques */
+.adm-jauge { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.adm-jauge-haut { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.adm-jauge-barre { position: relative; height: 14px; border-radius: 999px; background: var(--border-doux); overflow: visible; }
+.adm-jauge-barre > span { display: block; height: 100%; border-radius: 999px; }
+.adm-jauge-barre > span.vert { background: var(--succes); } .adm-jauge-barre > span.orange { background: #EF6C00; } .adm-jauge-barre > span.rouge { background: var(--danger); }
+.adm-jauge-seuil { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text); }
+.adm-jauge-pct.vert { color: var(--succes); } .adm-jauge-pct.orange { color: #B4520A; } .adm-jauge-pct.rouge { color: var(--danger); }
+.adm-alerte-stockage { padding: 10px 12px; border-radius: 10px; background: var(--danger-bg); color: var(--danger); font-weight: 700; font-size: 13px; }
+.adm-orphelins { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+.adm-orphelins > span { flex: 1 1 320px; }
+.texte-alerte { color: #B4520A; }
+.adm-avatar.avec-logo { background: #FFFFFF; border: 1px solid var(--border); padding: 2px; overflow: hidden; }
+.adm-avatar.avec-logo img { width: 100%; height: 100%; object-fit: contain; }
+.adm-cellule-boutique { display: flex; align-items: center; gap: 10px; min-width: 0; }
+a.adm-sante { text-decoration: none; color: inherit; }
+a.adm-sante:hover .gras { color: var(--primary); }

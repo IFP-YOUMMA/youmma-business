@@ -10,7 +10,7 @@
 import { sb } from './supabase.js';
 import { etat, utilisateur, peut, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLES } from './state.js';
 import { deconnecter } from './auth.js';
-import { changerLogo, choisirImage } from './images.js';
+import { modifierLogo } from './images/actions.js';
 import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
 import { changerBoutique, statutLicence, majNomBoutiqueAffiche } from './layout.js';
 import {
@@ -44,6 +44,10 @@ export function afficherParametres(conteneur) {
           <section class="carte section-parametres" aria-labelledby="titre-compte" data-zone="compte"></section>
         </div>
         <div class="parametres-droite">
+          ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/identite">
+            <span class="avatar">${icone('image', 20, 2)}</span>
+            <span class="client-textes"><span class="gras">Logo &amp; images</span><span class="discret">Logo partout, photo de couverture, logos Orange Money / MTN MoMo et partenaires</span></span>
+            ${icone('chevronDroite', 18, 2)}</a>` : ''}
           ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/documents">
             <span class="avatar">${icone('document', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Documents : factures, reçus, devis</span><span class="discret">Modèle, couleurs, logo, RCCM/NIF, cachet et signature, QR de vérification</span></span>
@@ -88,19 +92,8 @@ export function afficherParametres(conteneur) {
         <p class="erreur-form" role="alert" hidden></p>
         <div class="actions-droite"><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
       </form>`;
-    zone('boutique').querySelector('[data-action="logo"]').addEventListener('click', async (e) => {
-      const bouton = e.currentTarget;
-      const fichier = await choisirImage();
-      if (!fichier) return;
-      boutonOccupe(bouton, true, 'Envoi du logo…');
-      try {
-        const { taille } = await changerLogo(fichier);
-        toast(`Logo enregistré (${Math.round(taille / 1024)} Ko).`, 'succes');
-        renderBoutique();
-      } catch (err) {
-        toast(messageErreur(err), 'erreur');
-        boutonOccupe(bouton, false);
-      }
+    zone('boutique').querySelector('[data-action="logo"]').addEventListener('click', () => {
+      modifierLogo({ nom: b.nom, apres: () => renderBoutique() });
     });
     const formulaire = zone('boutique').querySelector('form');
     const zoneErreur = formulaire.querySelector('.erreur-form');

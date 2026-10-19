@@ -14,10 +14,11 @@ import { etat, peut, licenceExpiree } from './state.js';
 import { naviguer } from './router.js';
 import { chargerNomsMembres } from './clients-commun.js';
 import {
-  COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier, ouvrirVersement, compresserImage,
+  COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier, ouvrirVersement,
   envoyerPhotoBon, afficherPhotoBon
 } from './chantiers-commun.js';
 import { imprimerBonEnlevement } from './recu.js';
+import { ouvrirOutilImage } from './images/outil.js';
 import { ouvrirDocument } from './documents/donnees.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
@@ -694,7 +695,7 @@ function afficherEnlevement(conteneur, id, params) {
     zone.innerHTML = s.photo
       ? `<div class="apercu-photo"><img src="${esc(s.photo.url)}" alt="Photo du bon"><span class="discret">Photo compressée · ${s.photo.ko} Ko</span>
           <button type="button" class="btn-lien btn-lien-danger" data-action="retirer-photo">Retirer</button></div>`
-      : `<label class="btn btn-pointille btn-bloc" for="photo-bon">${icone('photo', 18, 2)} Photo du bon signé (facultatif)</label>`;
+      : `<button type="button" class="btn btn-pointille btn-bloc" data-action="photo-bon">${icone('photo', 18, 2)} Photo du bon signé (facultatif)</button>`;
   }
 
   function render() {
@@ -742,7 +743,6 @@ function afficherEnlevement(conteneur, id, params) {
               <input id="note-enlevement" class="input" type="text" maxlength="160">
             </div>
           </div>
-          <input id="photo-bon" class="sr-only" type="file" accept="image/*" capture="environment">
           <div data-zone="photo"></div>
         </div>
         <section class="pied-enlevement" aria-label="Total de l’enlèvement" data-zone="pied"></section>`}
@@ -755,17 +755,16 @@ function afficherEnlevement(conteneur, id, params) {
 
   /* ---------------- Photo du bon */
 
-  async function choisirPhoto(fichier) {
-    if (!fichier) return;
-    try {
-      const blob = await compresserImage(fichier);
-      if (s.photo) URL.revokeObjectURL(s.photo.url);
-      s.photo = { blob, url: URL.createObjectURL(blob), ko: Math.round(blob.size / 1024) };
-      renderPhoto();
-    } catch (err) {
-      console.error(err);
-      toast('Impossible de lire cette photo. Essayez une autre image.', 'erreur');
-    }
+  /** Outil d'image (préréglage « bon ») : la photo est gardée ici et envoyée avec l'enlèvement. */
+  function choisirPhoto() {
+    ouvrirOutilImage({
+      usage: 'bon',
+      enregistrer: async ({ grande }) => {
+        if (s.photo) URL.revokeObjectURL(s.photo.url);
+        s.photo = { blob: grande.blob, url: URL.createObjectURL(grande.blob), ko: Math.round(grande.blob.size / 1024) };
+        renderPhoto();
+      }
+    });
   }
 
   /* ---------------- Enregistrement */
@@ -865,7 +864,8 @@ function afficherEnlevement(conteneur, id, params) {
       renderListes();
       if (s.autresOuverts) conteneur.querySelector('#recherche-enlevement').focus();
     }
-    if (action === 'retirer-photo') { URL.revokeObjectURL(s.photo.url); s.photo = null; conteneur.querySelector('#photo-bon').value = ''; renderPhoto(); }
+    if (action === 'retirer-photo') { URL.revokeObjectURL(s.photo.url); s.photo = null; renderPhoto(); }
+    if (action === 'photo-bon') choisirPhoto();
     if (action === 'enregistrer') enregistrer();
   });
   conteneur.addEventListener('input', (e) => {
@@ -877,7 +877,6 @@ function afficherEnlevement(conteneur, id, params) {
       if (q === null) renderListes();
       else definirQuantite(e.target.dataset.qte, q);
     }
-    if (e.target.id === 'photo-bon') choisirPhoto(e.target.files[0]);
   });
 
   charger();

@@ -3,14 +3,15 @@
  * (licences / SMS en barres empilées), à traiter, dernières inscriptions, santé du système.
  */
 import { esc, capitaliser, formatDate, formatMillions } from '../utils.js';
-import { rpc, premiere, champ, liste, gnf, nombre, ilYa, initiales, telLocal, badgeLicence, blocErreur, squelette, TYPES } from './commun.js';
+import { rpc, premiere, champ, liste, gnf, nombre, ilYa, telLocal, badgeLicence, blocErreur, squelette, TYPES, avatarBoutique } from './commun.js';
+import { lireStockage, taille } from './stockage.js';
 
 const PLAN_BASE = 500 * 1024 * 1024;   // 500 Mo (plan gratuit Supabase)
 const PLAN_STOCKAGE = 1024 * 1024 * 1024; // 1 Go
 
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 const tailleTexte = (o) => (o >= 1024 ** 3 ? `${(o / 1024 ** 3).toFixed(1).replace('.', ',')} Go` : `${Math.round(o / 1024 ** 2)} Mo`);
-const pastille = (p) => (p >= 90 ? 'rouge' : p >= 70 ? 'orange' : 'vert');
+const pastille = (p, seuil = 70) => (p >= Math.max(90, seuil) ? 'rouge' : p >= seuil ? 'orange' : 'vert');
 
 function graphique(mois) {
   if (!mois.length) return '<p class="vide-admin">Pas encore de revenus.</p>';
@@ -68,6 +69,8 @@ export function afficherAccueil(conteneur) {
     </div>`;
   const zone = (n) => conteneur.querySelector(`[data-zone="${n}"]`);
 
+  // Stockage et base (limites et seuil réglables) : lus en parallèle des statistiques.
+  const infosStockage = lireStockage().catch(() => null);
   (async () => {
     let s;
     try { s = premiere(await rpc('admin_stats')) || {}; } catch (err) { zone('kpis').innerHTML = blocErreur(err); return; }
@@ -99,9 +102,16 @@ export function afficherAccueil(conteneur) {
       [t.sans_credit_sms, 'Boutiques sans crédit SMS', 'Alertes et reçus bloqués', 'orange', '#/sms'],
       [t.sms_echecs_jour, 'SMS en échec aujourd’hui', 'Voir la file et les échecs', 'gris', '#/sms?statut=echec']
     ];
+    // Stockage ou base au-delà du seuil d'alerte : passer au plan Pro de Supabase.
+    const st = await infosStockage;
+    const maxPct = st ? Math.max(Number(st.stockage_pourcent) || 0, Number(st.base_pourcent) || 0) : 0;
+    if (st && maxPct >= st.alerte_pourcent) {
+      const quoi = Number(st.stockage_pourcent) >= Number(st.base_pourcent) ? 'Stockage' : 'Base de données';
+      lignes.unshift([`${Math.round(maxPct)} %`, `${quoi} à ${Math.round(maxPct)} % — passer au plan Pro de Supabase`, 'Ou nettoyer les fichiers inutiles (Stockage)', 'rouge', '#/stockage']);
+    }
     zone('traiter').innerHTML = lignes.map(([n, l, sous, couleur, href]) => `
       <a class="adm-traiter" href="${href}">
-        <span class="adm-traiter-n ${couleur}">${nombre(n || 0)}</span>
+        <span class="adm-traiter-n ${couleur}">${typeof n === 'string' ? esc(n) : nombre(n || 0)}</span>
         <span class="adm-traiter-textes"><span class="gras">${esc(l)}</span><span class="discret">${esc(sous)}</span></span>
         <span aria-hidden="true">›</span>
       </a>`).join('');
@@ -109,7 +119,7 @@ export function afficherAccueil(conteneur) {
     const dernieres = liste(s.dernieres);
     zone('dernieres').innerHTML = dernieres.length ? dernieres.map((b) => `
       <a class="adm-ligne-boutique" href="#/boutiques/${encodeURIComponent(b.id)}">
-        <span class="adm-avatar">${esc(initiales(b.nom))}</span>
+        ${avatarBoutique(b)}
         <span class="adm-ligne-textes"><span class="gras">${esc(b.nom)}</span>
           <span class="discret">${esc([TYPES[b.type_activite] || b.type_activite, b.ville, telLocal(champ(b, 'telephone', 'tel_proprietaire'))].filter(Boolean).join(' · '))}</span></span>
         <span class="discret adm-quand">${esc(ilYa(b.created_at))}</span>
@@ -123,14 +133,16 @@ export function afficherAccueil(conteneur) {
     const attente = Number(champ(sa, 'sms_en_attente')) || 0;
     const ancienSms = dernierSms ? (Date.now() - new Date(dernierSms)) / 60000 : null;
     const sante = [
-      ['Base de données', `${champ(sa, 'taille_base') || tailleTexte(base)} / 500 Mo · ${pct(base, PLAN_BASE)} %`, pastille(pct(base, PLAN_BASE))],
+      st ? ['Base de données', `${taille(st.base_octets)} / ${taille(st.base_limite)} · ${Math.round(st.base_pourcent)} %`, pastille(Math.round(st.base_pourcent), st.alerte_pourcent)]
+        : ['Base de données', `${champ(sa, 'taille_base') || tailleTexte(base)} / 500 Mo · ${pct(base, PLAN_BASE)} %`, pastille(pct(base, PLAN_BASE))],
       ['Envoi SMS (Nimba)', sa.sms_actif === false ? 'Envoi coupé (Paramètres SMS)' : `${dernierSms ? `dernier envoi ${ilYa(dernierSms)}` : 'aucun envoi'} · ${nombre(attente)} en file`,
         sa.sms_actif === false ? 'rouge' : (attente > 50 && ancienSms > 10 ? 'rouge' : attente > 0 && ancienSms > 5 ? 'orange' : 'vert')],
       ['Tâches planifiées', attente > 0 && ancienSms > 5 ? 'Messages en retard : vérifier la tâche chaque minute' : 'Messages chaque minute · affiches 6 h · relances 10 h', attente > 0 && ancienSms > 5 ? 'orange' : 'vert'],
-      ['Stockage photos', `${tailleTexte(stockage)} / 1 Go · ${pct(stockage, PLAN_STOCKAGE)} %`, pastille(pct(stockage, PLAN_STOCKAGE))],
+      st ? ['Stockage des fichiers', `${taille(st.stockage_octets)} / ${taille(st.stockage_limite)} · ${Math.round(st.stockage_pourcent)} % · ${Number(st.orphelins?.nb) || 0} orphelin(s)`, pastille(Math.round(st.stockage_pourcent), st.alerte_pourcent), '#/stockage']
+        : ['Stockage photos', `${tailleTexte(stockage)} / 1 Go · ${pct(stockage, PLAN_STOCKAGE)} %`, pastille(pct(stockage, PLAN_STOCKAGE))],
       ['Maintenance', sa.maintenance ? 'Activée : les boutiques sont bloquées' : 'Désactivée', sa.maintenance ? 'rouge' : 'vert']
     ];
-    zone('sante').innerHTML = sante.map(([l, v, c]) => `
-      <div class="adm-sante"><span class="adm-point ${c}" aria-hidden="true"></span><span class="gras">${esc(l)}</span><span class="discret">${esc(v)}</span></div>`).join('');
+    zone('sante').innerHTML = sante.map(([l, v, c, lien]) => `
+      <${lien ? `a href="${lien}"` : 'div'} class="adm-sante"><span class="adm-point ${c}" aria-hidden="true"></span><span class="gras">${esc(l)}</span><span class="discret">${esc(v)}</span></${lien ? 'a' : 'div'}>`).join('');
   })();
 }

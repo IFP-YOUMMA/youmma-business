@@ -94,6 +94,23 @@ function textePaiement(vente, chantier) {
   return { titre: `${mode} — Payée`, detail: '' };
 }
 
+/**
+ * Bandeau de pied : moyens de paiement acceptés (logo officiel importé par la boutique, sinon badge texte
+ * sobre — aucun logo d'opérateur n'est fourni par YOUMMA) et logos partenaires, 22 px de haut.
+ */
+export function bandeauLogos(r = {}) {
+  const pa = r.paiements || {};
+  const paiements = [
+    pa.om?.actif ? (pa.om.logo_url ? `<img src="${esc(pa.om.logo_url)}" alt="Orange Money" height="22">` : '<span class="ybd-badge-texte">Orange Money</span>') : '',
+    pa.momo?.actif ? (pa.momo.logo_url ? `<img src="${esc(pa.momo.logo_url)}" alt="MTN MoMo" height="22">` : '<span class="ybd-badge-texte">MTN MoMo</span>') : '',
+    pa.especes?.actif && (pa.om?.actif || pa.momo?.actif) ? '<span class="ybd-badge-texte">Espèces</span>' : ''
+  ].filter(Boolean);
+  const partenaires = (r.partenaires || []).filter((x) => x?.logo_url).slice(0, 6)
+    .map((x) => `<img src="${esc(x.logo_url)}" alt="${esc(x.nom || '')}" title="${esc(x.nom || '')}" height="22">`);
+  if (!paiements.length && !partenaires.length) return '';
+  return `<span class="ybd-logos">${paiements.length ? `<span class="ybd-logos-groupe"><span>Paiement accepté :</span>${paiements.join('')}</span>` : ''}${partenaires.length ? `<span class="ybd-logos-groupe">${partenaires.join('')}</span>` : ''}</span>`;
+}
+
 /** Données d'exemple (aperçu sans vente réelle, impression d'essai). */
 export function donneesExemple(boutique) {
   const lignes = [
@@ -162,9 +179,12 @@ export function rendreDocument(p) {
   const lieu = [r.adresse, [b.commune, b.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   const tels = r.telephones || (b.telephone ? formatTelephone(b.telephone) : '');
   const legal = [r.rccm ? `RCCM ${r.rccm}` : '', r.nif ? `NIF ${r.nif}` : ''].filter(Boolean).join(' · ');
-  const logo = b.logo_url
-    ? `<img class="ybd-logo" src="${esc(b.logo_url)}" alt="" crossorigin="anonymous">`
-    : `<span class="ybd-logo ybd-initiales">${esc(initiales(nom))}</span>`;
+  // Logo : selon « Où apparaît votre logo » (factures et reçus / devis et bons de livraison).
+  const usages = r.logo_usages || {};
+  const logoActif = (type === 'facture' || type === 'recu') ? usages.factures !== false : usages.devis !== false;
+  const logo = !logoActif ? ''
+    : b.logo_url ? `<img class="ybd-logo" src="${esc(b.logo_url)}" alt="" crossorigin="anonymous" width="64" height="64">`
+      : `<span class="ybd-logo ybd-initiales">${esc(initiales(nom))}</span>`;
 
   // En-tête droite : numéro, référence, date, vendeur, statut.
   const numero = p.document?.numero || (p.essai || p.apercu ? `${(r.prefixes || {})[type] || 'DOC'}-${new Date().getFullYear()}-0000` : '');
@@ -281,6 +301,7 @@ export function rendreDocument(p) {
 
   const pied = `<footer class="ybd-pied">
       ${r.conditions ? `<span><strong>Conditions :</strong> ${esc(r.conditions).replace(/\n/g, ' ')}</span>` : ''}
+      ${bandeauLogos(r)}
       <span class="ybd-pied-bas"><span>${r.paiement_mobile ? esc(r.paiement_mobile) : ''}</span><span class="ybd-logiciel"><img src="${esc(urlLogo('youmma-business-symbole.png'))}" alt="">Logiciel YOUMMA Business</span></span>
     </footer>`;
 
@@ -409,6 +430,11 @@ export const CSS_DOCUMENT = `
 .ybd-pied strong{color:#1A1D21}
 .ybd-pied-bas{display:flex;justify-content:space-between;gap:12px}
 .ybd-logiciel{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ybd-logos{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;padding:6px 0 2px}
+.ybd-logos-groupe{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ybd-logos img{height:22px;width:auto;max-width:90px;object-fit:contain}
+.ybd-badge-texte{display:inline-flex;align-items:center;height:22px;padding:0 8px;border:1px solid #CBD5D1;border-radius:6px;font-size:9.5px;font-weight:800;color:#1A1D21;background:#FFFFFF}
+.ybd-sobre .ybd-logos img{filter:grayscale(1)}
 .ybd-logiciel img{width:14px;height:14px;object-fit:contain}
 
 /* Classique */
