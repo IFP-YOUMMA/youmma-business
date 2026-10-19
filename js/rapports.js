@@ -8,7 +8,7 @@ import { sb } from './supabase.js';
 import { etat } from './state.js';
 import {
   esc, icone, toast, messageErreur, capitaliser, formatNombre, formatGNF, formatMillions, formatQuantite,
-  formatDate, dateISO, decalerDate, bornesPeriode, MODES_PAIEMENT
+  formatDate, dateISO, decalerDate, bornesPeriode, MODES_PAIEMENT, logoSymbole
 } from './utils.js';
 
 const PERIODES = [
@@ -97,7 +97,8 @@ export function afficherRapports(conteneur) {
   conteneur.innerHTML = `
     <div class="page page-rapports">
       <div class="rapport-impression-entete">
-        <strong>${esc(boutique.nom)}</strong> · Rapport · <span data-zone="periode-impression"></span>
+        <span><strong>${esc(boutique.nom)}</strong> · Rapport · <span data-zone="periode-impression"></span></span>
+        <span class="doc-logiciel">${logoSymbole(18)}<span>Logiciel YOUMMA Business</span></span>
       </div>
       <header class="page-entete">
         <div class="page-titres">

@@ -41,8 +41,8 @@ export function afficherMaintenance(conteneur, { continuer = null } = {}) {
   const p = etat.plateforme || {};
   conteneur.innerHTML = `
     <div class="ecran-auth ecran-maintenance">
+      ${logoComplet('sombre')}
       <div class="carte-auth">
-        ${logoComplet('clair')}
         <span class="maintenance-icone">${icone('horloge', 40, 1.8)}</span>
         <div class="auth-titres">
           <h1>Maintenance en cours</h1>
@@ -77,8 +77,8 @@ export async function mdpTemporaireExige() {
 export function afficherChoixMotDePasse(conteneur, apres) {
   conteneur.innerHTML = `
     <div class="ecran-auth">
+      ${logoComplet('sombre')}
       <div class="carte-auth">
-        ${logoComplet('clair')}
         <div class="auth-titres">
           <h1>Choisissez votre mot de passe</h1>
           <p>Votre compte a été créé (ou réinitialisé) par l’équipe YOUMMA avec un mot de passe provisoire. Choisissez maintenant le vôtre : vous l’utiliserez à chaque connexion.</p>

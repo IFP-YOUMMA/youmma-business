@@ -34,7 +34,7 @@ export function afficherEquipe(conteneur) {
         <li class="${m.actif === false ? 'inactif' : ''}">
           <span class="adm-ligne-textes"><strong>${esc(m.nom || '—')}${m.user_id === admin.moi?.user_id ? ' (vous)' : ''}</strong>
             <span class="discret">${esc(telLocal(m.telephone))} · ${m.actif === false ? 'désactivé' : `vu ${esc(ilYa(champ(m, 'derniere_connexion', 'last_sign_in_at')))}`}</span></span>
-          <span class="pastille-admin ${m.role === 'super_admin' ? 'nuit' : 'bleu'}">${esc(ROLES[m.role] || m.role)}</span>
+          <span class="pastille-admin ${m.role === 'super_admin' ? 'nuit' : 'marque'}">${esc(ROLES[m.role] || m.role)}</span>
           ${estSuper() && m.user_id !== admin.moi?.user_id ? `<button type="button" class="btn btn-secondaire btn-petit" data-modifier="${esc(m.user_id)}">Modifier</button>` : ''}
         </li>`).join('')}</ul>` : '<p class="vide-admin">Aucun membre.</p>';
     } catch (err) { zone('equipe').innerHTML = blocErreur(err); }

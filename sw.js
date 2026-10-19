@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v10';
+const VERSION_CACHE = 'yb-statique-v11';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -76,9 +76,18 @@ const FICHIERS_STATIQUES = [
   './fonts/manrope-700.woff2',
   './fonts/manrope-800.woff2',
   './fonts/bebas-neue-400.woff2',
-  './icons/icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  // Identité YOUMMA Business (logo or & vert) : img/logo/ (l'original et l'aperçu og-image ne sont pas pré-cachés).
+  './img/logo/youmma-business-symbole.png',
+  './img/logo/youmma-business-logo.png',
+  './img/logo/youmma-business-logo-fond-fonce.png',
+  './img/logo/icon-192.png',
+  './img/logo/icon-512.png',
+  './img/logo/icon-maskable-192.png',
+  './img/logo/icon-maskable-512.png',
+  './img/logo/apple-touch-icon.png',
+  './img/logo/favicon.ico',
+  './img/logo/favicon-32.png',
+  './img/logo/favicon-64.png'
 ];
 
 self.addEventListener('install', (evenement) => {

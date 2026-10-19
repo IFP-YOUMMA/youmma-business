@@ -19,7 +19,7 @@ export function matriceQr(texte, niveau = 'M') {
  * Dessine le QR code dans un contexte canvas, carré de `cote` px en (x, y), avec une marge
  * blanche de 2 modules (zone de silence) comprise dans le carré.
  */
-export function dessinerQr(ctx, texte, x, y, cote, { couleur = '#0B1F3A', fond = '#FFFFFF' } = {}) {
+export function dessinerQr(ctx, texte, x, y, cote, { couleur = '#0A3D33', fond = '#FFFFFF' } = {}) {
   const { taille, noir } = matriceQr(texte);
   const marge = 2;
   const module = cote / (taille + marge * 2);
@@ -39,7 +39,7 @@ export function dessinerQr(ctx, texte, x, y, cote, { couleur = '#0B1F3A', fond =
 }
 
 /** QR code en SVG (impression nette à toute taille). */
-export function svgQr(texte, { couleur = '#0B1F3A', titre = 'QR code' } = {}) {
+export function svgQr(texte, { couleur = '#0A3D33', titre = 'QR code' } = {}) {
   const { taille, noir } = matriceQr(texte);
   const marge = 2;
   const total = taille + marge * 2;

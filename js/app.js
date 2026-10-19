@@ -117,8 +117,8 @@ function resoudre() {
 function afficherAideConfiguration() {
   document.getElementById('app').innerHTML = `
     <div class="ecran-auth">
+      ${logoComplet('sombre')}
       <div class="carte-auth">
-        ${logoComplet('clair')}
         <div class="auth-titres">
           <h1>Configuration requise</h1>
           <p>Renseignez <strong>SUPABASE_URL</strong> et <strong>SUPABASE_ANON_KEY</strong> dans le fichier <code>js/config.js</code>, puis rechargez la page.</p>
@@ -131,8 +131,8 @@ function afficherAideConfiguration() {
 function afficherErreurDemarrage(message) {
   document.getElementById('app').innerHTML = `
     <div class="ecran-auth">
+      ${logoComplet('sombre')}
       <div class="carte-auth">
-        ${logoComplet('clair')}
         <div class="auth-titres">
           <h1>Connexion impossible</h1>
           <p>${esc(message)}</p>

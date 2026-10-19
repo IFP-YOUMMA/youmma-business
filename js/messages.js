@@ -66,7 +66,7 @@ const MODELES = {
 };
 
 const GROUPES = [
-  { code: 'patron', titre: 'Pour le patron', sous: 'Gardez l’œil sur la boutique, même à distance', icone: 'vendeurs', teinte: '#E3EEFB', encre: '#0D47A1',
+  { code: 'patron', titre: 'Pour le patron', sous: 'Gardez l’œil sur la boutique, même à distance', icone: 'vendeurs', teinte: '#E3F2EC', encre: '#0A5E48',
     cles: ['rapport_soir', 'commande_web', 'vente_annulee', 'grosse_remise', 'sous_prix_achat', 'stock_bas'], recoit: 'le patron' },
   { code: 'clients', titre: 'Pour les clients', sous: 'Récupérez vos crédits sans y penser', icone: 'client', teinte: '#E8F5EA', encre: '#1B6E2A',
     cles: ['recu_vente', 'commande_confirmee', 'rappel_echeance', 'relance_retard', 'recu_remboursement', 'situation_chantier'], recoit: 'le client' },

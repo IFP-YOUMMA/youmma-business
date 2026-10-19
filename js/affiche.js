@@ -21,10 +21,12 @@ export const FORMATS_AFFICHE = {
 };
 export const LIBELLES_MODELES_AFFICHE = { promo: 'Impact', jour: 'Catalogue', arrivage: 'Sélection' };
 
-/** Couleur principale de la boutique (fonds Impact et Sélection). */
+/** Couleur principale de la boutique (fonds Impact et Sélection). Par défaut : vert YOUMMA Business.
+ * Les anciens codes « bleu » (ancien défaut) et « vert » ne sont plus listés : ils retombent sur le vert YOUMMA. */
+export const COULEUR_AFFICHE_DEFAUT = 'youmma';
 export const COULEURS_AFFICHE = {
-  bleu: { libelle: 'Bleu nuit', nuit: ['#1B3A66', '#0B1F3A', '#06142A'], vif: ['#1565C0', '#0D47A1', '#0B1F3A'], pastel: '#4FC3F7', texte: '#9FB7D9', clair: '#C9D8EE' },
-  vert: { libelle: 'Vert', nuit: ['#1F5E3B', '#0E3B24', '#062014'], vif: ['#2E7D32', '#1B5E20', '#0B2E13'], pastel: '#9BE7A8', texte: '#A9D5B6', clair: '#D3EEDB' },
+  youmma: { libelle: 'Vert YOUMMA', nuit: ['#0E5443', '#0A3D33', '#08332A'], vif: ['#0F7B5F', '#0A5E48', '#0A3D33'], pastel: '#F2B33D', texte: '#A9D4C6', clair: '#CFE6DD' },
+  ocean: { libelle: 'Bleu', nuit: ['#1D4E7A', '#123556', '#0A1F36'], vif: ['#1F6FB2', '#155089', '#0D2F52'], pastel: '#9FD0F5', texte: '#A9C6E0', clair: '#D2E4F4' },
   rouge: { libelle: 'Rouge', nuit: ['#6E2020', '#3F0D0D', '#220505'], vif: ['#C62828', '#8E1B1B', '#3F0D0D'], pastel: '#FFB4A8', texte: '#E3AAAA', clair: '#F5D3D3' },
   violet: { libelle: 'Violet', nuit: ['#4B2D70', '#2A1745', '#160A27'], vif: ['#6A1B9A', '#4A148C', '#21093F'], pastel: '#D7B8F3', texte: '#C2ACDB', clair: '#E6D9F3' },
   marron: { libelle: 'Marron', nuit: ['#5E3B1F', '#3A2210', '#1E1108'], vif: ['#8D5524', '#6D3F18', '#3A2210'], pastel: '#F2C894', texte: '#D9BC9C', clair: '#F0E0CC' },
@@ -33,7 +35,7 @@ export const COULEURS_AFFICHE = {
 
 const CLE_COULEUR = (idBoutique) => `yb_couleur_affiche_${idBoutique}`;
 export function lireCouleurAffiche(idBoutique) {
-  try { const c = localStorage.getItem(CLE_COULEUR(idBoutique)); return COULEURS_AFFICHE[c] ? c : 'bleu'; } catch { return 'bleu'; }
+  try { const c = localStorage.getItem(CLE_COULEUR(idBoutique)); return COULEURS_AFFICHE[c] ? c : COULEUR_AFFICHE_DEFAUT; } catch { return COULEUR_AFFICHE_DEFAUT; }
 }
 export function ecrireCouleurAffiche(idBoutique, couleur) {
   try { localStorage.setItem(CLE_COULEUR(idBoutique), couleur); } catch { /* préférence non mémorisée */ }
@@ -223,8 +225,8 @@ const ILLUSTRATIONS = {
     ctx.beginPath(); ctx.moveTo(40, 30); ctx.quadraticCurveTo(115, 8, 192, 30); ctx.lineTo(206, 250); ctx.quadraticCurveTo(118, 274, 26, 250); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#B3AB98';
     ctx.beginPath(); ctx.moveTo(40, 30); ctx.quadraticCurveTo(115, 8, 192, 30); ctx.lineTo(190, 48); ctx.quadraticCurveTo(115, 30, 42, 48); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#0D47A1'; rectArrondi(ctx, 44, 96, 146, 96, 6); ctx.fill();
-    ctx.fillStyle = '#1565C0'; rectArrondi(ctx, 44, 96, 146, 22, 6); ctx.fill();
+    ctx.fillStyle = '#0A5E48'; rectArrondi(ctx, 44, 96, 146, 96, 6); ctx.fill();
+    ctx.fillStyle = '#0F7B5F'; rectArrondi(ctx, 44, 96, 146, 22, 6); ctx.fill();
     ctx.textAlign = 'center'; ctx.fillStyle = '#FFFFFF';
     ctx.font = mf(800, 12); ctx.fillText(etiquette.slice(0, 16), 117, 112);
     if (sousEtiquette) { ajusterTaille(ctx, sousEtiquette, 130, 36, 16, bf); ctx.fillText(sousEtiquette, 117, 154); }
@@ -300,19 +302,19 @@ const ILLUSTRATIONS = {
     ctx.fillStyle = '#C9D0D7'; ctx.beginPath(); ctx.ellipse(20, 115, 10, 25, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = degrade(ctx, 180, 0, 240, 0, [[0, '#8A949E'], [0.5, '#EEF1F4'], [1, '#7E8892']]);
     ctx.lineWidth = 50; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(185, 115); ctx.arcTo(225, 115, 225, 60, 40); ctx.lineTo(225, 30); ctx.stroke();
-    ctx.fillStyle = '#1565C0'; ctx.font = mf(800, 13); ctx.fillText('PVC Ø 100', 60, 120);
+    ctx.fillStyle = '#0F7B5F'; ctx.font = mf(800, 13); ctx.fillText('PVC Ø 100', 60, 120);
   } },
   cable: { vb: [240, 230], dessin(ctx) {
     for (let r = 86; r > 30; r -= 9) {
       ctx.strokeStyle = r % 2 ? '#E35D1B' : '#C44A10'; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.ellipse(120, 120, r, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    ctx.fillStyle = '#F4F6FA'; ctx.beginPath(); ctx.ellipse(120, 120, 26, 20, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F5F7F4'; ctx.beginPath(); ctx.ellipse(120, 120, 26, 20, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#E35D1B'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(200, 140); ctx.bezierCurveTo(230, 170, 210, 205, 180, 210); ctx.stroke();
     ctx.fillStyle = '#B87333'; ctx.fillRect(170, 204, 14, 10);
   } },
   vetement: { vb: [240, 240], dessin(ctx, { couleur }) {
-    ctx.fillStyle = degrade(ctx, 30, 30, 210, 220, [[0, couleur || '#1565C0'], [1, '#0B1F3A']]);
+    ctx.fillStyle = degrade(ctx, 30, 30, 210, 220, [[0, couleur || '#0F7B5F'], [1, '#0A3D33']]);
     ctx.beginPath();
     ctx.moveTo(85, 30); ctx.quadraticCurveTo(120, 52, 155, 30); ctx.lineTo(215, 60); ctx.lineTo(195, 110); ctx.lineTo(170, 98);
     ctx.lineTo(172, 215); ctx.lineTo(68, 215); ctx.lineTo(70, 98); ctx.lineTo(45, 110); ctx.lineTo(25, 60); ctx.closePath(); ctx.fill();
@@ -321,12 +323,12 @@ const ILLUSTRATIONS = {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(72, 200); ctx.lineTo(168, 200); ctx.stroke(); ctx.setLineDash([]);
   } },
   chaussure: { vb: [260, 200], dessin(ctx) {
-    ctx.fillStyle = degrade(ctx, 20, 60, 240, 160, [[0, '#FFFFFF'], [1, '#DCE3EE']]);
+    ctx.fillStyle = degrade(ctx, 20, 60, 240, 160, [[0, '#FFFFFF'], [1, '#D8E1DC']]);
     ctx.beginPath(); ctx.moveTo(30, 150); ctx.lineTo(34, 92); ctx.quadraticCurveTo(60, 70, 92, 84); ctx.lineTo(128, 110); ctx.quadraticCurveTo(200, 118, 232, 140); ctx.quadraticCurveTo(240, 160, 220, 162); ctx.lineTo(40, 162); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#9AA6B6'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#1565C0'; ctx.fillRect(30, 158, 200, 12);
-    ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(70, 120); ctx.quadraticCurveTo(130, 105, 190, 138); ctx.stroke();
-    ctx.strokeStyle = '#5A6B82'; ctx.lineWidth = 2;
+    ctx.fillStyle = '#0F7B5F'; ctx.fillRect(30, 158, 200, 12);
+    ctx.strokeStyle = '#0F7B5F'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(70, 120); ctx.quadraticCurveTo(130, 105, 190, 138); ctx.stroke();
+    ctx.strokeStyle = '#55665F'; ctx.lineWidth = 2;
     for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(86 + i * 9, 92 + i * 6); ctx.lineTo(100 + i * 9, 86 + i * 6); ctx.stroke(); }
   } },
   carton: { vb: [240, 230], dessin(ctx) {
@@ -337,9 +339,9 @@ const ILLUSTRATIONS = {
     ctx.strokeStyle = '#7A5530'; ctx.lineWidth = 2; ctx.strokeRect(48, 130, 46, 26);
   } },
   generique: { vb: [240, 230], dessin(ctx, { couleur }) {
-    ctx.fillStyle = couleur || '#1565C0'; ctx.beginPath(); ctx.moveTo(30, 80); ctx.lineTo(120, 110); ctx.lineTo(120, 210); ctx.lineTo(30, 180); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = couleur || '#0F7B5F'; ctx.beginPath(); ctx.moveTo(30, 80); ctx.lineTo(120, 110); ctx.lineTo(120, 210); ctx.lineTo(30, 180); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.moveTo(120, 110); ctx.lineTo(210, 80); ctx.lineTo(210, 180); ctx.lineTo(120, 210); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = couleur || '#1565C0'; ctx.beginPath(); ctx.moveTo(120, 110); ctx.lineTo(210, 80); ctx.lineTo(210, 180); ctx.lineTo(120, 210); ctx.closePath(); ctx.globalAlpha = 0.75; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = couleur || '#0F7B5F'; ctx.beginPath(); ctx.moveTo(120, 110); ctx.lineTo(210, 80); ctx.lineTo(210, 180); ctx.lineTo(120, 210); ctx.closePath(); ctx.globalAlpha = 0.75; ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.moveTo(30, 80); ctx.lineTo(120, 50); ctx.lineTo(210, 80); ctx.lineTo(120, 110); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#FFC56B'; ctx.beginPath(); ctx.moveTo(66, 68); ctx.lineTo(156, 98); ctx.lineTo(156, 198); ctx.lineTo(140, 203); ctx.lineTo(140, 104); ctx.lineTo(50, 74); ctx.closePath(); ctx.fill();
   } }
@@ -386,7 +388,7 @@ function dessinerVisuel(ctx, produit, photo, x, y, l, h, options = {}) {
   const cy = y + (h - ch) / 2;
   const r = Math.min(cl, ch) * 0.07;
   ctx.save();
-  ctx.shadowColor = 'rgba(6,20,42,0.30)';
+  ctx.shadowColor = 'rgba(6, 42, 35,0.30)';
   ctx.shadowBlur = Math.min(cl, ch) * 0.08;
   ctx.shadowOffsetY = Math.min(cl, ch) * 0.035;
   ctx.fillStyle = '#FFFFFF';
@@ -455,7 +457,7 @@ function texteLivraison(d) {
 /* ------------------------------------------------------------ Modèle « Impact » (promo) */
 
 function modeleImpact(ctx, W, H, f, d, img) {
-  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE.bleu;
+  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE[COULEUR_AFFICHE_DEFAUT];
   const p = d.produit;
   // Mises en page propres à chaque format (px réels).
   const L = {
@@ -469,13 +471,13 @@ function modeleImpact(ctx, W, H, f, d, img) {
   g.addColorStop(0, c.nuit[0]); g.addColorStop(0.55, c.nuit[1]); g.addColorStop(1, c.nuit[2]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-  // Bande diagonale orange (-12°), sous l'article comme sur la maquette.
+  // Bande diagonale or (-12°), sous l'article : texte foncé dessus.
   const angle = -12 * Math.PI / 180;
   ctx.save();
   ctx.translate(W * 0.47, L.bandeY);
   ctx.rotate(angle);
   ctx.globalAlpha = 0.96;
-  ctx.fillStyle = degrade(ctx, -W * 0.8, 0, W * 0.8, 0, [[0, '#EF6C00'], [1, '#FF9A3C']]);
+  ctx.fillStyle = degrade(ctx, -W * 0.8, 0, W * 0.8, 0, [[0, '#E9A52B'], [1, '#F6C35A']]);
   ctx.fillRect(-W * 0.85, -L.bandeH / 2, W * 1.7, L.bandeH);
   ctx.restore();
 
@@ -493,13 +495,13 @@ function modeleImpact(ctx, W, H, f, d, img) {
   ctx.font = mf(500, L.logo * 0.29); ctx.fillStyle = c.texte;
   ctx.fillText(couperLignes(ctx, d.sousTitreBoutique, W - xt - M - lDates - 30, 1)[0], xt, L.tete + L.logo * 0.86);
 
-  // Titre : PROMO + nom court (orange).
+  // Titre : PROMO + nom court (or).
   const [court, reste] = nomCourt(p.nom);
   ctx.fillStyle = '#FFFFFF';
   const tTitre = Math.min(L.titre, ajusterTaille(ctx, court, L.titreL, L.titre, 110, bf));
   ctx.font = bf(tTitre);
   ctx.fillText('PROMO', M - 4, L.titreY + tTitre * 0.78);
-  ctx.fillStyle = '#FF9A3C';
+  ctx.fillStyle = '#F2B33D';
   ctx.fillText(couperLignes(ctx, court, L.titreL, 1)[0], M - 4, L.titreY + tTitre * 0.78 + tTitre * 0.86);
   const ySous = L.titreY + tTitre * 0.78 + tTitre * 0.86 + 64;
   ctx.font = mf(700, Math.round(tTitre * 0.15)); ctx.fillStyle = c.clair;
@@ -529,8 +531,7 @@ function modeleImpact(ctx, W, H, f, d, img) {
     ctx.font = bf(tP); const a = ctx.measureText(`${texteP} `).width;
     ctx.font = bf(tP * 0.42); if (a + ctx.measureText('GNF').width <= lPrixMax) break;
   }
-  ctx.fillStyle = '#FFFFFF'; ctx.font = bf(tP);
-  ctx.shadowColor = 'rgba(60,20,0,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+  ctx.fillStyle = '#3A2600'; ctx.font = bf(tP);
   const yP =L.bandeH / 2 - (L.bandeH - tP * 0.72) / 2 + (p.prix_barre ? tP * 0.06 : -tP * 0.02);
   ctx.fillText(texteP, xPrix, yP);
   const lp = ctx.measureText(`${texteP} `).width;
@@ -545,7 +546,7 @@ function modeleImpact(ctx, W, H, f, d, img) {
   ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
   ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(pcx, pcy, rP, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  ctx.textAlign = 'center'; ctx.fillStyle = '#C43E00';
+  ctx.textAlign = 'center'; ctx.fillStyle = c.vif[1];
   const remise = p.prix_barre ? `−${prixTexte(p.prix_barre - p.prix)}` : 'PROMO';
   ctx.font = mf(800, rP * 0.3); ctx.fillText(p.unite ? `le ${p.unite}`.slice(0, 12) : 'remise', pcx, pcy - rP * 0.16);
   ajusterTaille(ctx, remise, rP * 1.62, rP * 0.56, 20, (t) => mf(800, t));
@@ -554,6 +555,18 @@ function modeleImpact(ctx, W, H, f, d, img) {
 
   // Pied blanc.
   piedBlanc(ctx, W, H, L.pied, d, c, 'Commandez maintenant');
+  marqueYoumma(ctx, W - 46, H - 14, img.symbole, '#67766F');
+}
+
+/** Petite mention « YOUMMA Business » (symbole + texte) alignée à droite sur xDroite, ligne de base y. */
+function marqueYoumma(ctx, xDroite, y, symbole, couleur) {
+  const t = 24;
+  ctx.save();
+  ctx.font = mf(700, 17); ctx.fillStyle = couleur; ctx.textAlign = 'right';
+  ctx.fillText('YOUMMA Business', xDroite, y);
+  const l = ctx.measureText('YOUMMA Business').width;
+  if (symbole) ctx.drawImage(symbole, xDroite - l - t - 6, y - t + 5, t, t);
+  ctx.restore();
 }
 
 function piedBlanc(ctx, W, H, h, d, c, titre) {
@@ -574,10 +587,10 @@ function piedBlanc(ctx, W, H, h, d, c, titre) {
     ctx.textAlign = 'left';
   }
   const lTexte = W - x - M - lW - 30;
-  ctx.fillStyle = '#0B1F3A';
+  ctx.fillStyle = '#0A3D33';
   ajusterTaille(ctx, titre, lTexte, h * 0.18, 22, (t) => mf(800, t));
   ctx.fillText(titre, x, y + h * 0.45);
-  ctx.font = mf(600, h * 0.12); ctx.fillStyle = '#5A6B82';
+  ctx.font = mf(600, h * 0.12); ctx.fillStyle = '#55665F';
   couperLignes(ctx, texteLivraison(d), lTexte, 2).forEach((l, i) => ctx.fillText(l, x, y + h * 0.66 + i * h * 0.15));
 }
 
@@ -611,19 +624,19 @@ function modeleCatalogue(ctx, W, H, f, d, img) {
   }[f];
   const M = L.col[0];
   ctx.fillStyle = '#F6F3EE'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#E3EEFB'; ctx.beginPath(); ctx.arc(L.disque[0], L.disque[1], L.disque[2], 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#E3F2EC'; ctx.beginPath(); ctx.arc(L.disque[0], L.disque[1], L.disque[2], 0, Math.PI * 2); ctx.fill();
 
   // Petites capitales + filet fin.
   const jj = fmt(dateJour(d.jour), { day: '2-digit', month: '2-digit' }).replace('/', '.');
-  ctx.font = mf(800, 26); espacement(ctx, 3.6); ctx.fillStyle = '#5A6B82';
+  ctx.font = mf(800, 26); espacement(ctx, 3.6); ctx.fillStyle = '#55665F';
   let xNom = M;
-  if (img.logo) { dessinerLogo(ctx, img.logo, d.boutique.nom, M, L.haut - 8, 48, '#FFFFFF', '#0B1F3A'); xNom = M + 64; }
+  if (img.logo) { dessinerLogo(ctx, img.logo, d.boutique.nom, M, L.haut - 8, 48, '#FFFFFF', '#0A3D33'); xNom = M + 64; }
   const droite = `LE CHOIX DU JOUR · ${jj}`;
   const lDroite = ctx.measureText(droite).width;
   ctx.textAlign = 'right'; ctx.fillText(droite, W - M, L.haut + 26); ctx.textAlign = 'left';
   ctx.fillText(couperLignes(ctx, d.boutique.nom.toUpperCase(), W - M - lDroite - xNom - 30, 1)[0], xNom, L.haut + 26);
   espacement(ctx, 0);
-  ctx.fillStyle = 'rgba(15,27,45,0.15)'; ctx.fillRect(M, L.haut + 58, W - 2 * M, 2);
+  ctx.fillStyle = 'rgba(16, 35, 29,0.15)'; ctx.fillRect(M, L.haut + 58, W - 2 * M, 2);
 
   // Visuel à droite.
   const [vx, vy, vl, vh] = L.visuel;
@@ -633,18 +646,18 @@ function modeleCatalogue(ctx, W, H, f, d, img) {
   const [cx, cy, cl] = L.col;
   let y = cy;
   if (p.categorie) {
-    ctx.font = mf(800, 31); espacement(ctx, 2.4); ctx.fillStyle = '#1565C0';
+    ctx.font = mf(800, 31); espacement(ctx, 2.4); ctx.fillStyle = '#0F7B5F';
     ctx.fillText(couperLignes(ctx, p.categorie.toUpperCase(), cl, 1)[0], cx, y + 30); espacement(ctx, 0);
     y += 56;
   }
   espacement(ctx, -1.5);
   const nom = ajusterBloc(ctx, p.nom, cl, 2, L.nom, 54, (t) => mf(800, t));
-  ctx.fillStyle = '#0F1B2D'; ctx.font = mf(800, nom.taille);
+  ctx.fillStyle = '#10231D'; ctx.font = mf(800, nom.taille);
   nom.lignes.forEach((l, i) => ctx.fillText(l, cx, y + nom.taille * 0.9 + i * nom.taille * 1.04));
   espacement(ctx, 0);
   y += nom.taille * 1.04 * nom.lignes.length + 26;
   if (d.phrase) {
-    ctx.font = mf(500, 33); ctx.fillStyle = '#44546B';
+    ctx.font = mf(500, 33); ctx.fillStyle = '#3F5249';
     couperLignes(ctx, d.phrase, cl, 3).forEach((l, i) => ctx.fillText(l, cx, y + 30 + i * 48));
   }
 
@@ -657,12 +670,12 @@ function modeleCatalogue(ctx, W, H, f, d, img) {
     ctx.font = mf(800, tP * 0.3); if (a + 24 + ctx.measureText(unite).width <= W - 2 * M) break;
   }
   espacement(ctx, -tP * 0.03);
-  ctx.font = mf(800, tP); ctx.fillStyle = '#0B1F3A'; ctx.fillText(texteP, M, L.prixY);
+  ctx.font = mf(800, tP); ctx.fillStyle = '#0A3D33'; ctx.fillText(texteP, M, L.prixY);
   const lp = ctx.measureText(texteP).width;
   espacement(ctx, 0);
-  ctx.font = mf(800, tP * 0.3); ctx.fillStyle = '#5A6B82'; ctx.fillText(unite, M + lp + 24, L.prixY);
+  ctx.font = mf(800, tP * 0.3); ctx.fillStyle = '#55665F'; ctx.fillText(unite, M + lp + 24, L.prixY);
   if (p.prix_barre) {
-    ctx.font = mf(700, 34); ctx.fillStyle = '#8A97AB';
+    ctx.font = mf(700, 34); ctx.fillStyle = '#67766F';
     const ancien = `au lieu de ${prixTexte(p.prix_barre)} GNF`;
     ctx.fillText(ancien, M, L.prixY - tP * 0.86);
   }
@@ -670,7 +683,7 @@ function modeleCatalogue(ctx, W, H, f, d, img) {
   // Badges.
   const badges = [];
   badges.push(p.dispo === 'sur_commande' ? ['Sur commande', '#FDF3E1', '#7A4A00', null] : ['En stock', '#E8F5EA', '#1B6E2A', null]);
-  if (p.prix_gros && Number(p.prix_gros) < Number(p.prix)) badges.push([`Prix de gros : ${prixTexte(p.prix_gros)} GNF`, '#FFFFFF', '#0F1B2D', '#DCE3EE']);
+  if (p.prix_gros && Number(p.prix_gros) < Number(p.prix)) badges.push([`Prix de gros : ${prixTexte(p.prix_gros)} GNF`, '#FFFFFF', '#10231D', '#D8E1DC']);
   if (p.prix_barre) badges.push(['Promo', '#FFF4EA', '#C43E00', null]);
   let bx = M;
   ctx.font = mf(800, 28);
@@ -685,24 +698,25 @@ function modeleCatalogue(ctx, W, H, f, d, img) {
 
   // Pied : filet, QR, texte de commande, numéro.
   const yP = H - L.pied;
-  ctx.fillStyle = 'rgba(15,27,45,0.15)'; ctx.fillRect(M, yP, W - 2 * M, 2);
+  ctx.fillStyle = 'rgba(16, 35, 29,0.15)'; ctx.fillRect(M, yP, W - 2 * M, 2);
   const cq = L.pied * 0.62;
   qr(ctx, d.lien, M, yP + (L.pied - cq) / 2, cq);
   const x = M + (d.lien ? cq + 30 : 0);
-  ctx.font = mf(800, 36); ctx.fillStyle = '#0F1B2D';
+  ctx.font = mf(800, 36); ctx.fillStyle = '#10231D';
   const lNum = d.whatsapp ? ctx.measureText(d.whatsapp).width : 0;
   if (d.whatsapp) { ctx.textAlign = 'right'; ctx.fillText(d.whatsapp, W - M, yP + L.pied * 0.56); ctx.textAlign = 'left'; }
   const lt = W - x - M - lNum - 30;
   ajusterTaille(ctx, 'Commandez en ligne ou sur WhatsApp', lt, 34, 22, (t) => mf(800, t));
   ctx.fillText('Commandez en ligne ou sur WhatsApp', x, yP + L.pied * 0.47);
-  ctx.font = mf(600, 28); ctx.fillStyle = '#44546B';
+  ctx.font = mf(600, 28); ctx.fillStyle = '#3F5249';
   ctx.fillText(couperLignes(ctx, [d.boutique.ville, texteLivraison(d).split(' · ')[0]].filter(Boolean).join(' · '), lt, 1)[0], x, yP + L.pied * 0.68);
+  marqueYoumma(ctx, W - M, H - 16, img.symbole, '#67766F');
 }
 
 /* ------------------------------------------------------------ Modèle « Sélection » (arrivage) */
 
 async function modeleSelection(ctx, W, H, f, d, img) {
-  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE.bleu;
+  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE[COULEUR_AFFICHE_DEFAUT];
   const articles = [d.produit, ...(d.autres || [])].slice(0, 3);
   const L = {
     facebook: { tete: 52, logo: 82, titreY: 170, titre: 166, cartesY: 504, cartesH: 470, phraseY: 1028, pied: 190 },
@@ -722,7 +736,7 @@ async function modeleSelection(ctx, W, H, f, d, img) {
   ctx.font = mf(800, L.logo * 0.3);
   const lPast = ctx.measureText(pastilleTexte).width + 44;
   ctx.fillStyle = c.pastel; rectArrondi(ctx, W - M - lPast, L.tete + L.logo * 0.22, lPast, L.logo * 0.56, L.logo * 0.28); ctx.fill();
-  ctx.fillStyle = '#0B1F3A'; ctx.fillText(pastilleTexte, W - M - lPast + 22, L.tete + L.logo * 0.61);
+  ctx.fillStyle = '#0A3D33'; ctx.fillText(pastilleTexte, W - M - lPast + 22, L.tete + L.logo * 0.61);
   ctx.fillStyle = '#FFFFFF';
   ajusterTaille(ctx, d.boutique.nom, W - M * 2 - L.logo - lPast - 50, L.logo * 0.4, 22, (t) => mf(800, t));
   ctx.fillText(couperLignes(ctx, d.boutique.nom, W - M * 2 - L.logo - lPast - 50, 1)[0], M + L.logo + 24, L.tete + L.logo * 0.62);
@@ -737,7 +751,7 @@ async function modeleSelection(ctx, W, H, f, d, img) {
   const gap = 26;
   const lc = n === 1 ? W - 2 * M : (W - 2 * M - gap * (n - 1)) / n;
   const hc = L.cartesH;
-  const teintes = ['#EEF3FA', '#FFF4EA', '#F0F3F8'];
+  const teintes = ['#EDF5F1', '#FFF4EA', '#EFF3F0'];
   for (let i = 0; i < n; i++) {
     const a = articles[i];
     const x = M + i * (lc + gap);
@@ -756,13 +770,13 @@ async function modeleSelection(ctx, W, H, f, d, img) {
       const tx = x + lv + 36;
       const tl = lc - lv - 66;
       const nom = ajusterBloc(ctx, a.nom, tl, 3, 52, 30, (t) => mf(800, t));
-      ctx.fillStyle = '#0F1B2D'; ctx.font = mf(800, nom.taille);
+      ctx.fillStyle = '#10231D'; ctx.font = mf(800, nom.taille);
       nom.lignes.forEach((l, k) => ctx.fillText(l, tx, y + 70 + nom.taille + k * nom.taille * 1.15));
       const yPrix = y + hc - 110;
-      if (a.prix_barre) { ctx.font = mf(700, 30); ctx.fillStyle = '#8A97AB'; ctx.fillText(`${prixTexte(a.prix_barre)} GNF`, tx, yPrix - 90); }
+      if (a.prix_barre) { ctx.font = mf(700, 30); ctx.fillStyle = '#67766F'; ctx.fillText(`${prixTexte(a.prix_barre)} GNF`, tx, yPrix - 90); }
       ajusterTaille(ctx, prixTexte(a.prix), tl, 92, 40, (t) => mf(800, t));
       ctx.fillStyle = c.vif[1]; ctx.fillText(prixTexte(a.prix), tx, yPrix);
-      ctx.font = mf(700, 30); ctx.fillStyle = '#5A6B82'; ctx.fillText(`GNF / ${a.unite || 'unité'}`, tx, yPrix + 48);
+      ctx.font = mf(700, 30); ctx.fillStyle = '#55665F'; ctx.fillText(`GNF / ${a.unite || 'unité'}`, tx, yPrix + 48);
     } else {
       const hv = hc * 0.56;
       ctx.save(); rectArrondi(ctx, x, y, lc, hc, 30); ctx.clip();
@@ -771,11 +785,11 @@ async function modeleSelection(ctx, W, H, f, d, img) {
       const tx = x + 22;
       const tl = lc - 44;
       const tNom = Math.round(hc * 0.062);
-      ctx.font = mf(800, tNom); ctx.fillStyle = '#0F1B2D';
+      ctx.font = mf(800, tNom); ctx.fillStyle = '#10231D';
       couperLignes(ctx, a.nom, tl, 2).forEach((l, k) => ctx.fillText(l, tx, y + hv + tNom * 1.3 + k * tNom * 1.22));
       const tUnite = Math.round(hc * 0.048);
       const yUnite = y + hc - Math.max(22, hc * 0.06);
-      ctx.font = mf(700, tUnite); ctx.fillStyle = '#5A6B82';
+      ctx.font = mf(700, tUnite); ctx.fillStyle = '#55665F';
       ctx.fillText(couperLignes(ctx, `GNF / ${a.unite || 'unité'}`, tl, 1)[0], tx, yUnite);
       ajusterTaille(ctx, prixTexte(a.prix), tl, Math.round(hc * 0.1), 26, (t) => mf(800, t));
       ctx.fillStyle = c.vif[1]; ctx.fillText(prixTexte(a.prix), tx, yUnite - tUnite * 1.45);
@@ -790,7 +804,7 @@ async function modeleSelection(ctx, W, H, f, d, img) {
 
   // Pied sombre translucide.
   const yP = H - L.pied;
-  ctx.fillStyle = 'rgba(6,20,42,0.55)'; ctx.fillRect(0, yP, W, L.pied);
+  ctx.fillStyle = 'rgba(6, 42, 35,0.55)'; ctx.fillRect(0, yP, W, L.pied);
   const cq = L.pied * 0.66;
   qr(ctx, d.lien, M, yP + (L.pied - cq) / 2, cq);
   const x = M + (d.lien ? cq + 28 : 0);
@@ -808,6 +822,7 @@ async function modeleSelection(ctx, W, H, f, d, img) {
   ctx.fillText('Commandez sur WhatsApp', x, yP + L.pied * 0.47);
   ctx.font = mf(600, 27); ctx.fillStyle = c.texte;
   ctx.fillText(couperLignes(ctx, d.lienCourt || texteLivraison(d), lt, 1)[0], x, yP + L.pied * 0.7);
+  marqueYoumma(ctx, W - M, H - 14, img.symbole, c.texte);
 }
 
 /* ------------------------------------------------------------ Point d'entrée */
@@ -833,8 +848,9 @@ export async function genererAffiche(donnees, format = 'facebook') {
   };
   d.sousTitreBoutique = [d.boutique.type, [d.boutique.commune, d.boutique.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   const modele = ['promo', 'jour', 'arrivage'].includes(d.modele) ? d.modele : 'jour';
-  const [, logo, ...photos] = await Promise.all([
+  const [, symbole, logo, ...photos] = await Promise.all([
     chargerPolices(),
+    chargerImageDistante(new URL('../img/logo/youmma-business-symbole.png', import.meta.url).href),
     chargerImageDistante(d.boutique.logo_url),
     chargerImageDistante(d.produit.photo_url),
     ...(modele === 'arrivage' ? d.autres.map((a) => chargerImageDistante(a.photo_url)) : [])
@@ -845,7 +861,7 @@ export async function genererAffiche(donnees, format = 'facebook') {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.textBaseline = 'alphabetic';
-  const img = { logo, photo: photos[0] || null, photos };
+  const img = { logo, symbole, photo: photos[0] || null, photos };
   if (modele === 'promo') modeleImpact(ctx, W, H, f, d, img);
   else if (modele === 'arrivage') await modeleSelection(ctx, W, H, f, d, img);
   else modeleCatalogue(ctx, W, H, f, d, img);

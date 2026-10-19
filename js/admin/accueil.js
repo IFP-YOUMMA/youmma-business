@@ -21,7 +21,7 @@ function graphique(mois) {
   const echelle = (v) => ((bas - haut) * v) / max;
   return `
     <svg class="adm-graphique" viewBox="0 0 ${L} ${H}" role="img" aria-label="Revenus des 6 derniers mois : licences et packs SMS">
-      <line x1="0" y1="${bas}" x2="${L}" y2="${bas}" stroke="#E3E8F0"/>
+      <line x1="0" y1="${bas}" x2="${L}" y2="${bas}" stroke="#E2E8E5"/>
       ${mois.map((m, i) => {
         const lic = Number(m.licences) || 0;
         const sms = Number(m.sms) || 0;
@@ -31,11 +31,11 @@ function graphique(mois) {
         const libelle = capitaliser(new Intl.DateTimeFormat('fr-FR', { month: 'short', timeZone: 'UTC' }).format(new Date(`${String(m.mois).slice(0, 7)}-15T12:00:00Z`)));
         return `
           <g><title>${esc(libelle)} : licences ${gnf(lic)}, SMS ${gnf(sms)}</title>
-            <rect x="${x}" y="${bas - hl}" width="${largeur}" height="${hl}" fill="#1565C0"/>
-            <rect x="${x}" y="${bas - hl - hs}" width="${largeur}" height="${hs}" rx="${hs ? 6 : 0}" fill="#4FC3F7"/>
-            ${hs ? `<rect x="${x}" y="${bas - hl - Math.min(hs, 6)}" width="${largeur}" height="${Math.min(hs, 6)}" fill="#4FC3F7"/>` : ''}
-            <text x="${x + largeur / 2}" y="${bas - hl - hs - 8}" text-anchor="middle" font-size="12" font-weight="800" fill="#0F1B2D">${esc(formatMillions(lic + sms))}</text>
-            <text x="${x + largeur / 2}" y="${bas + 22}" text-anchor="middle" font-size="13" font-weight="700" fill="#5A6B82">${esc(libelle)}</text>
+            <rect x="${x}" y="${bas - hl}" width="${largeur}" height="${hl}" fill="#0F7B5F"/>
+            <rect x="${x}" y="${bas - hl - hs}" width="${largeur}" height="${hs}" rx="${hs ? 6 : 0}" fill="#F2B33D"/>
+            ${hs ? `<rect x="${x}" y="${bas - hl - Math.min(hs, 6)}" width="${largeur}" height="${Math.min(hs, 6)}" fill="#F2B33D"/>` : ''}
+            <text x="${x + largeur / 2}" y="${bas - hl - hs - 8}" text-anchor="middle" font-size="12" font-weight="800" fill="#10231D">${esc(formatMillions(lic + sms))}</text>
+            <text x="${x + largeur / 2}" y="${bas + 22}" text-anchor="middle" font-size="13" font-weight="700" fill="#55665F">${esc(libelle)}</text>
           </g>`;
       }).join('')}
     </svg>`;
@@ -54,7 +54,7 @@ export function afficherAccueil(conteneur) {
     <div class="adm-rangee">
       <section class="adm-carte adm-large">
         <div class="adm-carte-entete"><h2>Revenus YOUMMA · 6 derniers mois</h2>
-          <span class="adm-legende"><i style="background:#1565C0"></i> Licences <i style="background:#4FC3F7"></i> Packs SMS</span></div>
+          <span class="adm-legende"><i style="background:#0F7B5F"></i> Licences <i style="background:#F2B33D"></i> Packs SMS</span></div>
         <div data-zone="graphique">${squelette(4)}</div>
       </section>
       <section class="adm-carte adm-etroite"><h2>À traiter</h2><div data-zone="traiter">${squelette(4)}</div></section>
@@ -92,7 +92,7 @@ export function afficherAccueil(conteneur) {
 
     const t = s.a_traiter || {};
     const lignes = [
-      [t.paiements_a_valider, 'Paiements à valider', 'Licence à prolonger ou SMS à ajouter', 'bleu', '#/licences'],
+      [t.paiements_a_valider, 'Paiements à valider', 'Licence à prolonger ou SMS à ajouter', 'marque', '#/licences'],
       [champ(s, 'a_renouveler_7j', 'renouveler_7j'), 'Licences qui expirent sous 7 jours', 'Relancer par SMS en un clic', 'orange', '#/licences'],
       [t.support_ouvertes, 'Demandes d’aide ouvertes', t.support_24h ? `Dont ${t.support_24h} depuis plus de 24 h` : 'À traiter dans Support', 'rouge', '#/support'],
       [t.inactives_7j, 'Boutiques inactives depuis 7 jours', 'Aucune vente enregistrée', 'gris', '#/boutiques?filtre=inactives'],

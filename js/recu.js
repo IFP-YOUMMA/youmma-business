@@ -5,13 +5,14 @@
  */
 import { etat } from './state.js';
 import {
-  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, texteSolde, MODES_PAIEMENT
+  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, texteSolde, MODES_PAIEMENT, logoSymbole, imagesPretes
 } from './utils.js';
 
 /** En-tête commun : nom, adresse et téléphone de la boutique active. */
 function enteteBoutique() {
   const b = etat.boutique;
   return `
+    <div class="recu-logiciel">${logoSymbole(18)}<span>Logiciel YOUMMA Business</span></div>
     <div class="recu-entete">
       <strong class="recu-boutique">${esc(b.nom)}</strong>
       ${b.ville ? `<span>${esc([b.commune, b.ville].filter(Boolean).join(', '))}</span>` : ''}
@@ -28,12 +29,13 @@ function pied() {
   const message = String(etat.boutique.message_recu || '').trim() || 'Merci de votre confiance !';
   return `
     <div class="recu-sep"></div>
-    <p class="recu-merci">${esc(message)}</p>
-    <p class="recu-pied">Propulsé par YOUMMA Business</p>`;
+    <p class="recu-merci">${esc(message)}</p>`;
 }
 
-function imprimer(html) {
-  document.getElementById('recu').innerHTML = html;
+async function imprimer(html) {
+  const zone = document.getElementById('recu');
+  zone.innerHTML = html;
+  await imagesPretes(zone);
   window.print();
 }
 

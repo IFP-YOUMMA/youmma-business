@@ -11,7 +11,7 @@ import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-comm
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
 import {
-  esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, TYPES_ACTIVITE
+  esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, TYPES_ACTIVITE
 } from './utils.js';
 
 /** Sections du menu. `active` = disponible ; `droit` = réservée à un rôle (voir peut() dans state.js). */
@@ -104,7 +104,7 @@ function construireShell() {
   app.innerHTML = `
     <div class="shell" data-boutique="${esc(b.id)}">
       <nav class="sidebar" aria-label="Menu principal">
-        <a class="sidebar-logo" href="#/tableau-de-bord" aria-label="YOUMMA Business — Tableau de bord">${logoComplet('sombre')}</a>
+        <a class="sidebar-logo" href="#/tableau-de-bord" aria-label="YOUMMA Business — Tableau de bord">${logoMarque('sombre', 34)}</a>
         ${selecteurBoutique()}
         <div class="menu-liens">${sectionsVisibles().map(lienMenu).join('')}</div>
         ${carteLicence('sombre')}
@@ -115,7 +115,7 @@ function construireShell() {
 
       <div class="colonne">
         <header class="entete-mobile">
-          ${logoGoutte(30)}
+          ${logoSymbole(34, 'YOUMMA Business')}
           <div class="entete-mobile-textes">
             <span class="entete-mobile-nom">${esc(b.nom)}</span>
             <span class="entete-mobile-sous">${esc(b.ville || '')} · Licence ${esc(licence.formule)}${licence.joursRestants !== null ? ' · ' + licence.joursRestants + ' j' : ''}</span>

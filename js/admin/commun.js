@@ -55,7 +55,7 @@ const ETATS_LICENCE = {
   active: ['Active', 'vert'], grace: ['Délai de grâce', 'orange'], lecture_seule: ['Lecture seule', 'rouge'],
   expiree: ['Expirée', 'rouge'], suspendue: ['Suspendue', 'gris'], essai: ['Essai', 'orange']
 };
-const COULEURS_FORMULES = { essai: 'orange', essentiel: 'vert', pro: 'bleu', premium: 'violet' };
+const COULEURS_FORMULES = { essai: 'orange', essentiel: 'vert', pro: 'or', premium: 'violet' };
 
 /** Pastille de licence : formule (couleur) ou état anormal (expirée, suspendue). */
 export function badgeLicence(b) {
@@ -65,7 +65,7 @@ export function badgeLicence(b) {
   if (etat === 'grace') return '<span class="pastille-admin rouge">Grâce</span>';
   const formule = String(champ(b, 'licence_formule', 'formule') || 'essai').toLowerCase();
   const nom = champ(b, 'formule_nom') || formule.charAt(0).toUpperCase() + formule.slice(1);
-  return `<span class="pastille-admin ${COULEURS_FORMULES[formule] || 'bleu'}">${esc(nom)}</span>`;
+  return `<span class="pastille-admin ${COULEURS_FORMULES[formule] || 'marque'}">${esc(nom)}</span>`;
 }
 export function etatLicenceTexte(etat) {
   const [libelle, couleur] = ETATS_LICENCE[etat] || ETATS_LICENCE.active;

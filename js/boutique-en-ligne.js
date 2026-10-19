@@ -13,7 +13,7 @@ import { svgQr } from './qr.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatGNF,
   formatTelephone, normaliserTelephone, formaterSaisieMontant, lireNombre, dateISO, promoActive, prixApplique,
-  lienBoutique, lienCourtBoutique
+  lienBoutique, lienCourtBoutique, logoSymbole, imagesPretes
 } from './utils.js';
 
 const JOURS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Jeu'], [5, 'Ven'], [6, 'Sam'], [7, 'Dim']];
@@ -398,23 +398,25 @@ export function afficherBoutiqueEnLigne(conteneur) {
     });
   }
 
-  function lancerImpressionQr(format) {
+  async function lancerImpressionQr(format) {
     const slug = slugCourant();
     const zone = document.getElementById('recu');
     zone.className = `affiche-qr-impression format-${format}`;
     zone.innerHTML = `
       <div class="aqi-page">
+        <div class="aqi-marque">${logoSymbole(40)}<span>YOUMMA Business</span></div>
         <p class="aqi-nom">${esc(boutique.nom)}</p>
         <p class="aqi-titre">Commandez en ligne</p>
         <p class="aqi-sous">Scannez avec l’appareil photo de votre téléphone</p>
         <div class="aqi-qr">${svgQr(lienBoutique(slug))}</div>
         <p class="aqi-lien">${esc(lienCourtBoutique(slug))}</p>
         ${s.reglages.whatsapp ? `<p class="aqi-wa">WhatsApp ${esc(formatTelephone(s.reglages.whatsapp))}</p>` : ''}
-        <p class="aqi-pied">Retrait ou livraison · paiement à la réception · YOUMMA Business</p>
+        <p class="aqi-pied">Retrait ou livraison · paiement à la réception</p>
       </div>`;
     document.body.classList.add('impression-affiche-qr');
     const retirer = () => { document.body.classList.remove('impression-affiche-qr'); zone.className = ''; window.removeEventListener('afterprint', retirer); };
     window.addEventListener('afterprint', retirer);
+    await imagesPretes(zone);
     window.print();
     setTimeout(retirer, 1500);
   }

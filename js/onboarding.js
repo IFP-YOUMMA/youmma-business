@@ -9,7 +9,7 @@ import { etat, utilisateur, chargerBoutiques, choisirBoutique, peut, LIBELLES_RO
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import {
-  esc, icone, logoComplet, normaliserTelephone, formatTelephone, messageErreur, boutonOccupe, toast, prenom, TYPES_ACTIVITE
+  esc, icone, logoMarque, normaliserTelephone, formatTelephone, messageErreur, boutonOccupe, toast, prenom, TYPES_ACTIVITE
 } from './utils.js';
 
 const ICONES_TYPES = {
@@ -53,7 +53,7 @@ function afficherChoix(conteneur, peutCreer) {
   conteneur.innerHTML = `
     <div class="ecran-onboarding">
       <header class="onboarding-entete">
-        <div class="onboarding-haut">${logoComplet('sombre')}${boutonEntete()}</div>
+        <div class="onboarding-haut">${logoMarque('sombre', 34)}${boutonEntete()}</div>
         <div class="onboarding-titres onboarding-titres-etroits">
           <h1>${premiere ? `Bienvenue${prenomUtilisateur ? ', ' + esc(prenomUtilisateur) : ''}` : 'Rejoindre une boutique'}</h1>
           <p>${premiere ? 'Créez votre boutique, ou rejoignez celle de votre patron.' : 'Saisissez le code d’invitation reçu de la boutique.'}</p>
@@ -156,7 +156,7 @@ function afficherCreation(conteneur) {
   conteneur.innerHTML = `
     <div class="ecran-onboarding">
       <header class="onboarding-entete">
-        <div class="onboarding-haut">${logoComplet('sombre')}${boutonEntete()}</div>
+        <div class="onboarding-haut">${logoMarque('sombre', 34)}${boutonEntete()}</div>
         <div class="onboarding-titres">
           <h1>${premiereBoutique ? 'Créons votre boutique' : 'Nouvelle boutique'}</h1>
           <p>Ces informations apparaîtront sur vos reçus. Vous pourrez les modifier plus tard.</p>

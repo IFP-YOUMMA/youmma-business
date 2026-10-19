@@ -291,12 +291,12 @@ export const TYPES_ACTIVITE = {
 
 /** Modes de paiement : libellés et couleurs des maquettes. */
 export const MODES_PAIEMENT = {
-  especes: { libelle: 'Espèces', court: 'Espèces', couleur: '#0B1F3A', fond: '#E8ECF2', encre: '#0B1F3A' },
+  especes: { libelle: 'Espèces', court: 'Espèces', couleur: '#0A3D33', fond: '#E6ECE9', encre: '#0A3D33' },
   orange_money: { libelle: 'Orange Money', court: 'Orange Money', couleur: '#EF6C00', fond: '#FFE8D6', encre: '#8A3B00' },
   mtn_momo: { libelle: 'MTN MoMo', court: 'MTN MoMo', couleur: '#FBC02D', fond: '#FFF4C2', encre: '#5C4600' },
   credit: { libelle: 'À crédit', court: 'Crédit', couleur: '#90A4AE', fond: '#FBE9E7', encre: '#9A2E0A' },
   // Enlèvement sur un compte chantier (payé par l'avance ou mis en dette du chantier).
-  chantier: { libelle: 'Chantier', court: 'Chantier', couleur: '#4FC3F7', fond: '#E1F5FE', encre: '#01579B' }
+  chantier: { libelle: 'Chantier', court: 'Chantier', couleur: '#3BA58A', fond: '#E0F2EC', encre: '#0A5E48' }
 };
 
 /** Modes proposés à la caisse (le mode « chantier » passe par l'écran d'enlèvement). */
@@ -680,16 +680,29 @@ export function icone(nom, taille = 20, epaisseur = 1.8) {
   return `<svg width="${taille}" height="${taille}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${epaisseur}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${ICONES[nom] || ''}"></path></svg>`;
 }
 
-let compteurLogo = 0;
+/** Adresse d'un fichier de img/logo/, valable depuis l'appli, admin/ et b/. */
+export const urlLogo = (fichier) => new URL(`../img/logo/${fichier}`, import.meta.url).href;
 
-/** La goutte YOUMMA en dégradé avec le « y » blanc. */
-export function logoGoutte(largeur = 36) {
-  const id = `yg${++compteurLogo}`;
-  const hauteur = Math.round((largeur * 40) / 36);
-  return `<svg width="${largeur}" height="${hauteur}" viewBox="0 0 32 36" aria-hidden="true" focusable="false"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FC3F7"></stop><stop offset="1" stop-color="#1565C0"></stop></linearGradient></defs><path d="M16 1C16 1 3 15 3 22a13 13 0 0 0 26 0C29 15 16 1 16 1z" fill="url(#${id})"></path><text x="16" y="28" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="800" font-size="15" fill="#FFFFFF">y</text></svg>`;
+/** Attend le chargement des images d'un conteneur (au plus `delai` ms), avant une impression. */
+export function imagesPretes(conteneur, delai = 1500) {
+  const attentes = [...conteneur.querySelectorAll('img')].filter((i) => !i.complete)
+    .map((i) => new Promise((ok) => { i.addEventListener('load', ok, { once: true }); i.addEventListener('error', ok, { once: true }); }));
+  return Promise.race([Promise.all(attentes), new Promise((ok) => setTimeout(ok, delai))]);
 }
 
-/** Logo complet : goutte + « YOUMMA / BUSINESS ». theme : 'sombre' (fond navy) ou 'clair'. */
-export function logoComplet(theme = 'sombre') {
-  return `<div class="logo logo-${theme}">${logoGoutte()}<div class="logo-texte"><span class="logo-nom">YOUMMA</span><span class="logo-sous">BUSINESS</span></div></div>`;
+/** Symbole seul (cercle or, arc vert, barres) pour les petites tailles. alt vide : le texte est à côté. */
+export function logoSymbole(taille = 34, alt = '') {
+  return `<img class="logo-symbole" src="${urlLogo('youmma-business-symbole.png')}" width="${taille}" height="${taille}" alt="${esc(alt)}" decoding="async">`;
+}
+
+/** Symbole + « YOUMMA Business » en texte (menus, en-têtes). theme : 'sombre' (fond foncé) ou 'clair'. */
+export function logoMarque(theme = 'sombre', taille = 34, sousTitre = '') {
+  return `<div class="logo logo-${theme}">${logoSymbole(taille)}<div class="logo-texte"><span class="logo-nom">YOUMMA Business</span>${sousTitre ? `<span class="logo-sous">${esc(sousTitre)}</span>` : ''}</div></div>`;
+}
+
+/** Logo complet (image, 120 px de large minimum). theme : 'sombre' (fond foncé) ou 'clair'. */
+export function logoComplet(theme = 'sombre', largeur = 160) {
+  const fichier = theme === 'sombre' ? 'youmma-business-logo-fond-fonce.png' : 'youmma-business-logo.png';
+  const l = Math.max(120, largeur);
+  return `<img class="logo-complet" src="${urlLogo(fichier)}" width="${l}" height="${l}" alt="YOUMMA Business" decoding="async">`;
 }

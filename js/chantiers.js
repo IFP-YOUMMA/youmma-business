@@ -22,7 +22,7 @@ import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
   lireNombre, lireStockage, ecrireStockage, uniteDivisible, chargerParLots, texteSolde, classeSolde,
-  MODES_PAIEMENT
+  MODES_PAIEMENT, logoSymbole
 } from './utils.js';
 
 const COLONNES_MOUVEMENT = 'id, chantier_id, type, montant, mode, vente_id, personne, note, photo_path, annule, solde_apres, fait_par, created_at';
@@ -927,6 +927,7 @@ function afficherReleve(conteneur, id) {
             <span class="discret">${esc([lieu, boutique.telephone ? formatTelephone(boutique.telephone) : ''].filter(Boolean).join(' · '))}</span>
           </div>
           <div class="releve-titre">
+            <span class="doc-logiciel">${logoSymbole(20)}<span>Logiciel YOUMMA Business</span></span>
             <span class="releve-grand-titre">SITUATION DE CHANTIER</span>
             <span class="discret">N° ${esc(c.numero)} · éditée le ${esc(formatDate(new Date(), 'court'))} à ${esc(formatDate(new Date(), 'heure'))}</span>
             <span class="discret">Période : du ${esc(formatDate(`${s.du}T12:00:00Z`, 'court'))} au ${esc(formatDate(`${s.au}T12:00:00Z`, 'court'))}</span>

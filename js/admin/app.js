@@ -7,7 +7,7 @@
  * Les données se rechargent à l'ouverture de chaque rubrique (pas de temps réel).
  */
 import { sb, configurationValide } from '../supabase.js';
-import { esc, icone, logoGoutte, normaliserTelephone, emailDepuisTelephone, boutonOccupe, messageErreur, fermerModales } from '../utils.js';
+import { esc, icone, logoComplet, logoSymbole, normaliserTelephone, emailDepuisTelephone, boutonOccupe, messageErreur, fermerModales } from '../utils.js';
 import { admin, estSuper, rpc, premiere, champ, telLocal, urlAppli, erreurAdmin } from './commun.js';
 import { afficherAccueil } from './accueil.js';
 import { afficherBoutiques } from './boutiques.js';
@@ -42,8 +42,8 @@ const svg = (d, taille = 17) => `<svg width="${taille}" height="${taille}" viewB
 function afficherConnexion(message = '') {
   racine.innerHTML = `
     <div class="ecran-auth">
+      <div class="adm-logo-auth">${logoComplet('sombre')}<span>ADMINISTRATION</span></div>
       <div class="carte-auth">
-        <div class="adm-logo-auth">${logoGoutte(40)}<span><strong>YOUMMA Business</strong><em>ADMINISTRATION</em></span></div>
         <div class="auth-titres"><h1>Connexion équipe YOUMMA</h1><p>Même compte que l’appli : téléphone et mot de passe.</p></div>
         <form class="form-auth" novalidate>
           <div class="champ"><label for="adm-tel">Téléphone</label><input id="adm-tel" name="telephone" class="input" type="tel" inputmode="tel" autocomplete="username" placeholder="620 00 00 00" required></div>
@@ -73,8 +73,8 @@ function afficherConnexion(message = '') {
 function afficherAccesRefuse() {
   racine.innerHTML = `
     <div class="ecran-auth">
+      <div class="adm-logo-auth">${logoComplet('sombre')}<span>ADMINISTRATION</span></div>
       <div class="carte-auth">
-        <div class="adm-logo-auth">${logoGoutte(40)}<span><strong>YOUMMA Business</strong><em>ADMINISTRATION</em></span></div>
         <div class="auth-titres"><h1>Accès réservé à l’équipe YOUMMA</h1><p>Ce compte n’a pas accès au panneau d’administration.</p></div>
         <a class="btn btn-primaire btn-bloc btn-grand" href="${esc(urlAppli())}">Ouvrir l’appli des boutiques</a>
         <button type="button" class="btn btn-secondaire btn-bloc" data-action="deconnexion">Se déconnecter</button>
@@ -91,7 +91,7 @@ function construireCoquille() {
     <div class="adm-shell">
       <div class="adm-voile" data-action="fermer-menu" hidden></div>
       <nav class="adm-menu" aria-label="Administration" id="adm-menu">
-        <a class="adm-logo" href="#/accueil">${logoGoutte(34)}<span><strong>YOUMMA Business</strong><em>ADMINISTRATION</em></span></a>
+        <a class="adm-logo" href="#/accueil">${logoSymbole(34)}<span><strong>YOUMMA Business</strong><em>ADMINISTRATION</em></span></a>
         <div class="adm-liens">
           ${RUBRIQUES.map((r) => `
             <a href="#/${r.route}" class="adm-lien" data-route="${r.route}">${svg(r.icone)}<span>${esc(r.libelle)}</span>${r.compteur ? `<span class="adm-compteur" data-compteur="${r.compteur}"></span>` : ''}</a>`).join('')}

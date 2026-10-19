@@ -349,24 +349,24 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
 
   zone('kpis').innerHTML = [
     { libelle: 'Ventes du jour', valeur: s.ventes_jour, sous: variation.texte, encreSous: variation.encre,
-      teinte: '#E3EEFB', encre: '#0D47A1', icone: 'rapports' },
-    { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: `Dépenses : ${formatGNF(s.depenses_jour)}`, encreSous: '#5A6B82',
+      teinte: '#E3F2EC', encre: '#0A5E48', icone: 'rapports' },
+    { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: `Dépenses : ${formatGNF(s.depenses_jour)}`, encreSous: '#55665F',
       teinte: '#E0F2F1', encre: '#00695C', icone: 'caisse' },
     { libelle: 'Crédits en cours', valeur: s.credits_total,
       sous: `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''} · ${s.nb_credits_retard} en retard`
         + (s.dettes_chantiers > 0 ? ` · + Chantiers : ${formatGNF(s.dettes_chantiers)} dus` : ''),
-      encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#5A6B82', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client' },
+      encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client' },
     { libelle: 'Valeur du stock', valeur: s.valeur_stock,
       sous: s.nb_stock_bas > 0 ? `${s.nb_stock_bas} article${s.nb_stock_bas > 1 ? 's' : ''} sous le seuil` : 'Aucun article sous le seuil',
       encreSous: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A', teinte: '#FFF3CD', encre: '#8A5A00', icone: 'stock' }
   ].map(kpiHTML).join('');
 
   zone('kpis-mobile').innerHTML = [
-    { libelle: 'Encaissé', valeur: formatNombre(s.encaisse_jour), sous: 'Espèces + mobile', encre: '#5A6B82' },
+    { libelle: 'Encaissé', valeur: formatNombre(s.encaisse_jour), sous: 'Espèces + mobile', encre: '#55665F' },
     { libelle: 'Crédits en cours', valeur: formatNombre(s.credits_total),
       sous: s.nb_credits_retard > 0 ? `${s.nb_credits_retard} en retard` : `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''}`,
-      encre: s.nb_credits_retard > 0 ? '#B23A0E' : '#5A6B82' },
-    { libelle: 'Dépenses du jour', valeur: formatNombre(s.depenses_jour), sous: 'Aujourd’hui', encre: '#5A6B82' },
+      encre: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F' },
+    { libelle: 'Dépenses du jour', valeur: formatNombre(s.depenses_jour), sous: 'Aujourd’hui', encre: '#55665F' },
     { libelle: 'Stock bas', valeur: `${s.nb_stock_bas} article${s.nb_stock_bas > 1 ? 's' : ''}`,
       sous: s.nb_stock_bas > 0 ? 'À commander' : 'Tout va bien', encre: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A' }
   ].map((k) => `
@@ -397,7 +397,7 @@ function normaliserStats(data) {
 function variationVentes(s) {
   const nb = `${s.nb_ventes_jour} vente${s.nb_ventes_jour > 1 ? 's' : ''}`;
   if (s.ventes_hier <= 0) {
-    return { texte: s.nb_ventes_jour ? nb + ' aujourd’hui' : 'Aucune vente pour l’instant', encre: '#5A6B82' };
+    return { texte: s.nb_ventes_jour ? nb + ' aujourd’hui' : 'Aucune vente pour l’instant', encre: '#55665F' };
   }
   const pct = Math.round(((s.ventes_jour - s.ventes_hier) / s.ventes_hier) * 100);
   if (pct >= 0) return { texte: `▲ ${pct} % vs hier · ${nb}`, encre: '#1B6E2A' };
@@ -529,7 +529,7 @@ async function afficherSoldeSms(zone) {
 }
 
 /** Couleur du texte d'échéance selon le statut de crédit (couleurs de la maquette). */
-const ENCRES_ECHEANCE = { retard: '#B23A0E', bientot: '#8A5A00', ok: '#5A6B82', aucun: '#5A6B82' };
+const ENCRES_ECHEANCE = { retard: '#B23A0E', bientot: '#8A5A00', ok: '#55665F', aucun: '#55665F' };
 
 /** Les 5 plus gros soldes, avec la même règle d'échéance que la page Clients & crédits. */
 async function chargerCredits(situationPromesse, zone) {

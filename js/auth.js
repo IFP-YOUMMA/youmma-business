@@ -44,8 +44,8 @@ function brancherAffichageMotDePasse(racine) {
 function cadreAuth(titre, sousTitre, formulaire, piedCarte) {
   return `
     <div class="ecran-auth">
+      ${logoComplet('sombre')}
       <div class="carte-auth">
-        ${logoComplet('clair')}
         <div class="auth-titres">
           <h1>${esc(titre)}</h1>
           <p>${esc(sousTitre)}</p>
