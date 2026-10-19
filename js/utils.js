@@ -322,7 +322,7 @@ export function lienWhatsApp(message) {
 const MESSAGES_METIER = {
   NON_CONNECTE: 'Votre session a expiré. Reconnectez-vous.',
   ACCES_REFUSE: 'Vous n’avez pas les droits pour faire cette action dans cette boutique.',
-  LICENCE_EXPIREE: 'Votre licence a expiré : impossible d’enregistrer une vente. Renouvelez-la pour continuer.',
+  LICENCE_EXPIREE: 'Votre licence a expiré : la boutique est en lecture seule. Contactez YOUMMA pour la renouveler.',
   CLIENT_REQUIS_POUR_CREDIT: 'Une vente à crédit nécessite un client. Choisissez ou créez le client.',
   PANIER_VIDE: 'Le panier est vide. Ajoutez au moins un article.',
   PRODUIT_INTROUVABLE: 'Un article du panier est introuvable ou a été désactivé. La liste a été rechargée.',
@@ -362,6 +362,15 @@ const MESSAGES_METIER = {
   AUCUNE_DETTE: 'Ce client ne doit rien.',
   CLIENT_INTROUVABLE: 'Ce client est introuvable.',
   BOUTIQUE_INTROUVABLE: 'Cette boutique est introuvable.',
+  PAIEMENT_INTROUVABLE: 'Ce paiement est introuvable.',
+  DEJA_TRAITE: 'Déjà traité par quelqu’un d’autre : la liste a été rechargée.',
+  MOTIF_REQUIS: 'Indiquez le motif.',
+  COMPTE_INTROUVABLE: 'Aucun compte YOUMMA Business avec ce numéro.',
+  COMPTE_EXISTE: 'Un compte existe déjà avec ce numéro.',
+  DERNIER_SUPER_ADMIN: 'Impossible : il doit rester au moins un super admin actif.',
+  DEMANDE_INTROUVABLE: 'Cette demande d’aide est introuvable.',
+  TROP_DE_DEMANDES: 'Trop de demandes envoyées : réessayez dans un moment ou écrivez-nous sur WhatsApp.',
+  BOUTIQUE_SUSPENDUE: 'Cette boutique est suspendue. Contactez YOUMMA.',
   BOUTIQUE_FERMEE: 'La boutique ne prend pas de commandes pour le moment.',
   RECEPTION_INVALIDE: 'Choisissez le retrait en boutique ou la livraison.',
   ZONE_REQUISE: 'Choisissez une zone de livraison.',
@@ -604,6 +613,7 @@ export const ICONES = {
   outil: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4z',
   magasin: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
   enLigne: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
+  aide: 'M12 21a9 9 0 1 0-9-9c0 1.6.4 3 1.1 4.3L3 21l4.7-1.1A9 9 0 0 0 12 21zM9 10a3 3 0 1 1 4 2.8V14M12 17h.01',
   qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2M6 6h1M17 6h1M6 17h1',
   partager: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13',
   image: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
@@ -626,6 +636,23 @@ export function lienCourtBoutique(slug) {
 function racineSite() {
   const ici = location.href.split('#')[0].split('?')[0];
   return new URL(/\/b\/[^/]*$/.test(new URL(ici).pathname) ? '../' : './', ici);
+}
+
+/* =========================================================================
+   Connexion par téléphone (e-mail technique, partagé par l'appli et le panneau admin)
+   ========================================================================= */
+
+const DOMAINE_TECHNIQUE = 'tel.yoummabusiness.app';
+
+/** E-mail technique dérivé d'un numéro déjà normalisé (224XXXXXXXXX@tel.yoummabusiness.app). */
+export function emailDepuisTelephone(telephoneNormalise) {
+  return `${telephoneNormalise}@${DOMAINE_TECHNIQUE}`;
+}
+
+/** Téléphone de connexion (224XXXXXXXXX) déduit de l'e-mail technique, ou null. */
+export function telephoneDepuisEmail(email) {
+  const local = String(email || '').split('@')[0];
+  return /^\d{12}$/.test(local) ? local : null;
 }
 
 /* =========================================================================

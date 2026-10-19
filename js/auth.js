@@ -7,17 +7,12 @@
 import { sb } from './supabase.js';
 import { etat, chargerBoutiques, viderEtat } from './state.js';
 import { naviguer } from './router.js';
+import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion } from './plateforme.js';
 import {
-  esc, icone, logoComplet, normaliserTelephone, messageErreur, boutonOccupe, lienWhatsApp
+  esc, icone, logoComplet, normaliserTelephone, messageErreur, boutonOccupe, lienWhatsApp, emailDepuisTelephone
 } from './utils.js';
 
-const DOMAINE_TECHNIQUE = 'tel.yoummabusiness.app';
 const LONGUEUR_MIN_MDP = 6;
-
-/** E-mail technique dérivé d'un numéro déjà normalisé. */
-function emailDepuisTelephone(telephoneNormalise) {
-  return `${telephoneNormalise}@${DOMAINE_TECHNIQUE}`;
-}
 
 /** Champ mot de passe avec bouton afficher / masquer. */
 function champMotDePasse(id, libelle, autocomplete) {
@@ -73,6 +68,9 @@ function afficherErreur(formulaire, message) {
 async function entrerDansLApplication(session) {
   etat.session = session;
   await chargerBoutiques();
+  await Promise.all([chargerEtatPlateforme(), etat.boutique ? chargerEtatLicence() : null]);
+  // Maintenance (sauf équipe YOUMMA) ou mot de passe provisoire à changer : écran bloquant.
+  if (await controlesApresConnexion(() => location.reload())) return;
   naviguer(etat.boutique ? 'tableau-de-bord' : 'nouvelle-boutique', { remplacer: true });
 }
 

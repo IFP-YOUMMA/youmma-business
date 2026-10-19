@@ -6,7 +6,7 @@
  * en « réseau d'abord » : la version en ligne est toujours prioritaire, le cache
  * ne sert qu'en cas de coupure.
  */
-const VERSION_CACHE = 'yb-statique-v9';
+const VERSION_CACHE = 'yb-statique-v10';
 
 const FICHIERS_STATIQUES = [
   './',
@@ -39,7 +39,24 @@ const FICHIERS_STATIQUES = [
   './js/fournisseurs.js',
   './js/messages.js',
   './js/campagne.js',
-  './js/admin.js',
+  './js/plateforme.js',
+  './js/aide.js',
+  './js/licence.js',
+  // Panneau d'administration YOUMMA (page séparée admin/)
+  './admin/index.html',
+  './css/admin.css',
+  './js/admin/app.js',
+  './js/admin/commun.js',
+  './js/admin/accueil.js',
+  './js/admin/boutiques.js',
+  './js/admin/licences.js',
+  './js/admin/utilisateurs.js',
+  './js/admin/sms.js',
+  './js/admin/vitrines.js',
+  './js/admin/annonces.js',
+  './js/admin/support.js',
+  './js/admin/equipe.js',
+  './js/admin/parametres.js',
   './js/images.js',
   './js/qr.js',
   './js/vendor/qrcode.js',
@@ -108,6 +125,7 @@ self.addEventListener('fetch', (evenement) => {
 /**
  * Hors ligne, rien en cache pour cette adresse :
  *  - page de la boutique en ligne (b/…) → b/index.html (jamais l'appli) ;
+ *  - panneau d'administration (admin/…) → admin/index.html (jamais l'appli) ;
  *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
  *  - autre navigation dans l'appli → index.html.
  */
@@ -115,6 +133,10 @@ function repli(requete, url) {
   const chemin = url.pathname.slice(new URL(self.registration.scope).pathname.length);
   if (chemin === 'b' || chemin.startsWith('b/')) {
     return requete.mode === 'navigate' ? caches.match('./b/index.html').then((r) => r || Response.error()) : Response.error();
+  }
+  // Panneau d'administration : sa propre page, jamais l'index.html de l'appli.
+  if (chemin === 'admin' || chemin.startsWith('admin/')) {
+    return requete.mode === 'navigate' ? caches.match('./admin/index.html').then((r) => r || Response.error()) : Response.error();
   }
   if (requete.mode !== 'navigate' || chemin === '404.html') return Response.error();
   return caches.match('./index.html').then((r) => r || Response.error());

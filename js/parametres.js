@@ -12,10 +12,10 @@ import { etat, utilisateur, peut, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLE
 import { deconnecter } from './auth.js';
 import { changerLogo, choisirImage } from './images.js';
 import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
-import { changerBoutique, lienRenouvellement, statutLicence, majNomBoutiqueAffiche } from './layout.js';
+import { changerBoutique, statutLicence, majNomBoutiqueAffiche } from './layout.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, formatDate, formatTelephone,
-  normaliserTelephone, jours, lienWhatsApp, TYPES_ACTIVITE
+  normaliserTelephone, jours, TYPES_ACTIVITE
 } from './utils.js';
 
 const LONGUEUR_MAX_MESSAGE = 160;
@@ -149,7 +149,7 @@ export function afficherParametres(conteneur) {
       <form class="form-mdp" novalidate>
         <div class="champ"><label for="mdp-nouveau">Nouveau mot de passe</label><input id="mdp-nouveau" name="mdp" class="input" type="password" autocomplete="new-password" minlength="${LONGUEUR_MIN_MDP}"></div>
         <div class="champ"><label for="mdp-confirmation">Confirmer</label><input id="mdp-confirmation" name="confirmation" class="input" type="password" autocomplete="new-password" minlength="${LONGUEUR_MIN_MDP}"></div>
-        <div class="champ champ-bouton"><button type="submit" class="btn btn-secondaire btn-bloc">Changer le mot de passe</button></div>
+        <div class="champ champ-bouton"><button type="submit" class="btn btn-secondaire btn-bloc" data-lecture-ok>Changer le mot de passe</button></div>
         <p class="erreur-form" role="alert" hidden></p>
       </form>
       <div class="sur-appareil">
@@ -236,8 +236,8 @@ export function afficherParametres(conteneur) {
       <div class="jauge-licence" role="progressbar" aria-label="Durée restante de la licence" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(l.progression * 100)}">
         <div class="jauge-licence-remplie" style="width:${Math.round(l.progression * 100)}%"></div>
       </div>
-      <a class="btn btn-licence btn-grand" href="${esc(lienRenouvellement())}" target="_blank" rel="noopener">Renouveler ma licence</a>
-      <a class="licence-aide" href="${esc(lienWhatsApp('Bonjour YOUMMA, j’ai besoin d’aide avec YOUMMA Business.'))}" target="_blank" rel="noopener">Besoin d’aide ? YOUMMA · WhatsApp +224 620 83 60 81</a>`;
+      <a class="btn btn-licence btn-grand" href="#/licence">Ma licence et renouvellement</a>
+      <a class="btn btn-secondaire btn-bloc" href="#/aide">${icone('aide', 18, 2)} Aide : écrire à YOUMMA</a>`;
   }
 
   /* ---------------- Mes boutiques */

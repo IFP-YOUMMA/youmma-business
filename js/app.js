@@ -19,7 +19,9 @@ import { afficherRapports } from './rapports.js';
 import { afficherParametres } from './parametres.js';
 import { afficherChantiers } from './chantiers.js';
 import { afficherMessages } from './messages.js';
-import { afficherAdmin } from './admin.js';
+import { afficherAide } from './aide.js';
+import { afficherLicence } from './licence.js';
+import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion, afficherMaintenance } from './plateforme.js';
 import { afficherCommandes } from './commandes.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
 import { afficherAfficheJour } from './affiche-jour.js';
@@ -57,7 +59,10 @@ const ROUTES = {
   },
   // #/messages (onglet dans l'adresse : #/messages/campagnes…), #/messages/campagne (nouvelle campagne)
   messages: { vue: afficherMessages, droit: 'messages.voir' },
-  admin: { vue: afficherAdmin, admin: true },
+  // Panneau d'administration YOUMMA : page séparée admin/ (l'ancien écran #/admin y renvoie).
+  admin: { vue: () => { location.href = 'admin/'; }, admin: true },
+  aide: { vue: afficherAide },
+  licence: { vue: afficherLicence },
   // #/commandes, #/commandes/<id> (détail en page sur téléphone)
   commandes: { vue: afficherCommandes, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
   'boutique-en-ligne': { vue: afficherBoutiqueEnLigne, droit: 'boutique_en_ligne.gerer' },
@@ -151,10 +156,17 @@ async function demarrer() {
   try {
     await chargerSession();
     if (etat.session) await chargerBoutiques();
+    await Promise.all([chargerEtatPlateforme(), etat.boutique ? chargerEtatLicence() : null]);
   } catch (err) {
     afficherErreurDemarrage(messageErreur(err));
     return;
   }
+  // Maintenance (sauf équipe YOUMMA) et mot de passe provisoire : écrans bloquants avant l'appli.
+  if (etat.plateforme?.maintenance && !etat.session) {
+    afficherMaintenance(document.getElementById('app'), { continuer: () => demarrerRouteur(resoudre) });
+    return;
+  }
+  if (await controlesApresConnexion(() => location.reload())) return;
 
   sb.auth.onAuthStateChange((evenement, session) => {
     if (evenement === 'SIGNED_OUT') {

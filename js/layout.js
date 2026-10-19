@@ -8,8 +8,10 @@ import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
+import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
+import { majBadgeAide } from './aide.js';
 import {
-  esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, lienWhatsApp, TYPES_ACTIVITE
+  esc, icone, logoComplet, logoGoutte, ouvrirModale, formatDate, jours, TYPES_ACTIVITE
 } from './utils.js';
 
 /** Sections du menu. `active` = disponible ; `droit` = réservée à un rôle (voir peut() dans state.js). */
@@ -29,7 +31,9 @@ export const SECTIONS = [
   { route: 'affiche', libelle: 'Affiche du jour', icone: 'image', active: true, droit: 'affiche.partager' },
   { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
   // Administration de la plateforme : visible seulement pour l'équipe YOUMMA (est_admin_plateforme).
-  { route: 'admin', libelle: 'Admin YOUMMA', icone: 'bouclier', active: true, admin: true }
+  { route: 'aide', libelle: 'Aide', icone: 'aide', active: true, badgeAide: true },
+  // Panneau d'administration : page séparée (admin/), visible seulement pour l'équipe YOUMMA.
+  { route: 'admin', lien: 'admin/', libelle: 'Admin YOUMMA', icone: 'bouclier', active: true, admin: true }
 ];
 
 /**
@@ -73,8 +77,11 @@ export function preparerShell({ route, pleinEcran = false }) {
     if (actif) lien.setAttribute('aria-current', 'page');
     else lien.removeAttribute('aria-current');
   });
-  const vue = shell.querySelector('#vue');
-  vue.innerHTML = '';
+  // Conteneur neuf à chaque page : les écouteurs posés par l'écran précédent ne s'accumulent pas
+  // (sinon, après plusieurs allers-retours, un clic déclenchait plusieurs fois la même action).
+  const ancienne = shell.querySelector('#vue');
+  const vue = ancienne.cloneNode(false);
+  ancienne.replaceWith(vue);
   window.scrollTo(0, 0);
   return vue;
 }
@@ -114,7 +121,9 @@ function construireShell() {
             <span class="entete-mobile-sous">${esc(b.ville || '')} · Licence ${esc(licence.formule)}${licence.joursRestants !== null ? ' · ' + licence.joursRestants + ' j' : ''}</span>
           </div>
         </header>
-        ${licence.expiree ? bandeauLicence() : ''}
+        <div data-zone="bandeau-plateforme">${bandeauMaintenanceHTML()}</div>
+        <div data-zone="bandeau-licence">${bandeauLicenceHTML()}</div>
+        <div data-zone="bandeau-annonce"></div>
         <div data-zone="bandeau-sms"></div>
         <main id="vue" tabindex="-1"></main>
       </div>
@@ -134,6 +143,9 @@ function construireShell() {
   brancherShell(shell);
   majCreditSmsAffiche(); // badge du menu et bandeau « crédit bas » (gérant / propriétaire)
   demarrerSurveillanceCommandes(); // badge « Commandes » + toast et son à chaque nouvelle commande en ligne
+  appliquerLectureSeule();        // licence en lecture seule ou suspendue : boutons d'écriture désactivés
+  afficherAnnonces();             // annonce de l'équipe YOUMMA (la plus récente, fermable)
+  majBadgeAide();                 // badge « Aide » si YOUMMA a répondu
   return shell;
 }
 
@@ -153,12 +165,13 @@ function brancherShell(shell) {
 
 function lienMenu(section) {
   return `
-    <a href="#/${section.route}" class="lien-menu" data-route="${section.route}">
+    <a href="${section.lien || `#/${section.route}`}" class="lien-menu" data-route="${section.route}">
       ${icone(section.icone, 20)}
       <span class="lien-menu-libelle">${esc(section.libelleCourt || section.libelle)}</span>
       ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
       ${section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+      ${section.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
     </a>`;
 }
 
@@ -210,18 +223,14 @@ document.addEventListener('keydown', (e) => {
 });
 
 /** Active une autre boutique et repart de son tableau de bord. */
-export function changerBoutique(id) {
+export async function changerBoutique(id) {
   if (!choisirBoutique(id)) return;
+  await chargerEtatLicence();
   retirerShell();
   naviguer('tableau-de-bord');
 }
 
 /* ------------------------------------------------------------ Licence */
-
-/** Message WhatsApp de renouvellement. */
-export function lienRenouvellement() {
-  return lienWhatsApp(`Bonjour YOUMMA, je souhaite renouveler la licence de ma boutique ${etat.boutique.nom}`);
-}
 
 /** Statut affiché d'une licence : Active, Bientôt (≤ 5 jours) ou Expirée. */
 export function statutLicence(l) {
@@ -249,16 +258,7 @@ export function carteLicence(theme = 'sombre') {
       <div class="jauge-licence" role="progressbar" aria-label="Durée restante de la licence" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(l.progression * 100)}">
         <div class="jauge-licence-remplie ${l.joursRestants !== null && l.joursRestants <= 5 ? 'faible' : ''}" style="width:${Math.round(l.progression * 100)}%"></div>
       </div>
-      <a class="btn btn-licence" href="${esc(lienRenouvellement())}" target="_blank" rel="noopener">Renouveler</a>
-    </div>`;
-}
-
-function bandeauLicence() {
-  return `
-    <div class="bandeau-licence" role="alert">
-      ${icone('alerte', 20, 2)}
-      <span>Votre licence a expiré. Vous pouvez consulter vos données mais plus enregistrer de ventes.</span>
-      <a class="btn btn-bandeau" href="${esc(lienRenouvellement())}" target="_blank" rel="noopener">Renouveler</a>
+      <a class="btn btn-licence" href="#/licence">Renouveler</a>
     </div>`;
 }
 
@@ -285,10 +285,11 @@ function ouvrirPanneauPlus() {
         </div>` : ''}
       <div class="plus-groupe">
         ${sections.map((s) => `
-          <a href="#/${s.route}" class="plus-lien">
+          <a href="${s.lien || `#/${s.route}`}" class="plus-lien">
             ${icone(s.icone, 20)}<span>${esc(s.libelle)}</span>
             ${s.badge ? `<span class="badge-premium">${esc(s.badge)}</span>` : ''}
             ${s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+            ${s.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
           </a>`).join('')}
         ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
         <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>

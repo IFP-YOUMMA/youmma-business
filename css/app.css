@@ -2351,3 +2351,52 @@ a.client-bouton svg { color: var(--muted); flex: none; }
 }
 .champ[hidden], [data-zone="autres"][hidden] { display: none; }
 .autre-article .choix-produit-affiche { flex: 1; min-width: 0; width: auto; }
+
+/* =========================================================================
+   Étape 8 — Licence (bandeaux, lecture seule), annonces, maintenance, Aide, Ma licence
+   ========================================================================= */
+.bandeau-licence-bientot { background: #EF6C00; }
+.bandeau-licence-bientot .btn-bandeau { color: #8A3B00; }
+.bandeau-maintenance { background: #7A4A00; }
+.bandeau-annonce {
+  display: flex; align-items: center; gap: 10px 14px; padding: 10px 24px; background: var(--primary); color: #FFFFFF; font-size: 14px; font-weight: 700;
+}
+.bandeau-annonce > span:not(.btn-icone) { flex: 1 1 240px; overflow-wrap: anywhere; }
+.bandeau-annonce .btn-icone { color: #FFFFFF; flex: none; }
+body.lecture-seule [data-verrou-licence] { cursor: not-allowed; }
+.ecran-maintenance .maintenance-icone { width: 76px; height: 76px; border-radius: 22px; background: #FFF4EA; color: #C43E00; display: flex; align-items: center; justify-content: center; align-self: center; }
+
+/* Aide */
+.page-aide, .page-licence { display: flex; flex-direction: column; gap: 18px; }
+.aide-formulaire { flex: 1 1 360px; }
+.aide-liste { flex: 999 1 460px; }
+.liste-demandes { list-style: none; margin: 0; padding: 0; }
+.demande-aide { border-top: 1px solid var(--border-doux); }
+.demande-entete { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 0; background: none; border: none; font: inherit; text-align: left; cursor: pointer; color: var(--text); min-height: 44px; }
+.demande-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.badge-statut-aide { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--border-doux); color: var(--muted); white-space: nowrap; }
+.badge-statut-aide.ouverte { background: #FFF4EA; color: #7A3300; }
+.badge-statut-aide.en_cours { background: var(--primary-soft); color: var(--primary-dark); }
+.badge-statut-aide.resolue { background: var(--succes-bg); color: var(--succes); }
+.page-aide .fil-aide { display: flex; flex-direction: column; gap: 8px; padding: 0 0 14px; }
+.page-aide .bulle-aide { max-width: 85%; padding: 10px 12px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.page-aide .bulle-aide.moi { align-self: flex-end; background: var(--primary-soft); border-bottom-right-radius: 4px; }
+.page-aide .bulle-aide.youmma { align-self: flex-start; background: var(--bg); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+.page-aide .bulle-auteur { font-size: 11px; font-weight: 800; color: var(--muted); }
+.page-aide .bulle-texte { white-space: pre-line; overflow-wrap: anywhere; }
+.page-aide .repondre-aide { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.page-aide .repondre-aide textarea { flex: 1 1 220px; }
+
+/* Ma licence */
+.infos-licence { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.infos-licence > div { padding: 10px 12px; border-radius: 12px; background: var(--bg); display: flex; flex-direction: column; gap: 2px; }
+.formules-licence { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.carte-formule {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border: 2px solid var(--border); border-radius: 14px;
+  background: #FFFFFF; font: inherit; text-align: left; cursor: pointer; color: var(--text); min-width: 0;
+}
+.carte-formule.choisie { border-color: var(--primary); background: #F0F6FE; }
+.carte-formule:disabled { cursor: default; opacity: .7; }
+.prix-formule { font-size: 20px; font-weight: 800; color: var(--navy); }
+.prix-formule small { font-size: 12px; color: var(--muted); }
+.total-renouvellement { font-size: 15px; }

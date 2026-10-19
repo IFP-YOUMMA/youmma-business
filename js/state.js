@@ -16,7 +16,11 @@ export const etat = {
   /** [{ boutique, membre }] */
   boutiques: [],
   boutique: null,
-  membre: null
+  membre: null,
+  /** État de la licence de la boutique active (RPC etat_licence) : { formule, fin, jours_restants, etat, … }. */
+  licence: null,
+  /** État de la plateforme (RPC etat_plateforme) : { maintenance, message, support_whatsapp }. */
+  plateforme: null
 };
 
 /** Utilisateur Supabase connecté (ou null). */
@@ -81,6 +85,7 @@ export function choisirBoutique(id) {
   if (!entree) return false;
   etat.boutique = entree.boutique;
   etat.membre = entree.membre;
+  etat.licence = null;
   ecrireStockage(CLE_BOUTIQUE_ACTIVE, id);
   return true;
 }
@@ -89,6 +94,7 @@ export function choisirBoutique(id) {
 export function viderEtat() {
   etat.session = null;
   etat.adminPlateforme = false;
+  etat.licence = null;
   etat.boutiques = [];
   etat.boutique = null;
   etat.membre = null;
@@ -177,5 +183,7 @@ export function infosLicence(boutique = etat.boutique) {
 
 /** Vrai si la licence de la boutique active a expiré. */
 export function licenceExpiree() {
+  // État serveur (délai de grâce, suspension) s'il est connu ; sinon la date de fin.
+  if (etat.licence?.etat) return etat.licence.etat === 'lecture_seule' || etat.licence.etat === 'suspendue';
   return infosLicence().expiree;
 }
