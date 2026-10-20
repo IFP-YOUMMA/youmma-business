@@ -317,3 +317,6 @@ a.v-btn-ajouter { display: flex; align-items: center; justify-content: center; t
 .v-fiche-dernier { font-size: 13px; font-weight: 700; color: var(--commande); }
 .v-btn-contour-whatsapp { border: 1.5px solid var(--wa); background: #FFFFFF; color: #166534; }
 .v-btn-primaire:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Étape 13b — autres unités (vendues en boutique) */
+.v-unites { font-size: 11.5px; font-weight: 600; color: var(--muted); line-height: 1.35; }

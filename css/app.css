@@ -3110,3 +3110,9 @@ a.kpi-lien:focus-visible { outline: 3px solid var(--primary); outline-offset: 2p
   .rangee-livraisons { grid-template-columns: 1fr; }
   .carte-livraison .actions-livraison .btn { flex: 1 1 auto; }
 }
+
+/* Étape 13b — fiche d'une livraison */
+.fiche-livraison { display: flex; flex-direction: column; gap: 14px; }
+.fiche-livraison-haut { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 17px; }
+.fiche-livraison-signature { display: flex; flex-direction: column; gap: 6px; }
+.fiche-livraison-signature img { max-width: 320px; width: 100%; border: 1px dashed var(--border-input); border-radius: 10px; background: #FFFFFF; }

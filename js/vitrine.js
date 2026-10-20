@@ -185,6 +185,28 @@ const libelleCase = (c) => [c.c, c.t].map((x) => String(x || '').trim()).filter(
 function couleursModele(p) {
   return (p.variantes?.couleurs || []).map((c) => (typeof c === 'string' ? { nom: c, hex: null, photo_url: null } : { nom: c?.nom || '', hex: c?.hex || null, photo_url: c?.photo_url || null })).filter((c) => c.nom);
 }
+/* ------------------------------------------------------------ Autres unités (vente en boutique seulement) */
+
+const CONTENANTS = ['botte', 'palette', 'carton', 'sac', 'paquet', 'rouleau', 'boîte', 'boite', 'lot', 'caisse', 'bidon', 'fût', 'balle', 'pack'];
+const FEMININS = ['tonne', 'barre', 'feuille', 'pièce', 'piece', 'douzaine', 'boîte', 'boite', 'palette', 'botte', 'caisse'];
+/** « Tonne » → « à la tonne », « Botte de 10 » → « en botte de 10 », « Mètre » → « au mètre », « Unité » → « à l’unité ». */
+function avecPreposition(nom) {
+  const texte = String(nom || '').trim();
+  const bas = texte.charAt(0).toLowerCase() + texte.slice(1);
+  const premier = bas.split(/\s+/)[0].toLowerCase();
+  if (CONTENANTS.includes(premier)) return `en ${bas}`;
+  if (/^[aeiouyéèêh]/i.test(premier)) return `à l’${bas}`;
+  return FEMININS.includes(premier) ? `à la ${bas}` : `au ${bas}`;
+}
+/** produit.unites = [{ nom, facteur }] ou null → « Aussi vendu à la tonne, en botte de 10 — demandez en boutique ». */
+function mentionUnites(p) {
+  const unites = Array.isArray(p.unites) ? p.unites.filter((u) => u?.nom) : [];
+  if (!unites.length) return '';
+  const noms = unites.slice(0, 3).map((u) => avecPreposition(u.nom));
+  const liste = unites.length > 3 ? `${noms.join(', ')}…` : noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : noms[0];
+  return `<span class="v-unites">Aussi vendu ${esc(liste)} — demandez en boutique</span>`;
+}
+
 const rond = (hex, taille = 14) => `<span class="v-rond-couleur" style="--rond:${esc(hex || '#C9D3CF')};width:${taille}px;height:${taille}px" aria-hidden="true"></span>`;
 
 function lignesPanier() {
@@ -376,6 +398,7 @@ function carteProduit(p) {
         <span class="v-produit-prix">
           ${Number(p.prix_barre) > Number(p.prix) ? `<s>${formatNombre(p.prix_barre)}</s> ` : ''}<strong>${formatNombre(p.prix)}</strong> GNF / ${esc(p.unite || 'unité')}
         </span>
+        ${mentionUnites(p)}
         <span class="v-dispo ${dispo.classe}">${esc(dispo.texte)}</span>
         ${action}
       </div>

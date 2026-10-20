@@ -35,16 +35,18 @@ function dansUneHeure() {
 const heure = (iso) => (iso ? formatDate(iso, 'heure') : '');
 const lienWhatsApp = (tel, texte) => `https://wa.me/${normaliserTelephone(tel || '') || ''}?text=${encodeURIComponent(texte)}`;
 
-/** Ligne de mes_livraisons, avec le nom du véhicule (liste des véhicules) et le numéro de vente. */
-function normaliserLivraison(l, vehicules) {
-  const v = vehicules.find((x) => x.id === l.vehicule_id);
-  return {
-    ...l,
-    frais: Number(l.frais) || 0,
-    vehicule_nom: l.vehicule_nom || l.vehicule?.nom || v?.nom || '',
-    vente_numero: l.vente_numero ?? l.numero_vente ?? null
-  };
+/**
+ * Ligne de mes_livraisons : { id, numero, client_nom, telephone, adresse, repere, statut, frais, frais_payes, contenu,
+ * prevue_le, created_at, partie_le, livree_le, recu_par, a_bon, vente_id, vente_numero ("V-0412"), vehicule (nom),
+ * vehicule_type, chauffeur, chauffeur_tel, rang } — liste déjà triée par la base.
+ */
+function normaliserLivraison(l) {
+  return { ...l, frais: Number(l.frais) || 0, vehicule_nom: l.vehicule || '' };
 }
+/** « V-0412 » (déjà formaté par la base) ; un nombre est formaté comme ailleurs. */
+const numeroVente = (n) => (n === null || n === undefined || n === '' ? '' : typeof n === 'number' ? formatNumeroVente(n) : String(n));
+/** Lien Maps : adresse + repère. */
+const lienMaps = (l) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([l.adresse, l.repere].filter(Boolean).join(', '))}`;
 
 /** Texte « Quand » : prévue / partie / livrée. */
 function quand(l) {
@@ -107,6 +109,7 @@ export function afficherLivraisons(conteneur) {
     const a = [];
     if (l.statut === 'a_charger') a.push(`<button type="button" class="btn btn-primaire btn-petit" data-partir="${esc(l.id)}">${icone('camion', 16, 2)} Faire partir</button>`);
     if (l.statut === 'en_route') a.push(`<button type="button" class="btn btn-primaire btn-petit" data-livree="${esc(l.id)}">${icone('valide', 16, 2.4)} Marquer livrée</button>`);
+    a.push(`<button type="button" class="btn btn-secondaire btn-petit" data-fiche="${esc(l.id)}">Fiche</button>`);
     if (l.vente_id) a.push(`<button type="button" class="btn btn-secondaire btn-petit" data-bon="${esc(l.id)}">${icone('document', 16, 2)} Voir le bon</button>`);
     if (l.statut === 'livree' && l.frais > 0 && !l.frais_payes && gerant) a.push(`<button type="button" class="btn btn-secondaire btn-petit" data-frais="${esc(l.id)}">Frais payés au chauffeur</button>`);
     if (l.statut === 'livree' && l.frais > 0 && l.frais_payes) a.push('<span class="tag-frais-payes">Frais payés</span>');
@@ -125,7 +128,7 @@ export function afficherLivraisons(conteneur) {
       <div class="tableau-cadre seul-ordi"><table class="tableau-livraisons">
         <thead><tr><th>Vente</th><th>Client / adresse</th><th>Véhicule</th><th>Chauffeur</th><th>Quand</th><th>État</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>${tries.map((l) => `<tr>
-          <td><strong>${esc(l.vente_numero ? formatNumeroVente(l.vente_numero) : l.numero || '—')}</strong><span class="discret lv-ligne">${esc(l.numero || '')}</span></td>
+          <td><strong>${esc(numeroVente(l.vente_numero) || l.numero || '—')}</strong><span class="discret lv-ligne">${esc(l.numero || '')}</span></td>
           <td><strong>${esc(l.client_nom || '—')}</strong><span class="discret lv-ligne">${esc([l.adresse, l.repere].filter(Boolean).join(' · '))}</span></td>
           <td>${esc(l.vehicule_nom || '—')}</td>
           <td>${esc(l.chauffeur || '—')}${l.chauffeur_tel ? `<span class="discret lv-ligne">${esc(formatTelephone(l.chauffeur_tel))}</span>` : ''}</td>
@@ -136,7 +139,7 @@ export function afficherLivraisons(conteneur) {
       <ul class="cartes-livraisons seul-mobile">${tries.map((l) => `
         <li class="carte-livraison">
           <div class="carte-livraison-haut"><strong>${esc(l.client_nom || '—')}</strong>${pastille(l)}</div>
-          <span class="discret">${esc([l.vente_numero ? formatNumeroVente(l.vente_numero) : '', l.numero].filter(Boolean).join(' · '))}</span>
+          <span class="discret">${esc([numeroVente(l.vente_numero), l.numero].filter(Boolean).join(' · '))}</span>
           ${l.adresse || l.repere ? `<span>${esc([l.adresse, l.repere].filter(Boolean).join(' · '))}</span>` : ''}
           <span class="discret">${esc([l.vehicule_nom, l.chauffeur].filter(Boolean).join(' · '))}${l.frais ? ` · ${esc(formatGNF(l.frais))}` : ''}</span>
           <span class="discret">${esc(quand(l))}</span>
@@ -160,14 +163,14 @@ export function afficherLivraisons(conteneur) {
     if (!conteneur.isConnected) return;
     if (error) { zone('liste').innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(error))}</p>`; return; }
     const r = (Array.isArray(data) ? data[0] : data) || {};
-    s.vehicules = r.vehicules || [];
+    s.vehicules = (r.vehicules || []).map((v) => ({ ...v, actif: v.actif ?? true }));
     if (gerant) {
       // Tous les véhicules (désactivés compris) pour la gestion.
       const v = await sb.from('vehicules').select(COLONNES_VEHICULE).eq('boutique_id', boutique.id).order('nom');
       if (!v.error) s.vehicules = v.data || [];
     }
     s.resume = r.resume || {};
-    s.liste = (r.liste || []).map((l) => normaliserLivraison(l, s.vehicules));
+    s.liste = (r.liste || []).map(normaliserLivraison);
     s.charge = true;
     renderResume(); renderListe(); renderVehicules();
   }
@@ -186,8 +189,9 @@ export function afficherLivraisons(conteneur) {
     if (b.dataset.action === 'nouvelle') { ouvrirOrganiserLivraison({ apres: charger }); return; }
     if (b.dataset.action === 'vehicule') { ouvrirVehicule(null, charger); return; }
     if (b.dataset.vehicule) { ouvrirVehicule(s.vehicules.find((v) => v.id === b.dataset.vehicule), charger); return; }
-    const l = s.liste.find((x) => x.id === (b.dataset.partir || b.dataset.livree || b.dataset.bon || b.dataset.frais || b.dataset.annuler));
+    const l = s.liste.find((x) => x.id === (b.dataset.partir || b.dataset.livree || b.dataset.bon || b.dataset.frais || b.dataset.annuler || b.dataset.fiche));
     if (!l) return;
+    if (b.dataset.fiche) { ouvrirFicheLivraison(l.id); return; }
     if (b.dataset.partir) { fairePartir(l, b); return; }
     if (b.dataset.livree) {
       if (await confirmer(`Marquer la livraison ${l.numero} comme livrée (sans signature du client) ?`, { titre: 'Livraison faite', libelleOk: 'Marquer livrée' })) {
@@ -207,20 +211,19 @@ export function afficherLivraisons(conteneur) {
     const { data, error } = await sb.rpc('partir_livraison', { p_livraison: l.id });
     boutonOccupe(bouton, false);
     if (error) { toast(messageErreur(error), 'erreur'); return; }
+    // partir_livraison → { lien, chauffeur } : chauffeur = numéro du chauffeur, ou null (lien à copier seulement).
     const r = (Array.isArray(data) ? data[0] : data) || {};
-    const chauffeur = r.chauffeur || {};
-    const nomChauffeur = typeof chauffeur === 'string' ? chauffeur : chauffeur.nom || l.chauffeur || 'le chauffeur';
-    const telChauffeur = (typeof chauffeur === 'object' && chauffeur.telephone) || l.chauffeur_tel;
+    const telChauffeur = r.chauffeur || null;
     const texte = `Livraison ${l.numero} pour ${l.client_nom || 'le client'}${l.adresse ? ` (${l.adresse})` : ''} : ouvrez ce lien à l’arrivée pour faire signer le client : ${r.lien}`;
     const { el } = ouvrirModale({
       titre: `Livraison ${l.numero} partie`,
       contenu: `
-        <p class="texte-modale">Le lien a été envoyé par SMS à <strong>${esc(nomChauffeur)}</strong>, et le client est prévenu.</p>
+        <p class="texte-modale">${telChauffeur ? `Le lien a été envoyé par SMS au chauffeur (${esc(formatTelephone(telChauffeur))}), et le client est prévenu.` : 'Le chauffeur n’a pas de numéro : copiez le lien et donnez-le-lui.'}</p>
         <div class="lien-chauffeur"><span class="lien-texte">${esc(r.lien || '')}</span></div>
-        <p class="discret">Si le SMS n’arrive pas, envoyez le lien autrement :</p>
+        ${telChauffeur ? '<p class="discret">Si le SMS n’arrive pas, envoyez le lien autrement :</p>' : ''}
         <div class="modale-actions">
           <button type="button" class="btn btn-secondaire" data-copier>${icone('copier', 18, 2)} Copier</button>
-          <a class="btn btn-whatsapp" href="${esc(lienWhatsApp(telChauffeur, texte))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} Envoyer sur WhatsApp</a>
+          ${telChauffeur ? `<a class="btn btn-whatsapp" href="${esc(lienWhatsApp(telChauffeur, texte))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} Envoyer sur WhatsApp</a>` : ''}
           <button type="button" class="btn btn-primaire" data-fermer>Terminé</button>
         </div>`
     });
@@ -229,6 +232,61 @@ export function afficherLivraisons(conteneur) {
   }
 
   charger();
+}
+
+/* =========================================================================
+   Fiche d'une livraison (bon_livraison) : client, adresse, véhicule, reçu par, signature, photo du bon
+   ========================================================================= */
+
+/**
+ * bon_livraison(p_livraison) → { numero, vente_id, vente_numero, client, telephone, adresse, repere, contenu, frais,
+ * frais_payes, statut, vehicule, vehicule_type, chauffeur, chauffeur_tel, recu_par, signature, photo_path,
+ * prevue_le, partie_le, livree_le, note }. La signature ne se lit que par cette fonction.
+ */
+export async function chargerBonLivraison(idLivraison) {
+  const { data, error } = await sb.rpc('bon_livraison', { p_livraison: idLivraison });
+  if (error) throw error;
+  const b = (Array.isArray(data) ? data[0] : data) || null;
+  if (!b) return null;
+  const photoUrl = b.photo_path ? await sb.storage.from('bons').createSignedUrl(b.photo_path, 3600).then((x) => x.data?.signedUrl || null, () => null) : null;
+  return { ...b, frais: Number(b.frais) || 0, photoUrl };
+}
+
+async function ouvrirFicheLivraison(idLivraison) {
+  let b;
+  try { b = await chargerBonLivraison(idLivraison); } catch (err) { toast(messageErreur(err), 'erreur'); return; }
+  if (!b) { toast(messageErreur('LIVRAISON_INTROUVABLE'), 'erreur'); return; }
+  const tel = normaliserTelephone(b.telephone || '');
+  const info = (libelle, valeur) => (valeur ? `<div class="fiche-info"><dt>${esc(libelle)}</dt><dd>${valeur}</dd></div>` : '');
+  const { el } = ouvrirModale({
+    titre: `Livraison ${b.numero}`,
+    variante: 'large',
+    contenu: `
+      <div class="fiche-livraison">
+        <div class="fiche-livraison-haut"><strong>${esc(b.client || '—')}</strong><span class="statut-livraison ${STATUTS[b.statut]?.classe || ''}">${esc(STATUTS[b.statut]?.libelle || b.statut)}</span></div>
+        <div class="actions-livraison">
+          ${tel ? `<a class="btn btn-primaire" href="tel:+${esc(tel)}">${icone('telephone', 18, 2)} Appeler le client</a>` : ''}
+          ${b.adresse || b.repere ? `<a class="btn btn-secondaire" href="${esc(lienMaps(b))}" target="_blank" rel="noopener">${icone('enLigne', 18, 2)} Ouvrir dans Maps</a>` : ''}
+          ${b.vente_id ? `<button type="button" class="btn btn-secondaire" data-bon-fiche>${icone('document', 18, 2)} Voir le bon</button>` : ''}
+          ${b.photoUrl ? `<a class="btn btn-secondaire" href="${esc(b.photoUrl)}" target="_blank" rel="noopener">${icone('photo', 18, 2)} Photo du bon</a>` : ''}
+        </div>
+        <dl class="fiche-infos">
+          ${info('Adresse', esc([b.adresse, b.repere].filter(Boolean).join(' · ')))}
+          ${info('Téléphone', esc(b.telephone ? formatTelephone(b.telephone) : ''))}
+          ${info('Vente', esc(numeroVente(b.vente_numero)))}
+          ${info('Contenu', esc(b.contenu || ''))}
+          ${info('Véhicule', esc([b.vehicule, b.chauffeur, b.chauffeur_tel ? formatTelephone(b.chauffeur_tel) : ''].filter(Boolean).join(' · ')))}
+          ${info('Frais', b.frais ? `${esc(formatGNF(b.frais))}${b.frais_payes ? ' · payés au chauffeur' : ''}` : '')}
+          ${info('Prévue', esc(b.prevue_le ? `${formatDate(b.prevue_le, 'court')} ${heure(b.prevue_le)}` : ''))}
+          ${info('Partie', esc(b.partie_le ? `${formatDate(b.partie_le, 'court')} ${heure(b.partie_le)}` : ''))}
+          ${info('Livrée', esc(b.livree_le ? `${formatDate(b.livree_le, 'court')} ${heure(b.livree_le)}` : ''))}
+          ${info('Reçu par', esc(b.recu_par || ''))}
+          ${info('Note', esc(b.note || ''))}
+        </dl>
+        ${b.signature ? `<div class="fiche-livraison-signature"><span class="discret">Signature du client</span><img src="${esc(b.signature)}" alt="Signature du client"></div>` : ''}
+      </div>`
+  });
+  el.querySelector('[data-bon-fiche]')?.addEventListener('click', () => ouvrirDocument({ type: 'bon_livraison', vente: b.vente_id, retour: '#/livraisons' }));
 }
 
 /* =========================================================================

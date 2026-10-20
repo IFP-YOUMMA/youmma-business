@@ -8,6 +8,7 @@ import { etat, chargerSession, chargerBoutiques, choisirBoutique, peut } from '.
 import { esc, icone, toast, messageErreur, formatGNF, normaliserTelephone } from '../utils.js';
 import { rendreDocument, LIBELLES_DOCUMENTS, lienVerification, donneesExemple } from './rendu.js';
 import { chargerModules, aModule } from '../modules.js';
+import { chargerBonLivraison } from '../livraisons.js';
 import {
   chargerReglages, normaliserReglages, typeVente, emettreDocument, documentExistant, imagesSignature, chargerVente, chargerProforma
 } from './donnees.js';
@@ -17,23 +18,17 @@ const params = new URLSearchParams(location.search);
 const s = { type: params.get('type') || 'facture', avecPrix: false, donnees: null, reglages: null, documents: new Map(), signatures: null, transport: null };
 
 /** Colonnes de « livraisons » lues ici (jamais la colonne jeton). La signature est lue si la colonne existe. */
-const COLONNES_LIVRAISON = 'id, numero, statut, vehicule_id, chauffeur, chauffeur_tel, recu_par, livree_le, photo_path, adresse, repere, client_nom';
-
-/** Livraison (module « livraisons ») liée à la vente : véhicule, chauffeur, reçu par, heure, signature, photo du bon. */
+/**
+ * Livraison (module « livraisons ») liée à la vente. La ligne est seulement repérée ici (id, sans la colonne jeton) ;
+ * tout le reste — véhicule, chauffeur, reçu par, heure, signature, photo du bon — vient de bon_livraison.
+ */
 async function chargerTransport(idVente) {
   if (!aModule('livraisons') || !idVente) return null;
   const { sb } = await import('../supabase.js');
-  const lire = (colonnes) => sb.from('livraisons').select(colonnes).eq('boutique_id', etat.boutique.id).eq('vente_id', idVente)
+  const { data } = await sb.from('livraisons').select('id, statut, created_at').eq('boutique_id', etat.boutique.id).eq('vente_id', idVente)
     .neq('statut', 'annulee').order('created_at', { ascending: false }).limit(1);
-  let r = await lire(`${COLONNES_LIVRAISON}, signature`);
-  if (r.error) r = await lire(COLONNES_LIVRAISON);
-  const l = r.data?.[0];
-  if (!l) return null;
-  const [vehicule, photo] = await Promise.all([
-    l.vehicule_id ? sb.from('vehicules').select('nom, immatriculation').eq('id', l.vehicule_id).maybeSingle().then((x) => x.data) : null,
-    l.photo_path ? sb.storage.from('bons').createSignedUrl(l.photo_path, 3600).then((x) => x.data?.signedUrl || null, () => null) : null
-  ]);
-  return { ...l, vehicule: vehicule ? [vehicule.nom, vehicule.immatriculation].filter(Boolean).join(' · ') : '', photoUrl: photo };
+  if (!data?.[0]) return null;
+  return chargerBonLivraison(data[0].id);
 }
 
 function retour() {

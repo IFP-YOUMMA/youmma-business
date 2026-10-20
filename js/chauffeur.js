@@ -48,22 +48,21 @@ function messageErreur(err) {
 
 /* ------------------------------------------------------------ Lecture */
 
-/** Lecture souple de livraison_par_jeton (champs de la livraison et de la boutique). */
+/**
+ * livraison_par_jeton → { id, numero, boutique: { id, nom, logo_url, telephone }, client, telephone, adresse, repere,
+ * contenu, frais, frais_payes, statut, vehicule: { nom, type, chauffeur }, recu_par, livree_le, signee } ;
+ * lien faux ou de plus de 30 jours → { introuvable: true }.
+ */
 function normaliser(r) {
   const b = r.boutique || {};
+  const v = r.vehicule || {};
   return {
-    numero: r.numero, statut: r.statut,
-    boutique_id: r.boutique_id || b.id || null,
-    boutique_nom: r.boutique_nom || b.nom || 'Boutique',
-    logo: r.boutique_logo || r.logo_url || b.logo_url || null,
-    boutique_tel: r.boutique_telephone || b.telephone || null,
-    client: r.client_nom || r.client || '',
-    telephone: r.telephone || r.client_telephone || '',
-    adresse: r.adresse || '', repere: r.repere || '',
+    id: r.id, numero: r.numero, statut: r.statut, signee: Boolean(r.signee),
+    boutique_nom: b.nom || 'Boutique', logo: b.logo_url || null, boutique_tel: b.telephone || null,
+    client: r.client || '', telephone: r.telephone || '', adresse: r.adresse || '', repere: r.repere || '',
     contenu: r.contenu || '', frais: Number(r.frais) || 0,
-    vehicule: r.vehicule_nom || r.vehicule?.nom || r.vehicule || '',
-    chauffeur: r.chauffeur || '',
-    recu_par: r.recu_par || '', livree_le: r.livree_le || null, note: r.note || ''
+    vehicule: v.nom || '', chauffeur: v.chauffeur || '',
+    recu_par: r.recu_par || '', livree_le: r.livree_le || null
   };
 }
 
@@ -97,8 +96,8 @@ function resumeHTML(l) {
       <span class="ch-etiquette">À livrer</span>
       <p class="ch-contenu">${esc(l.contenu || '—')}</p>
       ${l.frais ? `<p class="ch-frais">Frais de livraison : <strong>${nombre(l.frais)} GNF</strong></p>` : ''}
-      ${l.note ? `<p class="ch-note">${esc(l.note)}</p>` : ''}
-    </section>`;
+    </section>
+    ${l.boutique_tel ? `<a class="ch-bouton ch-secondaire" href="tel:+${esc(telInternational(l.boutique_tel))}">${icone('telephone', 22)} Un problème ? Appeler la boutique</a>` : ''}`;
 }
 
 /* ------------------------------------------------------------ Signature au doigt */
@@ -218,13 +217,20 @@ function afficherFormulaire(l) {
     bouton.disabled = true;
     bouton.textContent = 'Envoi…';
     let chemin = null;
-    if (s.photo && l.boutique_id) {
-      // La photo est facultative : si l'envoi échoue, on confirme quand même sans photo.
+    let photoRatee = false;
+    if (s.photo) {
+      // Envoi AVANT la signature, seul chemin accepté sans compte : livraisons/<id de la livraison>/<nom>.jpg
+      // (nom : lettres, chiffres, point, tiret, souligné ; 60 caractères au plus). Échec → confirmée sans photo.
       try {
-        const nom = `${l.boutique_id}/livraison-${String(l.numero || 'L').replace(/[^\w-]/g, '')}-${Date.now()}.jpg`;
-        const { error } = await sb.storage.from('bons').upload(nom, s.photo.blob, { contentType: 'image/jpeg', upsert: false });
-        if (!error) chemin = nom;
-      } catch { /* sans photo */ }
+        const nom = `bon-${Date.now()}.jpg`;
+        const cheminPhoto = `livraisons/${l.id}/${nom}`;
+        const { error } = await sb.storage.from('bons').upload(cheminPhoto, s.photo.blob, { contentType: 'image/jpeg', upsert: false });
+        if (error) throw error;
+        chemin = cheminPhoto;
+      } catch (errPhoto) {
+        console.warn('[YOUMMA] Photo du bon non envoyée :', errPhoto?.message || errPhoto);
+        photoRatee = true;
+      }
     }
     const { data, error } = await sb.rpc('signer_livraison', { p_jeton: jeton, p_recu_par: recu, p_signature: image, p_photo_path: chemin });
     s.envoi = false;
@@ -233,6 +239,7 @@ function afficherFormulaire(l) {
     window.scrollTo(0, 0);
     racine.innerHTML = `${enteteHTML(l)}<div class="ch-carte ch-message"><span class="ch-icone ok">${icone('valide', 40, 2.6)}</span>
       <h2>Merci, livraison confirmée</h2><p>Reçue par <strong>${esc(recu)}</strong>${r.livree_le ? ` le ${esc(dateHeure(r.livree_le))}` : ''}.</p>
+      ${photoRatee ? '<p class="ch-note">La photo n’est pas partie, la livraison est quand même confirmée.</p>' : ''}
       <p class="ch-discret">${esc(l.boutique_nom)} est prévenu${chemin ? ' et la photo du bon est enregistrée' : ''}. Vous pouvez fermer cette page.</p></div>`;
   });
 }
@@ -247,9 +254,9 @@ async function demarrer() {
     return;
   }
   const r = Array.isArray(data) ? data[0] : data;
-  if (!r || r.introuvable || r.expire || !r.numero) { introuvable(); return; }
+  if (!r || r.introuvable || !r.numero) { introuvable(); return; }
   const l = normaliser(r);
-  if (l.statut === 'livree') afficherSignee(l);
+  if (l.statut === 'livree' || l.signee) afficherSignee(l);
   else if (l.statut === 'annulee') afficherAnnulee(l);
   else afficherFormulaire(l);
 }
