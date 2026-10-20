@@ -21,6 +21,7 @@ import { imprimerBonEnlevement } from './recu.js';
 import { ouvrirOutilImage } from './images/outil.js';
 import { ouvrirDocument } from './documents/donnees.js';
 import { aModule } from './modules.js';
+import { aVariantes, ouvrirChoixVariante, chargerVariantes, nomAvecVariante } from './variantes.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
@@ -29,7 +30,7 @@ import {
 } from './utils.js';
 
 const COLONNES_MOUVEMENT = 'id, chantier_id, type, montant, mode, vente_id, personne, note, photo_path, annule, solde_apres, fait_par, created_at';
-const COLONNES_PRODUIT_CAISSE = 'id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre';
+const COLONNES_PRODUIT_CAISSE = 'id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, tailles, couleurs, photo_url, photo_mini_url';
 const TAILLE_LOT_IN = 100;
 const NB_HABITUELS = 8;
 const NB_SUGGESTIONS = 5;
@@ -602,7 +603,8 @@ function afficherCompte(conteneur, id, params) {
 function afficherEnlevement(conteneur, id, params) {
   const cleSuggestions = `yb_recupere_${id}`;
   const s = {
-    chantier: null, client: null, produits: [], habituels: [], panier: new Map(),
+    // panier : clé → quantité ; clé = produit_id, ou « produit_id~variante_id » (case taille × couleur, décrite dans cases).
+    chantier: null, client: null, produits: [], habituels: [], panier: new Map(), cases: new Map(),
     typePrix: params.get('prix') === 'gros' ? 'gros' : 'detail',
     recherche: '', autresOuverts: false, photo: null, enCours: false
   };
@@ -612,24 +614,61 @@ function afficherEnlevement(conteneur, id, params) {
 
   const prixArticle = (p) => (s.typePrix === 'gros' && p.prix_gros !== null && p.prix_gros !== undefined ? Number(p.prix_gros) : Number(p.prix_detail) || 0);
   const quantiteMax = (p) => (p.sur_commande ? Infinity : Math.max(0, Number(p.stock) || 0));
-  const total = () => Math.round([...s.panier.entries()].reduce((t, [pid, q]) => {
-    const p = s.produits.find((x) => x.id === pid);
-    return t + (p ? prixArticle(p) * q : 0);
+  const produitDe = (cle) => s.produits.find((x) => x.id === String(cle).split('~')[0]);
+  const total = () => Math.round([...s.panier.entries()].reduce((t, [cle, q]) => {
+    const p = produitDe(cle);
+    return t + (p ? (s.cases.get(cle)?.prix ?? prixArticle(p)) * q : 0);
   }, 0));
 
-  function definirQuantite(pid, saisie) {
-    const p = s.produits.find((x) => x.id === pid);
+  function definirQuantite(cle, saisie) {
+    const p = produitDe(cle);
     if (!p) return;
-    if (saisie === null || saisie <= 0) { s.panier.delete(pid); renderListes(); renderPied(); return; }
+    const cas = s.cases.get(cle);
+    // Modèle à tailles / couleurs : choix de la case dans le panneau.
+    if (!cas && aVariantes(p)) { choisirVariante(p); return; }
+    if (saisie === null || saisie <= 0) { s.panier.delete(cle); renderListes(); renderPied(); return; }
     let q = uniteDivisible(p.unite) ? Math.round(saisie * 1000) / 1000 : Math.max(1, Math.round(saisie));
-    if (q > quantiteMax(p)) {
-      q = quantiteMax(p);
-      toast(`Stock insuffisant : il reste ${formatQuantite(q, p.unite)} de « ${p.nom} ».`, 'erreur');
+    const max = cas && !p.sur_commande ? cas.stock : quantiteMax(p);
+    if (q > max) {
+      q = max;
+      toast(`Stock insuffisant : il reste ${formatQuantite(q, p.unite)} de « ${nomAvecVariante(p.nom, cas?.libelle)} ».`, 'erreur');
     }
-    if (q <= 0) s.panier.delete(pid);
-    else s.panier.set(pid, q);
+    if (q <= 0) s.panier.delete(cle);
+    else s.panier.set(cle, q);
     renderListes();
     renderPied();
+  }
+
+  function choisirVariante(p) {
+    ouvrirChoixVariante({
+      produit: p,
+      prixModele: prixArticle(p),
+      dejaPris: (idCase) => s.panier.get(`${p.id}~${idCase}`) || 0,
+      onAjout: (cas, q) => {
+        const cle = `${p.id}~${cas.id}`;
+        s.cases.set(cle, cas);
+        definirQuantite(cle, (s.panier.get(cle) || 0) + q);
+      }
+    });
+  }
+
+  /** Lignes déjà choisies d'un modèle à tailles (une par case). */
+  function lignesVariantesHTML(p) {
+    return [...s.panier.entries()].filter(([cle]) => cle.startsWith(`${p.id}~`)).map(([cle, q]) => {
+      const cas = s.cases.get(cle);
+      const idChamp = `enl-${cle.replace('~', '-')}`;
+      return `
+        <li class="article-enlevement choisi article-variante">
+          <span class="ae-textes"><span class="gras">${esc(nomAvecVariante(p.nom, cas?.libelle))}</span>
+            <span class="discret">${formatNombre(cas?.prix ?? prixArticle(p))} GNF · stock ${formatNombre(cas?.stock ?? 0)}</span></span>
+          <span class="stepper stepper-actif">
+            <button type="button" data-moins="${esc(cle)}" aria-label="Diminuer">−</button>
+            <label class="sr-only" for="${esc(idChamp)}">Quantité</label>
+            <input id="${esc(idChamp)}" class="stepper-qte" type="text" inputmode="numeric" autocomplete="off" value="${q}" data-qte="${esc(cle)}">
+            <button type="button" data-plus="${esc(cle)}" aria-label="Augmenter">+</button>
+          </span>
+        </li>`;
+    }).join('');
   }
 
   function etatStock(p) {
@@ -641,9 +680,19 @@ function afficherEnlevement(conteneur, id, params) {
   }
 
   function ligneArticleHTML(p) {
-    const q = s.panier.get(p.id) || 0;
     const stock = etatStock(p);
     const epuise = !p.sur_commande && (Number(p.stock) || 0) <= 0;
+    if (aVariantes(p)) {
+      return `
+        <li class="article-enlevement ${epuise ? 'epuise' : ''}">
+          <span class="ae-textes">
+            <span class="gras">${esc(p.nom)}</span>
+            <span class="discret">${formatNombre(prixArticle(p))} GNF / ${esc(p.unite || 'unité')} · <span class="${stock.classe}">${esc(stock.texte)}</span></span>
+          </span>
+          <button type="button" class="btn btn-secondaire btn-petit" data-choisir-taille="${esc(p.id)}" ${epuise ? 'disabled' : ''}>${icone('plus', 16, 2.4)} Taille / couleur</button>
+        </li>${lignesVariantesHTML(p)}`;
+    }
+    const q = s.panier.get(p.id) || 0;
     const idChamp = `enl-${p.id}`;
     return `
       <li class="article-enlevement ${q ? 'choisi' : ''} ${epuise ? 'epuise' : ''}">
@@ -663,7 +712,7 @@ function afficherEnlevement(conteneur, id, params) {
   function renderListes() {
     const habituels = s.habituels.map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
     // Les articles ajoutés depuis le stock restent visibles en haut, avec les habituels.
-    const ajoutes = [...s.panier.keys()].filter((pid) => !s.habituels.includes(pid)).map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
+    const ajoutes = [...new Set([...s.panier.keys()].map((cle) => cle.split('~')[0]))].filter((pid) => !s.habituels.includes(pid)).map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
     conteneur.querySelector('[data-zone="habituels"]').innerHTML = [...habituels, ...ajoutes].length
       ? [...habituels, ...ajoutes].map(ligneArticleHTML).join('')
       : '<li class="discret">Premier enlèvement sur ce chantier : choisissez les articles dans le stock.</li>';
@@ -794,7 +843,10 @@ function afficherEnlevement(conteneur, id, params) {
     }
     const { data, error } = await sb.rpc('enregistrer_enlevement', {
       p_chantier: id,
-      p_lignes: [...s.panier.entries()].map(([produit_id, quantite]) => ({ produit_id, quantite })),
+      p_lignes: [...s.panier.entries()].map(([cle, quantite]) => {
+        const [produit_id, variante_id] = cle.split('~');
+        return variante_id ? { produit_id, variante_id, quantite } : { produit_id, quantite };
+      }),
       p_type_prix: s.typePrix,
       p_recupere_par: recuperePar || null,
       p_note: note || null,
@@ -836,13 +888,22 @@ function afficherEnlevement(conteneur, id, params) {
       s.habituels = [...cumul.entries()].sort((a, b) => b[1] - a[1]).map(([pid]) => pid)
         .filter((pid) => s.produits.some((p) => p.id === pid)).slice(0, NB_HABITUELS);
       s.autresOuverts = !s.habituels.length;
-      // Articles venant de la caisse : ?lignes=<produit>:<quantité>,…
-      String(params.get('lignes') || '').split(',').filter(Boolean).forEach((paire) => {
-        const [pid, q] = paire.split(':');
+      // Articles venant de la caisse : ?lignes=<produit>[~<case>]:<quantité>,…
+      for (const paire of String(params.get('lignes') || '').split(',').filter(Boolean)) {
+        const [cle, q] = paire.split(':');
+        const [pid, vid] = cle.split('~');
         const p = s.produits.find((x) => x.id === pid);
-        const quantite = Math.min(Number(q) || 0, p ? quantiteMax(p) : 0);
-        if (p && quantite > 0) s.panier.set(pid, quantite);
-      });
+        if (!p) continue;
+        let max = quantiteMax(p);
+        if (vid) {
+          const cas = (await chargerVariantes(pid).catch(() => null))?.cases.find((c) => c.id === vid);
+          if (!cas) continue;
+          s.cases.set(cle, cas);
+          if (!p.sur_commande) max = cas.stock;
+        } else if (aVariantes(p)) continue;
+        const quantite = Math.min(Number(q) || 0, max);
+        if (quantite > 0) s.panier.set(cle, quantite);
+      }
     } catch (err) {
       conteneur.innerHTML = `<div class="page"><p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(err))}</p></div>`;
       return;
@@ -851,6 +912,8 @@ function afficherEnlevement(conteneur, id, params) {
   }
 
   conteneur.addEventListener('click', (e) => {
+    const taille = e.target.closest('[data-choisir-taille]');
+    if (taille) { const p = s.produits.find((x) => x.id === taille.dataset.choisirTaille); if (p) choisirVariante(p); return; }
     const plus = e.target.closest('[data-plus]');
     if (plus) { definirQuantite(plus.dataset.plus, (s.panier.get(plus.dataset.plus) || 0) + 1); return; }
     const moins = e.target.closest('[data-moins]');

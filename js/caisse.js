@@ -14,6 +14,7 @@ import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aModule, vocab, unArticle } from './modules.js';
+import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVariantes, oublierVariantes, nomAvecVariante } from './variantes.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -41,7 +42,10 @@ export function afficherCaisse(conteneur, params) {
     categorie: 'tous',
     recherche: '',
     typePrix: 'detail',
-    /** Map produit_id → { produit, quantite } */
+    /**
+     * Map clé → { produit, quantite, variante? } ; clé = produit_id, ou « produit_id|variante_id » pour une case
+     * taille × couleur (deux tailles du même modèle = deux lignes).
+     */
     panier: new Map(),
     client: null,
     /** Case « reçu par SMS » cochée par défaut : crédit SMS disponible et modèle « recu_vente » actif. */
@@ -79,9 +83,24 @@ export function afficherCaisse(conteneur, params) {
     return p.sur_commande ? Infinity : Math.max(0, Number(p.stock) || 0);
   }
 
+  const cleLigne = (idProduit, idVariante) => (idVariante ? `${idProduit}|${idVariante}` : idProduit);
+  /** Prix d'une ligne : prix spécial de la case s'il existe, sinon celui du modèle (détail / gros, promo). */
+  function prixLigne(l) {
+    return l.variante?.prix ?? prixArticle(l.produit);
+  }
+  function maxLigne(l) {
+    return l.variante && !l.produit.sur_commande ? Math.max(0, Number(l.variante.stock) || 0) : quantiteMax(l.produit);
+  }
+  /** Quantité d'un article dans le panier, toutes tailles confondues. */
+  function quantiteProduit(id) {
+    let n = 0;
+    s.panier.forEach((l) => { if (l.produit.id === id) n += l.quantite; });
+    return n;
+  }
+
   function totaux() {
     let sousTotal = 0;
-    s.panier.forEach(({ produit, quantite }) => { sousTotal += prixArticle(produit) * quantite; });
+    s.panier.forEach((l) => { sousTotal += prixLigne(l) * l.quantite; });
     sousTotal = Math.round(sousTotal);
     const remise = Math.min(Math.max(0, Math.round(s.remise || 0)), sousTotal);
     return { sousTotal, remise, total: sousTotal - remise };
@@ -188,12 +207,12 @@ export function afficherCaisse(conteneur, params) {
   }
 
   function articleHTML(p) {
-    const quantite = s.panier.get(p.id)?.quantite || 0;
+    const quantite = quantiteProduit(p.id);
     const epuise = !p.sur_commande && (Number(p.stock) || 0) <= 0;
     const stock = etatStock(p);
     const vignette = vignetteProduit(p, 120, icone(iconeArticle(p), 28, 1.7));
     let actionsMobile = '';
-    if (quantite > 0) {
+    if (quantite > 0 && !aVariantes(p)) {
       actionsMobile = stepperHTML(p, quantite, 'article');
     } else if (!epuise) {
       actionsMobile = `<button type="button" class="btn-ajout" data-ajouter="${esc(p.id)}" aria-label="Ajouter ${esc(p.nom)} au panier">${icone('plus', 18, 2.4)}</button>`;
@@ -215,15 +234,15 @@ export function afficherCaisse(conteneur, params) {
   }
 
   /** Boutons −/+ avec champ quantité éditable au clavier. */
-  function stepperHTML(p, quantite, contexte) {
-    const id = `qte-${contexte}-${p.id}`;
+  function stepperHTML(p, quantite, contexte, cle = p.id, nom = p.nom) {
+    const id = `qte-${contexte}-${cle}`;
     return `
       <div class="stepper ${contexte === 'article' ? 'stepper-actif' : ''}">
-        <button type="button" data-action="moins" data-id="${esc(p.id)}" aria-label="Diminuer la quantité de ${esc(p.nom)}">−</button>
-        <label class="sr-only" for="${id}">Quantité de ${esc(p.nom)}</label>
-        <input id="${id}" class="stepper-qte" type="text" autocomplete="off" inputmode="${uniteDivisible(p.unite) ? 'decimal' : 'numeric'}"
-          value="${String(quantite).replace('.', ',')}" data-qte="${esc(p.id)}">
-        <button type="button" data-action="plus" data-id="${esc(p.id)}" aria-label="Augmenter la quantité de ${esc(p.nom)}">+</button>
+        <button type="button" data-action="moins" data-id="${esc(cle)}" aria-label="Diminuer la quantité de ${esc(nom)}">−</button>
+        <label class="sr-only" for="${esc(id)}">Quantité de ${esc(nom)}</label>
+        <input id="${esc(id)}" class="stepper-qte" type="text" autocomplete="off" inputmode="${uniteDivisible(p.unite) ? 'decimal' : 'numeric'}"
+          value="${String(quantite).replace('.', ',')}" data-qte="${esc(cle)}">
+        <button type="button" data-action="plus" data-id="${esc(cle)}" aria-label="Augmenter la quantité de ${esc(nom)}">+</button>
       </div>`;
   }
 
@@ -263,7 +282,7 @@ export function afficherCaisse(conteneur, params) {
         ${clientHTML()}
 
         <div class="lignes-panier">
-          ${lignes.length ? lignes.map(lignePanierHTML).join('') : '<p class="panier-vide">Touchez un article pour l’ajouter au panier.</p>'}
+          ${lignes.length ? [...s.panier.entries()].map(([cle, l]) => lignePanierHTML(l, cle)).join('') : '<p class="panier-vide">Touchez un article pour l’ajouter au panier.</p>'}
         </div>
 
         <div class="totaux">
@@ -323,15 +342,17 @@ export function afficherCaisse(conteneur, params) {
         </div>` : ''}`;
   }
 
-  function lignePanierHTML({ produit, quantite }) {
-    const prix = prixArticle(produit);
+  function lignePanierHTML(ligne, cle) {
+    const { produit, quantite, variante } = ligne;
+    const prix = prixLigne(ligne);
+    const nom = nomAvecVariante(produit.nom, variante?.libelle);
     return `
       <div class="ligne-panier">
         <div class="ligne-panier-infos">
-          <span class="gras">${esc(produit.nom)}</span>
+          <span class="gras">${esc(nom)}</span>
           <span class="discret">${formatNombre(prix)} GNF / ${esc(produit.unite || 'unité')}</span>
         </div>
-        ${stepperHTML(produit, quantite, 'panier')}
+        ${stepperHTML(produit, quantite, 'panier', cle, nom)}
         <span class="ligne-panier-total">${formatNombre(Math.round(prix * quantite))}</span>
       </div>`;
   }
@@ -419,8 +440,11 @@ export function afficherCaisse(conteneur, params) {
   /* ======================================================= Panier : actions */
 
   function definirQuantite(id, quantiteSaisie) {
-    const produit = s.panier.get(id)?.produit || s.produits.find((p) => p.id === id);
+    const ligne = s.panier.get(id);
+    const produit = ligne?.produit || s.produits.find((p) => p.id === id);
     if (!produit) return;
+    // Modèle à tailles / couleurs : une ligne par case, choisie dans le panneau.
+    if (!ligne && aVariantes(produit)) { choisirVariante(produit); return; }
     if (quantiteSaisie === null || quantiteSaisie <= 0) {
       s.panier.delete(id);
       renderTout();
@@ -429,14 +453,47 @@ export function afficherCaisse(conteneur, params) {
     let quantite = uniteDivisible(produit.unite)
       ? Math.round(quantiteSaisie * 1000) / 1000
       : Math.max(1, Math.round(quantiteSaisie));
-    const max = quantiteMax(produit);
+    const max = ligne ? maxLigne(ligne) : quantiteMax(produit);
     if (quantite > max) {
       quantite = max;
-      toast(`Stock insuffisant : il reste ${formatQuantite(max, produit.unite)} de « ${produit.nom} ».`, 'erreur');
+      toast(`Stock insuffisant : il reste ${formatQuantite(max, produit.unite)} de « ${nomAvecVariante(produit.nom, ligne?.variante?.libelle)} ».`, 'erreur');
     }
     if (quantite <= 0) s.panier.delete(id);
-    else s.panier.set(id, { produit, quantite });
+    else s.panier.set(id, { ...ligne, produit, quantite });
     renderTout();
+  }
+
+  /** Ajoute une case taille × couleur au panier (plafonnée à son stock). */
+  function ajouterVariante(produit, cas, quantite) {
+    const cle = cleLigne(produit.id, cas.id);
+    const actuelle = s.panier.get(cle)?.quantite || 0;
+    const variante = { id: cas.id, libelle: cas.libelle, taille: cas.taille, couleur: cas.couleur, stock: Number(cas.stock) || 0, prix: cas.prix ?? null };
+    let total = actuelle + quantite;
+    if (!produit.sur_commande && total > variante.stock) {
+      total = variante.stock;
+      toast(variante.stock > 0 ? `Stock insuffisant : il reste ${formatQuantite(variante.stock, produit.unite)} de « ${nomAvecVariante(produit.nom, variante.libelle)} ».` : `« ${nomAvecVariante(produit.nom, variante.libelle)} » est épuisé.`, 'erreur');
+    }
+    if (total <= 0) return;
+    s.panier.set(cle, { produit, quantite: total, variante });
+    renderTout();
+  }
+
+  /** Panneau taille × couleur (feuille du bas sur téléphone). */
+  function choisirVariante(produit, { quantite = 1, apres = null } = {}) {
+    ouvrirChoixVariante({
+      produit,
+      prixModele: prixArticle(produit),
+      quantiteInitiale: quantite,
+      dejaPris: (idCase) => s.panier.get(cleLigne(produit.id, idCase))?.quantite || 0,
+      onAjout: (cas, q) => { ajouterVariante(produit, cas, q); apres?.(); },
+      onFermer: apres
+    });
+  }
+
+  function clicArticle(id) {
+    const produit = s.produits.find((p) => p.id === id);
+    if (produit && aVariantes(produit)) return choisirVariante(produit);
+    return ajouter(id, 1);
   }
 
   function ajouter(id, delta) {
@@ -495,7 +552,7 @@ export function afficherCaisse(conteneur, params) {
 
   /** Ouvre l'écran d'enlèvement du chantier avec les articles du panier déjà saisis. */
   function versEnlevementChantier() {
-    const lignes = [...s.panier.values()].map(({ produit, quantite }) => `${produit.id}:${quantite}`).join(',');
+    const lignes = [...s.panier.values()].map(({ produit, quantite, variante }) => `${produit.id}${variante ? `~${variante.id}` : ''}:${quantite}`).join(',');
     const params = new URLSearchParams({ prix: s.typePrix });
     if (lignes) params.set('lignes', lignes);
     naviguer(`chantiers/${s.chantierClient.id}/enlevement?${params}`);
@@ -508,11 +565,29 @@ export function afficherCaisse(conteneur, params) {
     if (ouvert) zone('panier').querySelector('.panier-complet h2')?.focus?.();
   }
 
-  /** Entrée dans la recherche : ajoute l'article si le code-barres correspond ou s'il n'y a qu'un résultat. */
-  function ajoutRapide() {
+  /**
+   * Entrée dans la recherche : ajoute l'article si le code-barres correspond ou s'il n'y a qu'un résultat.
+   * Étiquette taille × couleur (code de case) : la bonne case est ajoutée directement.
+   */
+  async function ajoutRapide() {
     const q = s.recherche.trim();
     if (!q) return;
+    const champ = conteneur.querySelector('#recherche-caisse');
+    const effacer = () => { champ.value = ''; s.recherche = ''; renderGrille(); champ.focus(); };
     const parCode = s.produits.find((p) => p.code_barre && String(p.code_barre) === q);
+    if (!parCode && /^\d{6,}$/.test(q)) {
+      const cas = await chercherVarianteParCode(q, new Set(s.produits.map((p) => p.id)));
+      const produit = cas && s.produits.find((p) => p.id === cas.produit_id);
+      if (produit) {
+        if (!produit.sur_commande && cas.stock - (s.panier.get(cleLigne(produit.id, cas.id))?.quantite || 0) <= 0) {
+          toast(`« ${nomAvecVariante(produit.nom, cas.libelle)} » est épuisé.`, 'erreur');
+          return;
+        }
+        ajouterVariante(produit, cas, 1);
+        effacer();
+        return;
+      }
+    }
     const liste = parCode ? [parCode] : produitsFiltres();
     if (liste.length !== 1) return;
     const p = liste[0];
@@ -520,12 +595,9 @@ export function afficherCaisse(conteneur, params) {
       toast(`« ${p.nom} » est épuisé.`, 'erreur');
       return;
     }
+    if (aVariantes(p)) { effacer(); choisirVariante(p); return; }
     ajouter(p.id, 1);
-    const champ = conteneur.querySelector('#recherche-caisse');
-    champ.value = '';
-    s.recherche = '';
-    renderGrille();
-    champ.focus();
+    effacer();
   }
 
   /* ======================================================= Ventes en attente (localStorage) */
@@ -552,7 +624,7 @@ export function afficherCaisse(conteneur, params) {
       client: s.client,
       typePrix: s.typePrix,
       remise: s.remise,
-      lignes: [...s.panier.values()].map(({ produit, quantite }) => ({ produit_id: produit.id, nom: produit.nom, quantite }))
+      lignes: [...s.panier.values()].map(({ produit, quantite, variante }) => ({ produit_id: produit.id, nom: nomAvecVariante(produit.nom, variante?.libelle), quantite, variante: variante || null }))
     });
     if (!ecrireAttente(liste)) return;
     viderPanier();
@@ -566,7 +638,7 @@ export function afficherCaisse(conteneur, params) {
     return vente.lignes.reduce((somme, l) => {
       const p = s.produits.find((x) => x.id === l.produit_id);
       if (!p) return somme;
-      const prix = prixApplique(p, vente.typePrix);
+      const prix = l.variante?.prix ?? prixApplique(p, vente.typePrix);
       return somme + prix * l.quantite;
     }, 0) - (Number(vente.remise) || 0);
   }
@@ -622,8 +694,10 @@ export function afficherCaisse(conteneur, params) {
     vente.lignes.forEach((l) => {
       const produit = s.produits.find((p) => p.id === l.produit_id);
       if (!produit) { ignores++; return; }
-      const quantite = Math.min(Number(l.quantite) || 0, quantiteMax(produit));
-      if (quantite > 0) s.panier.set(produit.id, { produit, quantite });
+      const ligne = { produit, quantite: 0, variante: l.variante || undefined };
+      if (aVariantes(produit) && !l.variante) { ignores++; return; }
+      const quantite = Math.min(Number(l.quantite) || 0, ligne.variante ? maxLigne(ligne) : quantiteMax(produit));
+      if (quantite > 0) s.panier.set(cleLigne(produit.id, ligne.variante?.id), { ...ligne, quantite });
       else ignores++;
     });
     ecrireAttente(liste.filter((v) => String(v.id) !== String(id)));
@@ -734,9 +808,9 @@ export function afficherCaisse(conteneur, params) {
       recuSms: Boolean(s.recuSms && s.client?.telephone),
       sousTotal,
       remise,
-      lignes: [...s.panier.values()].map(({ produit, quantite }) => ({
-        nom_produit: produit.nom, unite: produit.unite, quantite,
-        prix_unitaire: prixArticle(produit), total: Math.round(prixArticle(produit) * quantite)
+      lignes: [...s.panier.values()].map((l) => ({
+        nom_produit: nomAvecVariante(l.produit.nom, l.variante?.libelle), unite: l.produit.unite, quantite: l.quantite,
+        prix_unitaire: prixLigne(l), total: Math.round(prixLigne(l) * l.quantite)
       }))
     };
 
@@ -746,7 +820,7 @@ export function afficherCaisse(conteneur, params) {
       const { data, error } = await sb.rpc('valider_vente', {
         p_boutique: boutique.id,
         p_client: s.client?.id || null,
-        p_lignes: [...s.panier.values()].map(({ produit, quantite }) => ({ produit_id: produit.id, quantite })),
+        p_lignes: [...s.panier.values()].map(({ produit, quantite, variante }) => (variante ? { produit_id: produit.id, variante_id: variante.id, quantite } : { produit_id: produit.id, quantite })),
         p_remise: remise,
         p_mode: s.mode,
         p_type_prix: s.typePrix,
@@ -757,6 +831,7 @@ export function afficherCaisse(conteneur, params) {
       const vente = (Array.isArray(data) ? data[0] : data) || {};
       const devis = s.devis;
       s.enCours = false;
+      oublierVariantes();
       if (devis && vente.id) lierDevis(devis, vente);
       viderPanier();
       s.panierOuvert = false;
@@ -773,7 +848,7 @@ export function afficherCaisse(conteneur, params) {
       renderPanier();
       toast(messageErreur(err), 'erreur', 6000);
       const message = String(err?.message || '');
-      if (message.includes('STOCK_INSUFFISANT') || message.includes('PRODUIT_INTROUVABLE')) chargerDonnees();
+      if (/STOCK_INSUFFISANT|PRODUIT_INTROUVABLE|PRODUIT_EPUISE|VARIANTE_/.test(message)) { oublierVariantes(); chargerDonnees(); }
     }
   }
 
@@ -849,13 +924,24 @@ export function afficherCaisse(conteneur, params) {
     viderPanier();
     s.typePrix = 'detail';
     const manquants = [];
-    devis.lignes.forEach((l) => {
+    const aChoisir = [];
+    for (const l of devis.lignes) {
       const produit = s.produits.find((p) => p.id === l.produit_id);
-      if (!produit) { manquants.push(l.nom); return; }
-      const quantite = Math.min(Number(l.quantite) || 0, quantiteMax(produit));
+      if (!produit) { manquants.push(l.nom); continue; }
+      let variante;
+      if (aVariantes(produit)) {
+        if (!l.variante_id) { aChoisir.push({ produit, quantite: Number(l.quantite) || 1 }); continue; }
+        try {
+          const cas = (await chargerVariantes(produit.id)).cases.find((c) => c.id === l.variante_id);
+          if (!cas) { manquants.push(`${l.nom} (taille ou couleur retirée)`); continue; }
+          variante = { id: cas.id, libelle: cas.libelle, taille: cas.taille, couleur: cas.couleur, stock: cas.stock, prix: cas.prix };
+        } catch { manquants.push(l.nom); continue; }
+      }
+      const ligne = { produit, quantite: 0, variante };
+      const quantite = Math.min(Number(l.quantite) || 0, variante ? maxLigne(ligne) : quantiteMax(produit));
       if (quantite < Number(l.quantite)) manquants.push(`${l.nom} (stock insuffisant)`);
-      if (quantite > 0) s.panier.set(produit.id, { produit, quantite });
-    });
+      if (quantite > 0) s.panier.set(cleLigne(produit.id, variante?.id), { ...ligne, quantite });
+    }
     if (devis.client?.id) {
       try { const c = await chargerClient(boutique.id, devis.client.id); if (c) s.client = c; } catch { /* client comptoir */ }
     }
@@ -868,6 +954,14 @@ export function afficherCaisse(conteneur, params) {
     majBasculePrix();
     renderTout();
     renderBandeauDevis();
+    // Ancien devis sans taille ni couleur : le panneau s'ouvre pour chaque ligne concernée, l'une après l'autre.
+    const suivante = () => {
+      const l = aChoisir.shift();
+      if (!l || !conteneur.isConnected) { if (s.devis) { s.remise = Math.max(0, totaux().sousTotal - s.devis.cible); majTotaux(); renderPanier(); } return; }
+      toast(`Devis : choisissez la taille et la couleur de « ${l.produit.nom} ».`, 'info');
+      choisirVariante(l.produit, { quantite: l.quantite, apres: suivante });
+    };
+    suivante();
   }
 
   /** Relit le devis en base (lignes, remise, client) ; refuse un devis déjà transformé ou refusé. */
@@ -898,7 +992,7 @@ export function afficherCaisse(conteneur, params) {
     const lignes = pf.lignes || [];
     return {
       id: pf.id, numero, total: Number(pf.total) || 0, client: pf.client_id ? { id: pf.client_id } : null, client_nom: clientNom,
-      lignes: lignes.filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
+      lignes: lignes.filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, variante_id: l.variante_id || null, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
       libres: lignes.filter((l) => !l.produit_id).map((l) => ({ nom: l.nom, total: Number(l.total) || 0 }))
     };
   }
@@ -961,7 +1055,7 @@ export function afficherCaisse(conteneur, params) {
   async function chargerDonnees() {
     const [produitsRes, categoriesRes] = await Promise.all([
       sb.from('produits')
-        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url')
+        .select('id, categorie_id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url, tailles, couleurs')
         .eq('boutique_id', boutique.id)
         .eq('actif', true)
         .order('nom'),
@@ -977,10 +1071,10 @@ export function afficherCaisse(conteneur, params) {
     if (s.categorie !== 'tous' && !s.categories.some((c) => c.id === s.categorie)) s.categorie = 'tous';
 
     // Le panier suit les stocks à jour ; un article désactivé entre-temps en est retiré.
-    s.panier.forEach((ligne, id) => {
-      const produit = s.produits.find((p) => p.id === id);
+    s.panier.forEach((ligne, cle) => {
+      const produit = s.produits.find((p) => p.id === ligne.produit.id);
       if (produit) ligne.produit = produit;
-      else s.panier.delete(id);
+      else s.panier.delete(cle);
     });
     renderCategories();
     renderTout();
@@ -1000,7 +1094,7 @@ export function afficherCaisse(conteneur, params) {
     const cible = e.target.closest('[data-ajouter], [data-action], [data-mode], [data-prix], [data-categorie]');
     if (!cible || cible.disabled) return;
 
-    if (cible.dataset.ajouter) return ajouter(cible.dataset.ajouter, 1);
+    if (cible.dataset.ajouter) return clicArticle(cible.dataset.ajouter);
     if (cible.dataset.mode) { s.mode = cible.dataset.mode; return renderPanier(); }
     if (cible.dataset.prix) { s.typePrix = cible.dataset.prix; majBasculePrix(); return renderTout(); }
     if (cible.dataset.categorie) { s.categorie = cible.dataset.categorie; renderCategories(); return renderGrille(); }

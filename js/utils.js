@@ -396,7 +396,13 @@ const MESSAGES_METIER = {
   MODULE_BLOQUE: 'Désactivé par YOUMMA — contactez le support.',
   MODULE_INCONNU: 'Ce module est inconnu.',
   ACTIVITE_INCONNUE: 'Cette activité est inconnue.',
-  PROFORMA_VERROUILLEE: 'Ce devis a déjà été accepté ou transformé en vente : il ne peut plus être modifié.'
+  PROFORMA_VERROUILLEE: 'Ce devis a déjà été accepté ou transformé en vente : il ne peut plus être modifié.',
+  // Étape 12 : tailles & couleurs
+  VARIANTE_INTROUVABLE: 'Cette taille ou cette couleur n’existe plus pour ce modèle. Rechargez la page.',
+  TAILLE_INCONNUE: 'Cette taille ne fait pas partie de la grille du modèle.',
+  COULEUR_INCONNUE: 'Cette couleur ne fait pas partie du modèle.',
+  VARIANTE_VIDE: 'Ajoutez au moins une taille ou une couleur, avec au moins une case.',
+  TROP_DE_VARIANTES: 'Trop de cases pour un seul modèle : réduisez le nombre de tailles ou de couleurs.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -409,6 +415,12 @@ export function messageErreur(err) {
     return `Stock insuffisant pour « ${stock[1]} » : il n’en reste que ${reste}.`;
   }
   if (brut.includes('STOCK_INSUFFISANT')) return 'Stock insuffisant pour un article du panier.';
+  // Tailles & couleurs : messages avec le nom du modèle ou le libellé de la case.
+  const requise = brut.match(/VARIANTE_REQUISE\s*:?\s*(.*)$/);
+  if (requise) return `Choisissez la taille et la couleur${requise[1].trim() ? ` pour « ${requise[1].trim()} »` : ''}.`;
+  const avecStock = brut.match(/VARIANTE_AVEC_STOCK\s*:?\s*(.*?)\s*\(\s*([\d.,]+)\s*en stock\s*\)/i);
+  if (avecStock) { const n = Number(avecStock[2].replace(',', '.')) || 0; return `Impossible de retirer ${avecStock[1]} : il reste ${formatNombre(n)} pièce${n > 1 ? 's' : ''}. Videz d’abord son stock.`; }
+  if (brut.includes('VARIANTE_AVEC_STOCK')) return 'Impossible de retirer une case qui a encore du stock. Videz d’abord son stock.';
   const epuise = brut.match(/PRODUIT_EPUISE\s*:?\s*(.+)$/i);
   if (epuise) return `« ${epuise[1].trim()} » est épuisé : retirez-le du panier.`;
   if (brut.includes('PRODUIT_EPUISE')) return 'Un article du panier est épuisé.';

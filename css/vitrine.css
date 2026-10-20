@@ -285,3 +285,35 @@ img { display: block; max-width: 100%; }
 .v-partenaires img { height: 28px; width: auto; max-width: 110px; object-fit: contain; filter: grayscale(.2); }
 .v-produit-visuel { background: #EEF2EF; }
 .v-produit-visuel img.v-img { width: 100%; height: 100%; object-fit: cover; }
+
+/* =============================================================================
+   Étape 12 — Tailles & couleurs (maquette VitrineTaille)
+   ============================================================================= */
+.v-rond-couleur { display: inline-block; flex: none; border-radius: 50%; background: var(--rond); box-shadow: 0 0 0 1px rgba(16, 35, 29, .18); }
+.v-pastilles-couleurs { display: flex; align-items: center; gap: 4px; padding: 8px 12px 0; font-size: 11.5px; font-weight: 800; color: var(--muted); }
+a.v-btn-ajouter { display: flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; padding: 0 8px; }
+.v-lien-fiche { display: contents; }
+.v-fiche-visuel { position: relative; aspect-ratio: 1 / 1; max-height: 420px; width: 100%; background: linear-gradient(135deg, var(--primary-soft), #FFFFFF); overflow: hidden; }
+.v-fiche-visuel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v-fiche-sans-photo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--primary); opacity: .5; }
+.v-fiche-retour { position: absolute; left: 14px; top: 14px; background: rgba(255, 255, 255, .92); border-color: transparent; border-radius: 50%; }
+.v-fiche { display: flex; flex-direction: column; gap: 16px; padding-bottom: 110px; }
+.v-fiche-titres { display: flex; flex-direction: column; gap: 4px; }
+.v-fiche-titres h1 { margin: 0; font-size: 21px; font-weight: 800; }
+.v-fiche-prix { font-size: 22px; font-weight: 800; color: var(--primary); }
+.v-fiche-prix s { font-size: 15px; color: var(--muted); font-weight: 600; }
+.v-fiche-bloc { display: flex; flex-direction: column; gap: 8px; }
+.v-fiche-etiquette { font-size: 13.5px; font-weight: 800; }
+.v-fiche-couleurs { display: flex; flex-wrap: wrap; gap: 12px; }
+.v-couleur { width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.v-couleur.actif .v-rond-couleur { box-shadow: 0 0 0 3px #FFFFFF, 0 0 0 5px var(--primary); }
+.v-couleur.vide { opacity: .4; }
+.v-fiche-tailles { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 8px; }
+.v-taille { min-height: 48px; border-radius: 12px; border: 2px solid var(--border-input); background: #FFFFFF; font: inherit; font-weight: 800; font-size: 15px; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.v-taille.actif { border-color: var(--primary); background: var(--primary-soft); }
+.v-taille.epuisee { border: 1px dashed #C9D3CF; color: #8A9792; text-decoration: line-through; background: #F7F8F7; }
+.v-taille.epuisee.actif { border: 2px dashed var(--danger); }
+.v-taille.absente { min-height: 48px; border-radius: 12px; border: 1px dashed var(--border-doux); color: #C2CBC7; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.v-fiche-dernier { font-size: 13px; font-weight: 700; color: var(--commande); }
+.v-btn-contour-whatsapp { border: 1.5px solid var(--wa); background: #FFFFFF; color: #166534; }
+.v-btn-primaire:disabled { opacity: .55; cursor: not-allowed; }

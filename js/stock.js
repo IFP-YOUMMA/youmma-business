@@ -15,12 +15,15 @@ import { modifierPhotoArticle } from './images/actions.js';
 import { aModule, vocab, unArticle, unites } from './modules.js';
 import { retirerPhotoArticle } from './images/envoi.js';
 import { vignetteProduit } from './images/affichage.js';
+import { aVariantes, chargerVariantes, oublierVariantes } from './variantes.js';
+import { monterEditeurVariantes, grilleLectureHTML, ouvrirGrilleMouvement, imprimerEtiquettes, afficherReassort } from './variantes-fiche.js';
 
 /**
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
  * le gérant le reçoit par la fonction serveur produits_couts, fusionnée côté appli.
  */
-const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url, actif, fournisseur_id, en_ligne, prix_promo, promo_fin, created_at';
+const COLONNES_PRODUIT = 'id, boutique_id, categorie_id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, photo_url, photo_mini_url, actif, fournisseur_id, en_ligne, prix_promo, promo_fin, created_at, tailles, couleurs';
+const TAILLE_LOT = 100;
 
 const LIBELLES_MOUVEMENTS = {
   entree: 'Entrée de stock',
@@ -57,7 +60,24 @@ function estStockBas(p) {
   return p.actif && !p.sur_commande && Number(p.stock) <= Number(p.seuil_alerte);
 }
 
+/**
+ * État d'un modèle à tailles / couleurs (3ᵉ ligne de la liste) : « 5 cases épuisées · XXL bleu… » (rouge),
+ * « Dernière pièce : 42, 43 » (jaune) ou « Complet » (vert).
+ */
+function etatModele(cases) {
+  const court = (c) => [c.taille, String(c.couleur || '').split(' ')[0].toLowerCase()].filter(Boolean).join(' ');
+  const epuisees = cases.filter((c) => (Number(c.stock) || 0) <= 0);
+  if (epuisees.length) {
+    const noms = epuisees.slice(0, 4).map(court).join(', ') + (epuisees.length > 4 ? '…' : '');
+    return { classe: 'rouge', texte: `${epuisees.length} case${epuisees.length > 1 ? 's' : ''} épuisée${epuisees.length > 1 ? 's' : ''}`, detail: noms };
+  }
+  const dernieres = cases.filter((c) => Number(c.stock) === 1);
+  if (dernieres.length) return { classe: 'jaune', texte: 'Dernière pièce', detail: dernieres.slice(0, 5).map(court).join(', ') };
+  return { classe: 'vert', texte: 'Complet', detail: '' };
+}
+
 export function afficherStock(conteneur, params) {
+  if (params.get('id') === 'reassort') { afficherReassort(conteneur); return; }
   const boutique = etat.boutique;
   const gerer = peut('gerer_stock');
   const s = {
@@ -68,7 +88,9 @@ export function afficherStock(conteneur, params) {
     charge: false,
     recherche: params.get('q') || '',
     categorie: '',
-    filtre: params.get('filtre') === 'bas' ? 'bas' : 'tous'
+    filtre: ['bas', 'epuises'].includes(params.get('filtre')) ? params.get('filtre') : 'tous',
+    /** Cases taille × couleur des modèles (produit_id → cases actives), pour l'état de la liste. */
+    cases: new Map()
   };
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   const nomCategorie = (id) => s.categories.find((c) => c.id === id)?.nom || 'Sans catégorie';
@@ -98,9 +120,11 @@ export function afficherStock(conteneur, params) {
         <div class="segments" role="group" aria-label="Filtre">
           <button type="button" class="segment" data-filtre="tous">Tous</button>
           <button type="button" class="segment" data-filtre="bas">Stock bas</button>
+          ${aModule('variantes') ? '<button type="button" class="segment" data-filtre="epuises">Épuisés</button>' : ''}
           ${gerer ? '<button type="button" class="segment" data-filtre="inactifs">Désactivés</button>' : ''}
         </div>
       </section>
+      <div data-zone="bandeau-reassort" hidden></div>
 
       <section class="carte carte-liste-stock" aria-label="Articles">
         <div class="entete-liste-stock seul-ordi" aria-hidden="true">
@@ -119,6 +143,7 @@ export function afficherStock(conteneur, params) {
     return s.produits.filter((p) => {
       if (s.filtre === 'inactifs' ? p.actif : !p.actif) return false;
       if (s.filtre === 'bas' && !estStockBas(p)) return false;
+      if (s.filtre === 'epuises' && !(aVariantes(p) ? (s.cases.get(p.id) || []).some((c) => c.stock <= 0) : !p.sur_commande && Number(p.stock) <= 0)) return false;
       if (s.categorie && p.categorie_id !== s.categorie) return false;
       if (!q) return true;
       return normaliserTexte(p.nom).includes(q) || String(p.code_barre || '').toLowerCase().includes(q);
@@ -155,6 +180,7 @@ export function afficherStock(conteneur, params) {
     if (!liste.length) {
       const messages = {
         bas: 'Aucun article sous le seuil d’alerte. Votre stock est en bonne santé !',
+        epuises: 'Aucune taille ni aucun article épuisé.',
         inactifs: 'Aucun article désactivé.',
         tous: 'Aucun article ne correspond à votre recherche.'
       };
@@ -165,7 +191,8 @@ export function afficherStock(conteneur, params) {
   }
 
   function ligneHTML(p) {
-    const pastille = pastilleStock(p);
+    const modele = aVariantes(p) ? etatModele(s.cases.get(p.id) || []) : null;
+    const pastille = modele && !p.sur_commande ? { classe: modele.classe === 'rouge' ? 'bas' : modele.classe === 'jaune' ? 'moyen' : 'ok', texte: `${formatNombre(p.stock)} pcs` } : pastilleStock(p);
     const unite = esc(p.unite || 'unité');
     const gros = p.prix_gros !== null && p.prix_gros !== undefined && aModule('prix_gros');
     const promo = promoActive(p);
@@ -182,6 +209,7 @@ export function afficherStock(conteneur, params) {
               <span class="discret">
                 <span class="seul-mobile">${esc(nomCategorie(p.categorie_id))}${p.code_barre ? ' · ' : ''}</span>${p.code_barre ? esc(p.code_barre) : ''}${p.actif ? '' : ' · Désactivé'}
               </span>
+              ${modele ? `<span class="etat-modele ${modele.classe}">${esc(modele.texte)}${modele.detail ? ` · <span>${esc(modele.detail)}</span>` : ''}</span>` : ''}
             </span>
           </span>
           <span class="ls-categorie seul-ordi">${esc(nomCategorie(p.categorie_id))}</span>
@@ -216,10 +244,39 @@ export function afficherStock(conteneur, params) {
     s.produits = produitsRes.data.map((p) => ({ ...p, prix_achat: couts.get(p.id) ?? null }));
     s.categories = categoriesRes.data;
     s.fournisseurs = fournisseursRes.data || [];
+    await chargerCasesModeles();
     s.charge = true;
     renderFiltres();
     renderListe();
+    chargerBandeauReassort();
     return true;
+  }
+
+  /** Cases actives de tous les modèles à tailles / couleurs (par lots de 100 articles). */
+  async function chargerCasesModeles() {
+    const ids = s.produits.filter(aVariantes).map((p) => p.id);
+    s.cases = new Map();
+    for (let i = 0; i < ids.length; i += TAILLE_LOT) {
+      const { data, error } = await sb.from('produit_variantes').select('id, produit_id, taille, couleur, stock')
+        .in('produit_id', ids.slice(i, i + TAILLE_LOT)).eq('actif', true);
+      if (error) { console.warn('[YOUMMA] Cases des modèles indisponibles :', error); return; }
+      (data || []).forEach((c) => { const l = s.cases.get(c.produit_id) || []; l.push({ ...c, stock: Number(c.stock) || 0 }); s.cases.set(c.produit_id, l); });
+    }
+  }
+
+  /** « n tailles épuisées sur vos modèles » + lien vers la liste à réassortir. */
+  async function chargerBandeauReassort() {
+    const zoneBandeau = zone('bandeau-reassort');
+    if (!aModule('variantes') || !zoneBandeau) return;
+    const { data, error } = await sb.rpc('variantes_a_reassortir', { p_boutique: boutique.id });
+    if (error || !zoneBandeau.isConnected) return;
+    const r = (Array.isArray(data) ? data[0] : data) || {};
+    const n = Number(r.epuisees) || 0;
+    zoneBandeau.hidden = !n;
+    zoneBandeau.innerHTML = n ? `
+      <div class="bandeau-reassort"><strong>${formatNombre(n)} taille${n > 1 ? 's' : ''} épuisée${n > 1 ? 's' : ''} sur vos modèles</strong>
+        <span>Préparez le réassort à partir de vos ventes des 60 derniers jours.</span>
+        <a href="#/stock/reassort" class="gras">Voir la liste à réassortir →</a></div>` : '';
   }
 
   /** Remplace un article modifié dans la liste locale et rafraîchit l'affichage. */
@@ -243,12 +300,27 @@ export function afficherStock(conteneur, params) {
       el.querySelector('h2').textContent = produit.nom;
       el.querySelector('[data-zone="fiche"]').innerHTML = ficheHTML(produit);
       chargerHistorique(produit, el.querySelector('[data-zone="historique"]'));
+      if (aVariantes(produit)) chargerGrilleFiche(produit, el.querySelector('[data-zone="grille-modele"]'));
+    }
+
+    /** Après un mouvement sur la grille : article et cases relus. */
+    async function apresGrille() {
+      const { data } = await sb.from('produits').select(COLONNES_PRODUIT).eq('id', produit.id).single();
+      if (data) remplacerProduit({ ...data, prix_achat: produit.prix_achat });
+      await chargerCasesModeles();
+      renderListe();
+      chargerBandeauReassort();
+      rafraichir();
     }
 
     el.addEventListener('click', async (e) => {
       const action = e.target.closest('[data-action-fiche]')?.dataset.actionFiche;
       if (!action) return;
-      if (action === 'entree' || action === 'ajustement') ouvrirMouvement(produit, action, rafraichir);
+      if (action === 'entree' || action === 'ajustement') {
+        if (aVariantes(produit)) ouvrirGrilleMouvement(produit, action, apresGrille);
+        else ouvrirMouvement(produit, action, rafraichir);
+      }
+      if (action === 'etiquettes') imprimerEtiquettes(produit);
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
       if (action === 'photo' || action === 'retoucher') {
         // Outil d'image : recadrer, nettoyer le fond (blanc ou détourage automatique), grande photo + miniature.
@@ -285,8 +357,22 @@ export function afficherStock(conteneur, params) {
     rafraichir();
   }
 
+  async function chargerGrilleFiche(p, zoneGrille) {
+    try {
+      const d = await chargerVariantes(p.id, { recharger: true });
+      if (!zoneGrille?.isConnected) return;
+      const couleursDispo = d.couleurs.filter((c) => d.cases.some((x) => x.couleur === c.nom && x.stock > 0)).length;
+      const taillesDispo = d.tailles.filter((t) => d.cases.some((x) => x.taille === t && x.stock > 0)).length;
+      zoneGrille.innerHTML = grilleLectureHTML(d) + (aModule('boutique_en_ligne') && p.en_ligne !== false
+        ? `<p class="var-en-ligne">${icone('enLigne', 16, 2)} En ligne : ${couleursDispo} couleur${couleursDispo > 1 ? 's' : ''}, ${taillesDispo} taille${taillesDispo > 1 ? 's' : ''} dispo</p>` : '');
+    } catch (err) {
+      if (zoneGrille?.isConnected) zoneGrille.innerHTML = `<p class="bloc-erreur">${esc(messageErreur(err))}</p>`;
+    }
+  }
+
   function ficheHTML(p) {
-    const pastille = pastilleStock(p);
+    const modele = aVariantes(p);
+    const pastille = modele && !p.sur_commande ? { classe: 'ok', texte: `${formatNombre(p.stock)} pièce${Number(p.stock) > 1 ? 's' : ''}` } : pastilleStock(p);
     const info = (libelle, valeur) => `<div class="fiche-info"><dt>${esc(libelle)}</dt><dd>${valeur}</dd></div>`;
     const promo = promoActive(p);
     const photo = peut('articles.photo');
@@ -307,6 +393,7 @@ export function afficherStock(conteneur, params) {
           <span class="pastille-stock pastille-grande ${pastille.classe}">${esc(pastille.texte)}</span>
           ${p.actif ? '' : '<span class="statut-inactif">Article désactivé</span>'}
         </div>
+        ${modele ? '<section class="fiche-grille-modele" data-zone="grille-modele"><div class="squelette" style="height:120px"></div></section>' : ''}
         <dl class="fiche-infos">
           ${info('Catégorie', esc(nomCategorie(p.categorie_id)))}
           ${info('Unité', esc(p.unite || '—'))}
@@ -321,7 +408,10 @@ export function afficherStock(conteneur, params) {
         </dl>
         ${gerer ? `
           <div class="fiche-actions">
-            ${p.sur_commande || !p.actif ? '' : `
+            ${p.sur_commande || !p.actif ? '' : modele ? `
+              <button type="button" class="btn btn-primaire" data-action-fiche="entree">${icone('entree', 18, 2)} Arrivage</button>
+              <button type="button" class="btn btn-secondaire" data-action-fiche="ajustement">${icone('inventaire', 18, 2)} Inventaire</button>
+              <button type="button" class="btn btn-secondaire" data-action-fiche="etiquettes">${icone('imprimante', 18, 2)} Imprimer les étiquettes</button>` : `
               <button type="button" class="btn btn-primaire" data-action-fiche="entree">${icone('entree', 18, 2)} Entrée de stock</button>
               <button type="button" class="btn btn-secondaire" data-action-fiche="ajustement">${icone('inventaire', 18, 2)} Inventaire</button>`}
             <button type="button" class="btn btn-secondaire" data-action-fiche="modifier">${icone('crayon', 18, 2)} Modifier</button>
@@ -349,6 +439,11 @@ export function afficherStock(conteneur, params) {
       zoneHistorique.innerHTML = '<p class="discret">Aucun mouvement enregistré pour cet article.</p>';
       return;
     }
+    const libelles = new Map();
+    if (aVariantes(p) && data.some((m) => m.variante_id)) {
+      try { (await chargerVariantes(p.id)).cases.forEach((c) => libelles.set(c.id, c.libelle)); } catch { /* sans libellé */ }
+      if (!zoneHistorique.isConnected) return;
+    }
     zoneHistorique.innerHTML = `
       <ul class="historique">
         ${data.map((m) => {
@@ -359,7 +454,7 @@ export function afficherStock(conteneur, params) {
           return `
             <li class="historique-ligne">
               <div class="historique-textes">
-                <span class="gras">${esc(LIBELLES_MOUVEMENTS[m.type] || capitaliser(m.type || 'Mouvement'))}</span>
+                <span class="gras">${esc(LIBELLES_MOUVEMENTS[m.type] || capitaliser(m.type || 'Mouvement'))}${m.variante_id && libelles.get(m.variante_id) ? ` · ${esc(libelles.get(m.variante_id))}` : ''}</span>
                 <span class="discret">${esc(formatDate(m.created_at, 'complet'))}${m.note ? ' · ' + esc(m.note) : ''}</span>
               </div>
               <span class="historique-qte ${signe === '+' ? 'texte-succes' : ''} ${signe === '−' ? 'texte-danger' : ''}">${signe}${esc(formatQuantite(Math.abs(quantite), p.unite))}</span>
@@ -519,9 +614,11 @@ export function afficherStock(conteneur, params) {
             <span><strong>${esc(vocab('article'))} sur commande</strong> (pas de stock : sable, gravier, prestation…)</span>
           </label>
 
+          ${aModule('variantes') || aVariantes(p) ? '<section class="bloc-variantes" data-zone="variantes"></section>' : ''}
+
           <div class="rangee-champs" data-zone="champs-stock">
             ${creation ? `
-              <div class="champ">
+              <div class="champ" data-zone="stock-initial">
                 <label for="art-stock">Stock initial</label>
                 <input id="art-stock" name="stock" class="input" type="text" autocomplete="off" inputmode="decimal" value="">
               </div>` : ''}
@@ -544,9 +641,19 @@ export function afficherStock(conteneur, params) {
     const zoneErreur = formulaire.querySelector('.erreur-form');
     const erreur = (message) => { zoneErreur.textContent = message; zoneErreur.hidden = !message; };
 
+    // Tailles & couleurs : le stock simple devient la somme de la grille (champ masqué).
+    const zoneVariantes = el.querySelector('[data-zone="variantes"]');
+    const editeur = zoneVariantes ? monterEditeurVariantes(zoneVariantes, {
+      produit,
+      parDefaut: creation && boutique.type_activite === 'habillement',
+      onChange: () => majChampsStock()
+    }) : null;
+
     function majChampsStock() {
       const surCommande = formulaire.sur_commande.checked;
       el.querySelector('[data-zone="champs-stock"]').hidden = surCommande;
+      const stockInitial = el.querySelector('[data-zone="stock-initial"]');
+      if (stockInitial) stockInitial.hidden = Boolean(editeur?.actif());
     }
     formulaire.sur_commande.addEventListener('change', majChampsStock);
     majChampsStock();
@@ -600,7 +707,10 @@ export function afficherStock(conteneur, params) {
       const prixAchat = lireNombre(formulaire.prix_achat.value);
       const surCommande = formulaire.sur_commande.checked;
       const seuil = surCommande ? 0 : lireNombre(formulaire.seuil_alerte.value) ?? 0;
-      const stockInitial = creation && !surCommande ? lireNombre(formulaire.stock.value) ?? 0 : 0;
+      const avecGrille = Boolean(editeur?.actif());
+      const stockInitial = creation && !surCommande && !avecGrille ? lireNombre(formulaire.stock.value) ?? 0 : 0;
+      const erreurGrille = editeur?.valider();
+      if (erreurGrille) return erreur(erreurGrille);
 
       if (nom.length < 2) return erreur('Indiquez le nom de l’article.');
       if (!unite) return erreur('Indiquez l’unité de vente (sac, kg, pièce…).');
@@ -636,13 +746,32 @@ export function afficherStock(conteneur, params) {
       const requete = creation
         ? sb.from('produits').insert({ ...donnees, boutique_id: boutique.id, stock: stockInitial, actif: true })
         : sb.from('produits').update(donnees).eq('id', produit.id);
-      const { data, error } = await requete.select(COLONNES_PRODUIT).single();
+      let { data, error } = await requete.select(COLONNES_PRODUIT).single();
       if (error) { erreur(messageErreur(error)); boutonOccupe(bouton, false); return; }
+
+      if (avecGrille) {
+        try {
+          await editeur.enregistrer(data.id);
+          const relu = await sb.from('produits').select(COLONNES_PRODUIT).eq('id', data.id).single();
+          if (!relu.error) data = relu.data;
+          oublierVariantes(data.id);
+          remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
+          await chargerCasesModeles();
+          chargerBandeauReassort();
+        } catch (errGrille) {
+          // L'article est enregistré : on garde le formulaire ouvert en modification pour corriger la grille.
+          remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
+          erreur(messageErreur(errGrille));
+          boutonOccupe(bouton, false);
+          if (creation) { fermer(); toast(`« ${data.nom} » créé, mais la grille n’a pas été enregistrée : ${messageErreur(errGrille)}`, 'erreur', 9000); ouvrirFormulaire({ ...data, prix_achat: donnees.prix_achat }, apres); }
+          return;
+        }
+      }
 
       // Le prix d'achat n'est pas relu par l'API : on garde la valeur enregistrée.
       remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
       fermer();
-      toast(creation ? `« ${data.nom} » ajouté au stock.` : 'Article mis à jour.', 'succes');
+      toast(avecGrille ? `Modèle « ${data.nom} » enregistré · ${formatNombre(data.stock)} pièce${Number(data.stock) > 1 ? 's' : ''}.` : creation ? `« ${data.nom} » ajouté au stock.` : 'Article mis à jour.', 'succes');
       apres?.();
     });
   }

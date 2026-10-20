@@ -347,7 +347,8 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
     <span class="dash-hero-variation">${esc(variation.texte)}</span>`;
 
   const cartes = cartesIndicateurs(s, variation, extras);
-  zone('kpis').innerHTML = cartes.slice(0, 4).map(kpiHTML).join('');
+  // Ordinateur : 4 cartes, jusqu'à 6 sur un grand écran (les 5ᵉ et 6ᵉ n'apparaissent que si la place le permet).
+  zone('kpis').innerHTML = cartes.slice(0, 6).map((k, i) => kpiHTML(k, i >= 4)).join('');
   // Téléphone : les ventes du jour sont déjà dans le bandeau ; les 4 cartes suivantes.
   zone('kpis-mobile').innerHTML = cartes.slice(1, 5).map((k) => `
     <div class="kpi-mobile">
@@ -386,22 +387,35 @@ function variationVentes(s) {
 
 /** Indicateurs propres aux modules : devis en attente, commandes en ligne à traiter. */
 async function chargerIndicateursModules(idBoutique) {
-  const [devis, commandes] = await Promise.all([
+  const [devis, commandes, variantes] = await Promise.all([
     aModule('devis') ? sb.from('proformas').select('total').eq('boutique_id', idBoutique).in('statut', ['brouillon', 'envoye']).then((r) => r.data || [], () => []) : Promise.resolve(null),
     aModule('boutique_en_ligne') && peut('commandes.voir')
       ? sb.from('commandes_web').select('statut').eq('boutique_id', idBoutique).in('statut', ['nouvelle', 'confirmee', 'prete']).then((r) => r.data || [], () => [])
-      : Promise.resolve(null)
+      : Promise.resolve(null),
+    aModule('variantes') ? sb.rpc('variantes_a_reassortir', { p_boutique: idBoutique }).then((r) => (Array.isArray(r.data) ? r.data[0] : r.data) || null, () => null) : Promise.resolve(null)
   ]);
-  return { devis, commandes };
+  return { devis, commandes, variantes };
 }
 
 /**
- * Cartes du tableau de bord, par ordre de priorité (les 4 premières sont affichées) :
- * Ventes du jour, Dettes chantiers, Devis en attente, Commandes en ligne, Crédits à encaisser, Stock bas, Dépenses du jour.
+ * Cartes du tableau de bord, par ordre de priorité (4 affichées ; jusqu'à 6 sur un grand écran) :
+ * Ventes du jour, Stock bas (activité avec stock), Tailles épuisées, Dettes chantiers, Devis en attente,
+ * Commandes en ligne, Crédits à encaisser, Dépenses du jour.
  */
 function cartesIndicateurs(s, variation, extras = {}) {
   const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
   const cartes = [{ libelle: 'Ventes du jour', valeur: s.ventes_jour, sous: variation.texte, encreSous: variation.encre, teinte: '#E3F2EC', encre: '#0A5E48', icone: 'rapports' }];
+  if (!vocab('sans_stock')) {
+    cartes.push({ libelle: 'Stock bas', valeur: s.nb_stock_bas, unite: '', texteValeur: pluriel(s.nb_stock_bas, vocab('article').toLowerCase()),
+      sous: s.nb_stock_bas > 0 ? 'À commander' : 'Tout va bien', encreSous: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A', teinte: '#FFF3CD', encre: '#8A5A00', icone: 'stock', lien: '#/stock?filtre=bas' });
+  }
+  if (aModule('variantes') && extras.variantes) {
+    const n = Number(extras.variantes.epuisees) || 0;
+    const exemples = (extras.variantes.liste || []).filter((l) => (Number(l.stock) || 0) <= 0).slice(0, 2)
+      .map((l) => [String(l.nom || '').toLowerCase(), l.taille || l.couleur || ''].filter(Boolean).join(' '));
+    cartes.push({ libelle: 'Tailles épuisées', valeur: n, unite: '', texteValeur: String(n), sous: n ? `${exemples.join(', ')}…` : 'Toutes les tailles sont en stock',
+      encreSous: n ? '#A51C1C' : '#1B6E2A', teinte: '#FDECEC', encre: '#A51C1C', icone: 'stock', lien: '#/stock/reassort' });
+  }
   if (moduleVisible('chantiers')) {
     cartes.push({ libelle: 'Dettes chantiers', valeur: s.dettes_chantiers, sous: s.dettes_chantiers > 0 ? 'À encaisser sur les chantiers' : 'Aucune dette chantier',
       encreSous: s.dettes_chantiers > 0 ? '#A51C1C' : '#1B6E2A', teinte: '#FBE9E7', encre: '#BF360C', icone: 'casque', lien: '#/chantiers' });
@@ -420,10 +434,6 @@ function cartesIndicateurs(s, variation, extras = {}) {
     cartes.push({ libelle: 'Crédits à encaisser', valeur: s.credits_total,
       sous: `${pluriel(s.nb_clients_credit, 'client')} · ${s.nb_credits_retard} en retard`,
       encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client', lien: '#/clients' });
-  }
-  if (!vocab('sans_stock')) {
-    cartes.push({ libelle: 'Stock bas', valeur: s.nb_stock_bas, unite: '', texteValeur: pluriel(s.nb_stock_bas, vocab('article').toLowerCase()),
-      sous: s.nb_stock_bas > 0 ? 'À commander' : 'Tout va bien', encreSous: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A', teinte: '#FFF3CD', encre: '#8A5A00', icone: 'stock', lien: '#/stock?filtre=bas' });
   }
   cartes.push({ libelle: 'Dépenses du jour', valeur: s.depenses_jour, sous: `Encaissé : ${formatGNF(s.encaisse_jour)}`, encreSous: '#55665F', teinte: '#E0F2F1', encre: '#00695C', icone: 'depenses', lien: '#/depenses' });
   return cartes;
@@ -458,9 +468,9 @@ function raccourcis() {
   return liste.slice(0, 8);
 }
 
-function kpiHTML(k) {
+function kpiHTML(k, enPlus = false) {
   return `
-    <${k.lien ? `a href="${k.lien}"` : 'div'} class="carte kpi ${k.lien ? 'kpi-lien' : ''}">
+    <${k.lien ? `a href="${k.lien}"` : 'div'} class="carte kpi ${k.lien ? 'kpi-lien' : ''} ${enPlus ? 'kpi-en-plus' : ''}">
       <div class="kpi-haut">
         <span class="kpi-libelle">${esc(k.libelle)}</span>
         <span class="kpi-icone" style="background:${k.teinte};color:${k.encre}">${icone(k.icone, 18, 2)}</span>

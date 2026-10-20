@@ -6,7 +6,10 @@
  * publiques boutique_publique et passer_commande_web (prix recalculés côté serveur).
  *
  * Vues (dans l'adresse, pour que le bouton « retour » du téléphone marche) :
- *   (aucune) → la boutique · #panier → panier + coordonnées · #commande → confirmation.
+ *   (aucune) → la boutique · #p/<id> → fiche d'un modèle à tailles / couleurs · #panier → panier + coordonnées
+ *   · #commande → confirmation.
+ * Tailles & couleurs : produit.variantes = { tailles, couleurs, cases: [{ id, t, c, dispo, dernier, prix }] } ;
+ * une ligne de panier par case (clé « produit|case ») ; passer_commande_web reçoit variante_id.
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
@@ -63,7 +66,8 @@ const ERREURS = {
   PANIER_TROP_GRAND: 'Trop d’articles dans le panier (50 maximum).',
   TROP_DE_COMMANDES: 'Trop de commandes avec ce numéro, réessayez dans une heure.',
   PRODUIT_INTROUVABLE: 'Un article n’est plus disponible en ligne. Retirez-le du panier.',
-  QUANTITE_INVALIDE: 'Une quantité n’est pas valide.'
+  QUANTITE_INVALIDE: 'Une quantité n’est pas valide.',
+  VARIANTE_INTROUVABLE: 'Une taille ou une couleur n’est plus disponible. Retirez-la du panier.'
 };
 
 /* ------------------------------------------------------------ Outils */
@@ -99,6 +103,8 @@ function messageErreur(err) {
   if (stock) return `Stock insuffisant pour « ${stock[1]} » : il en reste ${formatNombre(Number(stock[2].replace(',', '.')) || 0, 3)}.`;
   const epuise = brut.match(/PRODUIT_EPUISE\s*:?\s*(.+)$/i);
   if (epuise) return `« ${epuise[1].trim()} » est épuisé : retirez-le du panier.`;
+  const requise = brut.match(/VARIANTE_REQUISE\s*:?\s*(.*)$/);
+  if (requise) return `Choisissez la taille et la couleur${requise[1].trim() ? ` de « ${requise[1].trim()} »` : ''}.`;
   for (const [code, message] of Object.entries(ERREURS)) if (brut.includes(code)) return message;
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(brut)) return 'Pas de connexion internet. Vérifiez votre réseau puis réessayez.';
   console.error('[YOUMMA] Erreur :', err);
@@ -170,11 +176,31 @@ function memoriser() {
   });
 }
 
+/* ------------------------------------------------------------ Tailles & couleurs */
+
+const idProduit = (cleLigne) => String(cleLigne).split('|')[0];
+const aVariantes = (p) => Boolean(p?.variantes && Array.isArray(p.variantes.cases) && p.variantes.cases.length);
+const caseDispo = (c) => Boolean(c) && !(c.dispo === false || c.dispo === 'epuise' || c.dispo === 0);
+const libelleCase = (c) => [c.c, c.t].map((x) => String(x || '').trim()).filter(Boolean).join(' / ');
+function couleursModele(p) {
+  return (p.variantes?.couleurs || []).map((c) => (typeof c === 'string' ? { nom: c, hex: null, photo_url: null } : { nom: c?.nom || '', hex: c?.hex || null, photo_url: c?.photo_url || null })).filter((c) => c.nom);
+}
+const rond = (hex, taille = 14) => `<span class="v-rond-couleur" style="--rond:${esc(hex || '#C9D3CF')};width:${taille}px;height:${taille}px" aria-hidden="true"></span>`;
+
 function lignesPanier() {
-  return [...s.panier].map(([id, quantite]) => ({ produit: s.produits.get(id), quantite })).filter((l) => l.produit);
+  return [...s.panier].map(([cleLigne, quantite]) => {
+    const produit = s.produits.get(idProduit(cleLigne));
+    if (!produit) return null;
+    const idCase = String(cleLigne).split('|')[1];
+    if (!idCase) return aVariantes(produit) ? null : { cle: cleLigne, produit, quantite, prix: Number(produit.prix), nom: produit.nom };
+    const cas = produit.variantes?.cases?.find((c) => c.id === idCase);
+    if (!cas) return null;
+    const libelle = libelleCase(cas);
+    return { cle: cleLigne, produit, quantite, cas, prix: Number(cas.prix ?? produit.prix), nom: libelle ? `${produit.nom} — ${libelle}` : produit.nom };
+  }).filter(Boolean);
 }
 function totalArticles() {
-  return lignesPanier().reduce((t, l) => t + Math.round(Number(l.produit.prix) * l.quantite), 0);
+  return lignesPanier().reduce((t, l) => t + Math.round(l.prix * l.quantite), 0);
 }
 function zoneChoisie() {
   return (s.donnees?.zones || []).find((z) => z.id === s.zone) || null;
@@ -215,8 +241,9 @@ async function demarrer() {
   if (r.ferme) { afficherFerme(r); return; }
   s.donnees = r;
   (r.produits || []).forEach((p) => s.produits.set(p.id, p));
-  // Articles retirés de la boutique depuis la dernière visite : on les enlève du panier.
-  [...s.panier.keys()].forEach((id) => { if (!s.produits.has(id)) s.panier.delete(id); });
+  // Articles (ou tailles) retirés de la boutique depuis la dernière visite : on les enlève du panier.
+  const valides = new Set(lignesPanier().map((l) => l.cle));
+  [...s.panier.keys()].forEach((cleLigne) => { if (!valides.has(cleLigne)) s.panier.delete(cleLigne); });
   if (!r.boutique.retrait && s.reception === 'retrait') s.reception = null;
   if (s.zone && !zoneChoisie()) s.zone = null;
   if (!s.reception) s.reception = r.boutique.retrait ? 'retrait' : 'livraison';
@@ -256,6 +283,7 @@ const pied = () => `<footer class="v-pied"><img src="${SYMBOLE}" width="20" heig
 function router() {
   const vue = location.hash.replace('#', '');
   if (vue === 'commande' && s.commande) renderConfirmation();
+  else if (vue.startsWith('p/') && aVariantes(s.produits.get(decodeURIComponent(vue.slice(2))))) renderFicheModele(decodeURIComponent(vue.slice(2)));
   else if (vue === 'panier' && s.panier.size) renderPanier();
   else { if (vue) history.replaceState(null, '', location.pathname + location.search); renderBoutique(); }
   window.scrollTo(0, 0);
@@ -330,15 +358,19 @@ function stepper(p, quantite, variante = '') {
 }
 
 function carteProduit(p) {
-  const quantite = s.panier.get(p.id) || 0;
+  const modele = aVariantes(p);
+  const quantite = modele ? [...s.panier].filter(([k]) => idProduit(k) === p.id).reduce((t, [, q]) => t + q, 0) : s.panier.get(p.id) || 0;
   const dispo = DISPO[p.dispo] || DISPO.disponible;
-  const epuise = p.dispo === 'epuise';
+  const epuise = p.dispo === 'epuise' || (modele && !p.variantes.cases.some(caseDispo));
   let action = `<button type="button" class="v-btn-ajouter" data-ajouter="${esc(p.id)}">Ajouter</button>`;
   if (epuise) action = '<button type="button" class="v-btn-epuise" disabled>Épuisé</button>';
+  else if (modele) action = `<a class="v-btn-ajouter" href="#p/${encodeURIComponent(p.id)}">${quantite ? `${qte(quantite)} au panier · Choisir` : 'Choisir la taille'}</a>`;
   else if (quantite) action = stepper(p, quantite, 'grille');
+  const couleurs = modele ? couleursModele(p).filter((c) => p.variantes.cases.some((x) => x.c === c.nom && caseDispo(x))) : [];
   return `
     <article class="v-produit ${quantite ? 'dans-panier' : ''} ${epuise ? 'epuise' : ''}">
-      <div class="v-produit-visuel">${vignette(p)}${badgePromo(p)}</div>
+      <div class="v-produit-visuel">${modele ? `<a href="#p/${encodeURIComponent(p.id)}" class="v-lien-fiche" aria-label="Voir ${esc(p.nom)}">${vignette(p)}</a>` : vignette(p)}${badgePromo(p)}</div>
+      ${couleurs.length ? `<div class="v-pastilles-couleurs" aria-label="${couleurs.length} couleur${couleurs.length > 1 ? 's' : ''}">${couleurs.slice(0, 5).map((c) => rond(c.hex, 14)).join('')}${couleurs.length > 5 ? `<span>+${couleurs.length - 5}</span>` : ''}</div>` : ''}
       <div class="v-produit-corps">
         <h3 class="v-produit-nom">${esc(p.nom)}</h3>
         <span class="v-produit-prix">
@@ -466,7 +498,8 @@ function renderBarre() {
 }
 
 /** Après un changement de quantité : met à jour la carte concernée sans tout redessiner (garde le focus). */
-function rafraichirProduit(id) {
+function rafraichirProduit(cleLigne) {
+  const id = idProduit(cleLigne);
   const p = s.produits.get(id);
   if (location.hash === '#panier') { renderLignesPanier(); renderTotaux(); return; }
   racine.querySelectorAll(`[data-ajouter="${CSS.escape(id)}"], [data-quantite="${CSS.escape(id)}"]`).forEach((el) => {
@@ -547,15 +580,18 @@ function renderLignesPanier() {
   if (!zone) return;
   const lignes = lignesPanier();
   if (!lignes.length) { location.hash = ''; return; }
-  zone.innerHTML = lignes.map(({ produit: p, quantite }) => `
-    <div class="v-ligne ${p.dispo === 'epuise' ? 'epuise' : ''}">
+  zone.innerHTML = lignes.map(({ cle: cleLigne, produit: p, quantite, cas, prix, nom }) => {
+    const epuise = cas ? !caseDispo(cas) : p.dispo === 'epuise';
+    return `
+    <div class="v-ligne ${epuise ? 'epuise' : ''}">
       <div class="v-ligne-textes">
-        <span class="v-ligne-nom">${esc(p.nom)}</span>
-        <span class="v-ligne-prix">${formatNombre(p.prix)} GNF / ${esc(p.unite || 'unité')}${p.dispo === 'epuise' ? ' · <strong>Épuisé</strong>' : p.dispo === 'sur_commande' ? ' · sur commande' : ''}</span>
+        <span class="v-ligne-nom">${esc(nom)}</span>
+        <span class="v-ligne-prix">${formatNombre(prix)} GNF / ${esc(p.unite || 'unité')}${epuise ? ' · <strong>Épuisé</strong>' : p.dispo === 'sur_commande' ? ' · sur commande' : ''}</span>
       </div>
-      ${stepper(p, quantite, 'ligne')}
-      <span class="v-ligne-total">${formatNombre(Math.round(Number(p.prix) * quantite))}</span>
-    </div>`).join('');
+      ${stepper({ ...p, id: cleLigne, nom }, quantite, 'ligne')}
+      <span class="v-ligne-total">${formatNombre(Math.round(prix * quantite))}</span>
+    </div>`;
+  }).join('');
 }
 
 function renderTotaux() {
@@ -588,8 +624,8 @@ async function commander(bouton) {
   if (!s.reception) return erreurPanier(ERREURS.RECEPTION_INVALIDE);
   if (s.reception === 'livraison' && !zoneChoisie()) return erreurPanier(ERREURS.ZONE_REQUISE);
   if (s.reception === 'livraison' && !adresse) return erreurPanier(ERREURS.ADRESSE_REQUISE, 'adresse');
-  const epuise = lignesPanier().find((l) => l.produit.dispo === 'epuise');
-  if (epuise) return erreurPanier(`« ${epuise.produit.nom} » est épuisé : retirez-le du panier.`);
+  const epuise = lignesPanier().find((l) => (l.cas ? !caseDispo(l.cas) : l.produit.dispo === 'epuise'));
+  if (epuise) return erreurPanier(`« ${epuise.nom} » est épuisé : retirez-le du panier.`);
   erreurPanier('');
   s.envoi = true;
   const libelle = bouton.innerHTML;
@@ -604,7 +640,7 @@ async function commander(bouton) {
       p_zone: s.reception === 'livraison' ? s.zone : null,
       p_adresse: s.reception === 'livraison' ? adresse : null,
       p_note: form.note.value.trim() || null,
-      p_lignes: lignesPanier().map((l) => ({ produit_id: l.produit.id, quantite: l.quantite }))
+      p_lignes: lignesPanier().map((l) => (l.cas ? { produit_id: l.produit.id, variante_id: l.cas.id, quantite: l.quantite } : { produit_id: l.produit.id, quantite: l.quantite }))
     });
     if (error) throw error;
     const r = (Array.isArray(data) ? data[0] : data) || {};
@@ -621,6 +657,63 @@ async function commander(bouton) {
     s.envoi = false;
     if (bouton.isConnected) { bouton.disabled = false; bouton.innerHTML = libelle; }
   }
+}
+
+/* ------------------------------------------------------------ Fiche d'un modèle (tailles & couleurs) */
+
+const choixFiche = { produit: null, couleur: null, taille: null };
+
+function renderFicheModele(id) {
+  const p = s.produits.get(id);
+  const v = p.variantes;
+  if (choixFiche.produit !== id) {
+    const couleursDispo = couleursModele(p).filter((c) => v.cases.some((x) => x.c === c.nom && caseDispo(x)));
+    Object.assign(choixFiche, { produit: id, couleur: (couleursDispo[0] || couleursModele(p)[0])?.nom ?? '', taille: null });
+  }
+  const couleurs = couleursModele(p);
+  const tailles = (v.tailles || []).length ? v.tailles : [''];
+  const avecTailles = tailles.length > 1 || Boolean(tailles[0]);
+  if (!avecTailles) choixFiche.taille = tailles[0];
+  const caseDe = (t, c) => v.cases.find((x) => (x.t || '') === t && (x.c || '') === (c || ''));
+  const cas = choixFiche.taille === null ? null : caseDe(choixFiche.taille, choixFiche.couleur);
+  const couleur = couleurs.find((c) => c.nom === choixFiche.couleur);
+  const photo = couleur?.photo_url || p.photo_url || p.photo_mini_url;
+  const prix = Number(cas?.prix ?? p.prix);
+  const dernier = tailles.map((t) => caseDe(t, choixFiche.couleur)).find((c) => c && caseDispo(c) && c.dernier);
+  const epuiseChoisi = cas && !caseDispo(cas);
+  const libelleTaille = (t) => t || 'Unique';
+  const whatsapp = s.donnees.boutique.whatsapp;
+  const demande = epuiseChoisi && whatsapp
+    ? `https://wa.me/${esc(String(whatsapp).replace(/\D/g, ''))}?text=${encodeURIComponent(`Bonjour, avez-vous ${p.nom} en ${libelleCase(cas)} ?`)}` : null;
+  racine.innerHTML = `
+    <header class="v-fiche-visuel">
+      ${photo ? `<img src="${esc(photo)}" alt="${esc(p.nom)}${couleur ? ` ${esc(couleur.nom)}` : ''}" width="1080" height="1080" decoding="async">` : `<span class="v-fiche-sans-photo">${icone('stock', 64, 1.2)}</span>`}
+      <a href="#" class="v-btn-retour v-fiche-retour" aria-label="Retour à la boutique">${icone('retour', 20)}</a>
+    </header>
+    <main class="v-contenu v-fiche">
+      <div class="v-fiche-titres"><h1>${esc(p.nom)}</h1>
+        <span class="v-fiche-prix">${Number(p.prix_barre) > prix ? `<s>${formatNombre(p.prix_barre)}</s> ` : ''}${gnf(prix)}</span></div>
+      ${couleurs.length ? `
+        <div class="v-fiche-bloc"><span class="v-fiche-etiquette">Couleur : ${esc(choixFiche.couleur || '')}</span>
+          <div class="v-fiche-couleurs" role="radiogroup" aria-label="Couleur">${couleurs.map((c) => {
+            const aucune = !tailles.some((t) => caseDispo(caseDe(t, c.nom)));
+            return `<button type="button" class="v-couleur ${c.nom === choixFiche.couleur ? 'actif' : ''} ${aucune ? 'vide' : ''}" role="radio" aria-checked="${c.nom === choixFiche.couleur}" aria-label="${esc(c.nom)}${aucune ? ' (épuisée)' : ''}" data-v-couleur="${esc(c.nom)}">${rond(c.hex, 40)}</button>`;
+          }).join('')}</div></div>` : ''}
+      ${avecTailles ? `
+        <div class="v-fiche-bloc"><span class="v-fiche-etiquette">Taille</span>
+          <div class="v-fiche-tailles" role="radiogroup" aria-label="Taille">${tailles.map((t) => {
+            const c = caseDe(t, choixFiche.couleur);
+            if (!c) return `<span class="v-taille absente" aria-hidden="true">${esc(libelleTaille(t))}</span>`;
+            const epuisee = !caseDispo(c);
+            return `<button type="button" class="v-taille ${t === choixFiche.taille ? 'actif' : ''} ${epuisee ? 'epuisee' : ''}" role="radio" aria-checked="${t === choixFiche.taille}" aria-label="${esc(libelleTaille(t))}${epuisee ? ' : épuisé' : ''}" data-v-taille="${esc(t)}">${esc(libelleTaille(t))}</button>`;
+          }).join('')}</div>
+          ${dernier ? `<span class="v-fiche-dernier">Plus qu’une pièce en ${esc(dernier.t || libelleCase(dernier))}.</span>` : ''}</div>` : ''}
+      ${epuiseChoisi
+        ? (demande ? `<a class="v-btn v-btn-contour-whatsapp v-btn-grand" href="${demande}" target="_blank" rel="noopener">${icone('whatsapp', 18)} ${esc(libelleTaille(cas.t))} épuisé ? Demander sur WhatsApp</a>` : `<p class="v-aide">${esc(libelleCase(cas))} est épuisé.</p>`)
+        : `<button type="button" class="v-btn v-btn-primaire v-btn-grand" data-action="ajouter-variante" ${cas ? '' : 'disabled'}>${cas ? `Ajouter au panier${cas.t ? ` · ${esc(cas.t)}` : ''}` : 'Choisissez la taille'}</button>`}
+    </main>
+    <div class="v-barre-panier" data-zone="barre"></div>`;
+  renderBarre();
 }
 
 /* ------------------------------------------------------------ Confirmation */
@@ -648,11 +741,26 @@ function renderConfirmation() {
 
 racine.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="partager"]')) { partager(); return; }
+  const vc = e.target.closest('[data-v-couleur]');
+  if (vc) { choixFiche.couleur = vc.dataset.vCouleur; const p = s.produits.get(choixFiche.produit); if (choixFiche.taille !== null && !(p.variantes.tailles || []).length) choixFiche.taille = ''; renderFicheModele(choixFiche.produit); return; }
+  const vt = e.target.closest('[data-v-taille]');
+  if (vt) { choixFiche.taille = vt.dataset.vTaille; renderFicheModele(choixFiche.produit); return; }
+  if (e.target.closest('[data-action="ajouter-variante"]')) {
+    const p = s.produits.get(choixFiche.produit);
+    const cas = p?.variantes.cases.find((x) => (x.t || '') === (choixFiche.taille ?? '') && (x.c || '') === (choixFiche.couleur || ''));
+    if (!cas || !caseDispo(cas)) return;
+    const cleLigne = `${p.id}|${cas.id}`;
+    changerQuantite(cleLigne, (s.panier.get(cleLigne) || 0) + 1);
+    toast(`${p.nom} — ${libelleCase(cas)} ajouté au panier.`, 'succes');
+    renderBarre();
+    return;
+  }
   const ajouter = e.target.closest('[data-ajouter]');
   if (ajouter) {
     const id = ajouter.dataset.ajouter;
     const p = s.produits.get(id);
     if (!p || p.dispo === 'epuise') return;
+    if (aVariantes(p)) { location.hash = `p/${encodeURIComponent(id)}`; return; }
     changerQuantite(id, (s.panier.get(id) || 0) + 1);
     if (ajouter.classList.contains('v-affiche')) toast(`${p.nom} ajouté au panier.`, 'succes');
     rafraichirProduit(id);
@@ -663,7 +771,7 @@ racine.addEventListener('click', (e) => {
   if (plus || moins) {
     const id = (plus || moins).dataset.plus || (moins || plus).dataset.moins;
     const actuelle = s.panier.get(id) || 0;
-    const p = s.produits.get(id);
+    const p = s.produits.get(idProduit(id));
     let n = plus ? Math.floor(actuelle + 1) : Math.ceil(actuelle - 1);
     if (moins && divisible(p?.unite) && actuelle % 1) n = Math.floor(actuelle);
     changerQuantite(id, Math.max(0, n));
@@ -710,7 +818,7 @@ racine.addEventListener('change', (e) => {
   const champ = e.target.closest('[data-quantite]');
   if (champ) {
     const id = champ.dataset.quantite;
-    const p = s.produits.get(id);
+    const p = s.produits.get(idProduit(id));
     const n = lireQuantite(champ.value, p?.unite);
     if (n === null) { champ.value = qte(s.panier.get(id) || 0); toast(divisible(p?.unite) ? 'Quantité invalide (ex. 2,5).' : 'Quantité invalide : nombre entier.', 'erreur'); return; }
     changerQuantite(id, n);

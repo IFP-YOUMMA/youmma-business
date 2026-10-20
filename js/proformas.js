@@ -16,6 +16,7 @@ import {
 import { rendreDocument, lienVerification } from './documents/rendu.js';
 import { vignetteProduit } from './images/affichage.js';
 import { chargerReglages, chargerProforma, imagesSignature, ouvrirDocument } from './documents/donnees.js';
+import { aVariantes, ouvrirChoixVariante, chargerVariantes, nomAvecVariante } from './variantes.js';
 
 export const STATUTS_DEVIS = {
   brouillon: { libelle: 'Brouillon', classe: 'gris' },
@@ -267,7 +268,7 @@ function afficherEditeur(conteneur, id) {
   async function charger() {
     try {
       const [produits, reglages] = await Promise.all([
-        chargerParLots((d, f) => sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, photo_url, photo_mini_url')
+        chargerParLots((d, f) => sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, photo_url, photo_mini_url, tailles, couleurs')
           .eq('boutique_id', boutique.id).eq('actif', true).order('nom').range(d, f)),
         chargerReglages(boutique.id)
       ]);
@@ -284,6 +285,10 @@ function afficherEditeur(conteneur, id) {
           sessionStorage.removeItem(CLE_DUPLICATION);
           if (copie) { remplir(copie, copie.client); s.objet = copie.objet ? `${copie.objet} (copie)` : ''; }
         } catch { /* nouveau devis vide */ }
+      }
+      // Lignes avec taille / couleur : prix de la case (pour le badge « prix négocié »).
+      for (const l of s.lignes.filter((x) => x.variante_id && x.produit)) {
+        try { l.variante = (await chargerVariantes(l.produit_id)).cases.find((c) => c.id === l.variante_id) || null; } catch { l.variante = null; }
       }
     } catch (err) {
       conteneur.innerHTML = `<div class="page"><p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(err))}</p><a class="btn btn-secondaire" href="#/proformas">Retour aux devis</a></div>`;
@@ -302,11 +307,35 @@ function afficherEditeur(conteneur, id) {
     s.note = pf.note || '';
     s.lignes = (pf.lignes || []).map((l) => {
       const produit = l.produit_id ? s.produits.find((p) => p.id === l.produit_id) : null;
-      return { cle: nouvelleCle(), produit_id: l.produit_id || null, nom: l.nom, unite: l.unite || 'pièce', quantite: Number(l.quantite) || 1, prix: Number(l.prix) || 0, produit };
+      return { cle: nouvelleCle(), produit_id: l.produit_id || null, variante_id: l.variante_id || null, variante: null, nom: l.nom, unite: l.unite || 'pièce', quantite: Number(l.quantite) || 1, prix: Number(l.prix) || 0, produit };
     });
   }
 
-  const prixActuel = (l) => (l.produit ? prixApplique(l.produit, 'detail') : null);
+  const prixActuel = (l) => (l.produit ? (l.variante?.prix ?? prixApplique(l.produit, 'detail')) : null);
+  /** Ligne d'un modèle à tailles sans case choisie (ancien devis) : à compléter avant d'enregistrer. */
+  const sansTaille = (l) => l.produit && aVariantes(l.produit) && !l.variante_id;
+
+  /** Panneau taille × couleur (sans contrôle de stock : c'est un devis). ligne : la ligne à compléter, sinon une nouvelle. */
+  function choisirVariante(p, ligne = null) {
+    ouvrirChoixVariante({
+      produit: p,
+      prixModele: prixApplique(p, 'detail'),
+      controleStock: false,
+      libelleAction: 'Ajouter au devis',
+      quantiteInitiale: ligne ? ligne.quantite : 1,
+      onAjout: (cas, q) => {
+        const nom = nomAvecVariante(p.nom, cas.libelle);
+        const prix = cas.prix ?? prixApplique(p, 'detail');
+        const existante = s.lignes.find((l) => l !== ligne && l.variante_id === cas.id);
+        if (existante) {
+          existante.quantite = Number(existante.quantite) + q;
+          if (ligne) s.lignes = s.lignes.filter((l) => l !== ligne);
+        } else if (ligne) Object.assign(ligne, { variante_id: cas.id, variante: cas, nom, quantite: q, prix: ligne.prix || prix });
+        else s.lignes.push({ cle: nouvelleCle(), produit_id: p.id, variante_id: cas.id, variante: cas, nom, unite: p.unite, quantite: q, prix, produit: p });
+        renderLignes();
+      }
+    });
+  }
   function totaux() {
     const sousTotal = s.lignes.reduce((t, l) => t + Math.round((Number(l.prix) || 0) * (Number(l.quantite) || 0)), 0);
     const remise = Math.min(Math.max(0, Math.round(s.remise || 0)), sousTotal);
@@ -417,7 +446,8 @@ function afficherEditeur(conteneur, id) {
       const pas = uniteDivisible(l.unite) ? '0.001' : '1';
       return `<div class="ligne-devis" data-cle="${l.cle}">
         <div class="ligne-devis-nom">${l.produit_id ? `<span class="gras">${esc(l.nom)}</span>` : `<input type="text" class="input" data-champ-ligne="nom" value="${esc(l.nom)}" placeholder="Désignation (ex. Main-d’œuvre)" maxlength="160" aria-label="Désignation">`}
-          ${l.produit_id ? (negocie ? `<span class="tag-negocie">prix négocié · actuel ${formatNombre(actuel)}</span>` : '') : '<span class="tag-libre">ligne libre</span>'}</div>
+          ${l.produit_id ? (negocie ? `<span class="tag-negocie">prix négocié · actuel ${formatNombre(actuel)}</span>` : '') : '<span class="tag-libre">ligne libre</span>'}
+          ${sansTaille(l) ? `<button type="button" class="btn-lien btn-lien-gauche" data-choisir-ligne="${l.cle}">Choisir la taille et la couleur</button>` : ''}</div>
         <label class="ligne-devis-champ"><span>Qté</span><input type="number" class="input" inputmode="decimal" min="0" step="${pas}" data-champ-ligne="quantite" value="${esc(l.quantite)}"></label>
         ${l.produit_id ? `<span class="ligne-devis-unite">${esc(l.unite)}</span>` : `<label class="ligne-devis-champ"><span>Unité</span><input type="text" class="input" data-champ-ligne="unite" value="${esc(l.unite)}" maxlength="20"></label>`}
         <label class="ligne-devis-champ"><span>Prix (GNF)</span><input type="text" class="input" inputmode="numeric" data-champ-ligne="prix" value="${esc(formatNombre(l.prix))}"></label>
@@ -455,6 +485,13 @@ function afficherEditeur(conteneur, id) {
     const produit = e.target.closest('[data-produit]');
     if (produit) {
       const p = s.produits.find((x) => x.id === produit.dataset.produit);
+      if (aVariantes(p)) {
+        s.recherche = '';
+        conteneur.querySelector('[data-ref="recherche"]').value = '';
+        renderResultats();
+        choisirVariante(p);
+        return;
+      }
       const existante = s.lignes.find((l) => l.produit_id === p.id);
       if (existante) existante.quantite = Number(existante.quantite) + 1;
       else s.lignes.push({ cle: nouvelleCle(), produit_id: p.id, nom: p.nom, unite: p.unite, quantite: 1, prix: prixApplique(p, 'detail'), produit: p });
@@ -471,6 +508,8 @@ function afficherEditeur(conteneur, id) {
       conteneur.querySelector(`[data-cle="${cle}"] [data-champ-ligne="nom"]`)?.focus();
       return;
     }
+    const aCompleter = e.target.closest('[data-choisir-ligne]');
+    if (aCompleter) { const l = s.lignes.find((x) => String(x.cle) === aCompleter.dataset.choisirLigne); if (l?.produit) choisirVariante(l.produit, l); return; }
     const retirer = e.target.closest('[data-retirer]');
     if (retirer) { s.lignes = s.lignes.filter((l) => String(l.cle) !== retirer.dataset.retirer); renderLignes(); return; }
     const enregistrerBtn = e.target.closest('[data-action="enregistrer"]');
@@ -511,15 +550,16 @@ function afficherEditeur(conteneur, id) {
     if (!s.lignes.length) return montrer('Ajoutez au moins un article.');
     if (s.lignes.some((l) => !l.produit_id && !String(l.nom).trim())) return montrer('Donnez une désignation à chaque ligne libre.');
     if (s.lignes.some((l) => !(Number(l.quantite) > 0))) return montrer('Chaque quantité doit être supérieure à 0.');
+    const incomplete = s.lignes.find(sansTaille);
+    if (incomplete) return montrer(`Choisissez la taille et la couleur de « ${incomplete.nom} ».`);
     if (s.lignes.some((l) => Number(l.prix) < 0)) return montrer('Un prix n’est pas valide.');
     if (!(s.validite >= 1 && s.validite <= 365)) return montrer('Validité : entre 1 et 365 jours.');
     montrer('');
     const lignes = s.lignes.map((l) => {
       if (!l.produit_id) return { nom: String(l.nom).trim(), unite: String(l.unite || 'forfait').trim(), quantite: Number(l.quantite), prix: Math.round(Number(l.prix)) };
       const actuel = prixActuel(l);
-      return actuel !== null && Math.round(actuel) === Math.round(Number(l.prix))
-        ? { produit_id: l.produit_id, quantite: Number(l.quantite) }
-        : { produit_id: l.produit_id, quantite: Number(l.quantite), prix: Math.round(Number(l.prix)) };
+      const base = l.variante_id ? { produit_id: l.produit_id, variante_id: l.variante_id, quantite: Number(l.quantite) } : { produit_id: l.produit_id, quantite: Number(l.quantite) };
+      return actuel !== null && Math.round(actuel) === Math.round(Number(l.prix)) ? base : { ...base, prix: Math.round(Number(l.prix)) };
     });
     boutonOccupe(bouton, true, 'Enregistrement…');
     const { data, error } = await sb.rpc('enregistrer_proforma', {

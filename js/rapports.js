@@ -5,6 +5,7 @@
  * avec p_debut inclus et p_fin exclu. Export CSV (Excel) et impression A4.
  */
 import { sb } from './supabase.js';
+import { aModule } from './modules.js';
 import { etat } from './state.js';
 import {
   esc, icone, toast, messageErreur, capitaliser, formatNombre, formatGNF, formatMillions, formatQuantite,
@@ -184,7 +185,37 @@ export function afficherRapports(conteneur) {
           </div>
         </div>
         <div data-zone="top">${topHTML()}</div>
-      </section>`;
+      </section>
+      ${aModule('variantes') ? '<section class="carte bloc-variantes-rapport" data-zone="variantes"><div class="squelette" style="height:160px"></div></section>' : ''}`;
+    if (aModule('variantes')) chargerVariantes();
+  }
+
+  /** Tailles & couleurs les plus vendues (rapport_variantes, même période). */
+  async function chargerVariantes() {
+    const { du, au } = bornes();
+    const jeton = s.jeton;
+    const { data, error } = await sb.rpc('rapport_variantes', { p_boutique: boutique.id, p_debut: du, p_fin: decalerDate(au, 1) });
+    const cadre = zone('variantes');
+    if (jeton !== s.jeton || !cadre) return;
+    if (error) { cadre.innerHTML = `<h2>Tailles & couleurs les plus vendues</h2><p class="bloc-erreur">${esc(messageErreur(error))}</p>`; return; }
+    const r = (Array.isArray(data) ? data[0] : data) || {};
+    const qteDe = (x) => Number(x.quantite ?? x.qte ?? x.nb) || 0;
+    const montantDe = (x) => Number(x.montant ?? x.total ?? x.ca) || 0;
+    const classement = (liste, cle) => (liste || []).map((x) => ({ nom: x[cle] || x.libelle || x.nom || '—', q: qteDe(x), m: montantDe(x) })).sort((a, b) => b.q - a.q).slice(0, 8);
+    const tailles = classement(r.tailles, 'taille');
+    const couleurs = classement(r.couleurs, 'couleur');
+    const top = (r.top || []).map((x) => ({ nom: x.libelle && x.nom ? `${x.nom} — ${x.libelle}` : x.nom || x.libelle || '—', q: qteDe(x), m: montantDe(x) })).sort((a, b) => b.q - a.q).slice(0, 10);
+    const petitClassement = (titre, liste) => `<div class="classement-variantes"><h3>${titre}</h3>${liste.length ? `<ol>${liste.map((x) => {
+      const max = liste[0].q || 1;
+      return `<li><span class="gras">${esc(x.nom)}</span><span class="jauge jauge-repartition"><span style="width:${Math.round((x.q / max) * 100)}%"></span></span><span class="tres-gras">${formatNombre(x.q)} pcs</span></li>`;
+    }).join('')}</ol>` : '<p class="discret">Aucune vente.</p>'}</div>`;
+    cadre.innerHTML = `
+      <h2>Tailles & couleurs les plus vendues</h2>
+      <div class="rangee-classements">${petitClassement('Tailles', tailles)}${petitClassement('Couleurs', couleurs)}</div>
+      <h3 class="titre-top-variantes">Top 10 des tailles et couleurs</h3>
+      ${top.length ? `<div class="tableau-cadre"><table class="tableau-top"><thead><tr><th>#</th><th>Modèle — taille / couleur</th><th class="droite">Quantité</th><th class="droite">Montant</th></tr></thead>
+        <tbody>${top.map((x, i) => `<tr><td class="discret gras">${i + 1}</td><td class="gras">${esc(x.nom)}</td><td class="droite secondaire">${formatNombre(x.q)}</td><td class="droite tres-gras">${formatGNF(x.m)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="discret">Aucune taille ni couleur vendue sur cette période.</p>'}`;
   }
 
   function evolutionHTML(points, pas) {
