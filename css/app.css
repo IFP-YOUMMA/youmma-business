@@ -3019,3 +3019,12 @@ a.kpi-lien:focus-visible { outline: 3px solid var(--primary); outline-offset: 2p
   .ligne-reassort { flex-wrap: wrap; }
   .actions-reassort .btn { flex: 1 1 100%; }
 }
+
+/* Étape 12b — grilles personnelles supprimables */
+.pastille-grille-perso { display: inline-flex; align-items: center; border-radius: 999px; }
+.pastille-grille-perso .pastille-grille { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0; }
+.grille-supprimer { min-height: 40px; width: 36px; border: 1px solid var(--border-input); border-left: 1px dashed var(--border-input); border-radius: 0 999px 999px 0; background: #FFFFFF; color: var(--danger); font-size: 18px; font-weight: 800; cursor: pointer; }
+.pastille-grille-perso.actif .grille-supprimer { border-color: var(--primary); background: var(--primary-soft); }
+.grille-supprimer:hover { background: #FDECEC; }
+.case-option.interrupteur-variantes { align-items: center; gap: 12px; }
+.case-option.interrupteur-variantes input.bascule-doc { width: 44px; height: 26px; }

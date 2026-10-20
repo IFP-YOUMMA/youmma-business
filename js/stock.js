@@ -16,7 +16,7 @@ import { aModule, vocab, unArticle, unites } from './modules.js';
 import { retirerPhotoArticle } from './images/envoi.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aVariantes, chargerVariantes, oublierVariantes } from './variantes.js';
-import { monterEditeurVariantes, grilleLectureHTML, ouvrirGrilleMouvement, imprimerEtiquettes, afficherReassort } from './variantes-fiche.js';
+import { monterEditeurVariantes, grilleLectureHTML, ouvrirGrilleMouvement, imprimerEtiquettes, afficherReassort, prechargerEtiquettes } from './variantes-fiche.js';
 
 /**
  * Colonnes lisibles de produits. Le prix d'achat n'est plus lisible par l'API (droit retiré en base) :
@@ -358,6 +358,7 @@ export function afficherStock(conteneur, params) {
   }
 
   async function chargerGrilleFiche(p, zoneGrille) {
+    if (gerer) prechargerEtiquettes();
     try {
       const d = await chargerVariantes(p.id, { recharger: true });
       if (!zoneGrille?.isConnected) return;
@@ -523,6 +524,8 @@ export function afficherStock(conteneur, params) {
 
   function ouvrirFormulaire(produit = null, apres = null) {
     const creation = !produit;
+    /** Article créé mais grille refusée : la fenêtre reste ouverte et « Enregistrer » ne renvoie que la grille. */
+    let creeSansGrille = null;
     const p = produit || { nom: '', categorie_id: s.categorie || null, unite: '', prix_detail: '', prix_gros: null, prix_achat: null, stock: '', seuil_alerte: '', sur_commande: Boolean(vocab('sans_stock')), code_barre: '' };
     const valeur = (v) => (v === null || v === undefined ? '' : esc(v));
     const { el, fermer } = ouvrirModale({
@@ -641,6 +644,42 @@ export function afficherStock(conteneur, params) {
     const zoneErreur = formulaire.querySelector('.erreur-form');
     const erreur = (message) => { zoneErreur.textContent = message; zoneErreur.hidden = !message; };
 
+    /** enregistrer_variantes (+ corrections) puis relecture de l'article et des cases de la liste. */
+    async function envoyerGrille(article, prixAchat) {
+      await editeur.enregistrer(article.id);
+      const relu = await sb.from('produits').select(COLONNES_PRODUIT).eq('id', article.id).single();
+      const final = relu.error ? article : relu.data;
+      oublierVariantes(final.id);
+      remplacerProduit({ ...final, prix_achat: prixAchat });
+      await chargerCasesModeles();
+      chargerBandeauReassort();
+      return final;
+    }
+
+    function passerEnModification(article, prixAchat) {
+      creeSansGrille = { article, prixAchat };
+      el.querySelector('.modale-entete h2').textContent = `Modifier ${leArticle()}`;
+      formulaire.querySelector('[type=submit]').textContent = 'Enregistrer la grille';
+      formulaire.querySelectorAll('input:not([data-case]):not(#var-taille):not(#var-couleur-libre), select').forEach((champ) => {
+        if (!champ.closest('[data-zone="variantes"]')) champ.disabled = true;
+      });
+    }
+
+    /** Nouvel essai après un refus : seulement la grille, l'article existe déjà. */
+    async function renvoyerGrille() {
+      const bouton = formulaire.querySelector('[type=submit]');
+      boutonOccupe(bouton, true, 'Enregistrement…');
+      try {
+        const data = await envoyerGrille(creeSansGrille.article, creeSansGrille.prixAchat);
+        fermer();
+        toast(`Modèle « ${data.nom} » enregistré · ${formatNombre(data.stock)} pièce${Number(data.stock) > 1 ? 's' : ''}.`, 'succes');
+        apres?.();
+      } catch (errGrille) {
+        erreur(`${messageErreur(errGrille)} Corrigez puis touchez « Enregistrer la grille ».`);
+        boutonOccupe(bouton, false);
+      }
+    }
+
     // Tailles & couleurs : le stock simple devient la somme de la grille (champ masqué).
     const zoneVariantes = el.querySelector('[data-zone="variantes"]');
     const editeur = zoneVariantes ? monterEditeurVariantes(zoneVariantes, {
@@ -711,6 +750,7 @@ export function afficherStock(conteneur, params) {
       const stockInitial = creation && !surCommande && !avecGrille ? lireNombre(formulaire.stock.value) ?? 0 : 0;
       const erreurGrille = editeur?.valider();
       if (erreurGrille) return erreur(erreurGrille);
+      if (creeSansGrille) { await renvoyerGrille(); return; }
 
       if (nom.length < 2) return erreur('Indiquez le nom de l’article.');
       if (!unite) return erreur('Indiquez l’unité de vente (sac, kg, pièce…).');
@@ -751,19 +791,13 @@ export function afficherStock(conteneur, params) {
 
       if (avecGrille) {
         try {
-          await editeur.enregistrer(data.id);
-          const relu = await sb.from('produits').select(COLONNES_PRODUIT).eq('id', data.id).single();
-          if (!relu.error) data = relu.data;
-          oublierVariantes(data.id);
-          remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
-          await chargerCasesModeles();
-          chargerBandeauReassort();
+          data = await envoyerGrille(data, donnees.prix_achat);
         } catch (errGrille) {
-          // L'article est enregistré : on garde le formulaire ouvert en modification pour corriger la grille.
+          // L'article est enregistré : la fenêtre reste ouverte avec toutes les saisies (tailles, couleurs, quantités, prix spéciaux).
           remplacerProduit({ ...data, prix_achat: donnees.prix_achat });
-          erreur(messageErreur(errGrille));
           boutonOccupe(bouton, false);
-          if (creation) { fermer(); toast(`« ${data.nom} » créé, mais la grille n’a pas été enregistrée : ${messageErreur(errGrille)}`, 'erreur', 9000); ouvrirFormulaire({ ...data, prix_achat: donnees.prix_achat }, apres); }
+          if (creation) passerEnModification(data, donnees.prix_achat);
+          erreur(`${creation ? `« ${data.nom} » est créé, mais la grille n’est pas enregistrée : ` : ''}${messageErreur(errGrille)} Corrigez puis touchez « ${creation ? 'Enregistrer la grille' : 'Enregistrer'} ».`);
           return;
         }
       }

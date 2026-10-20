@@ -7,7 +7,7 @@
  *  - liste à réassortir (variantes_a_reassortir) → commande fournisseur, copie ou WhatsApp.
  */
 import { sb } from './supabase.js';
-import { etat } from './state.js';
+import { etat, peut } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, formatNombre, formatGNF,
   copierTexte, normaliserTelephone
@@ -21,15 +21,22 @@ import {
 
 const SEP = '\u0001';
 const cleCase = (t, c) => `${t}${SEP}${c}`;
-const JSBARCODE = { src: 'https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js', integrite: 'sha384-Kk5SjBOKprEnGfyBWfD2zROFd1Cu8kwOXxG2GIhYPcoDL2rBJS9P8Ud1ZMy4412a' };
+/** JsBarcode 3.11.6 (licence MIT) copié dans js/vendor et mis en cache par sw.js : étiquettes imprimables hors connexion. */
+const JSBARCODE = new URL('./vendor/JsBarcode.all.min.js', import.meta.url).href;
 
-/** Grilles de tailles : YOUMMA (boutique_id null) puis celles de la boutique. */
+/** Grilles de tailles (id, boutique_id, nom, tailles, ordre) : YOUMMA (boutique_id null, par ordre) puis celles de la boutique. */
 async function chargerGrilles() {
   const { data, error } = await sb.from('grilles_tailles').select('id, boutique_id, nom, tailles, ordre')
-    .or(`boutique_id.is.null,boutique_id.eq.${etat.boutique.id}`);
+    .or(`boutique_id.is.null,boutique_id.eq.${etat.boutique.id}`).order('ordre');
   if (error) { console.warn('[YOUMMA] Grilles de tailles indisponibles :', error); return []; }
-  return (data || []).sort((a, b) => (a.boutique_id ? 1 : 0) - (b.boutique_id ? 1 : 0) || (Number(a.ordre) || 0) - (Number(b.ordre) || 0) || String(a.nom).localeCompare(String(b.nom), 'fr'));
+  const rang = (g) => (g.boutique_id ? 1 : 0);
+  return (data || []).sort((a, b) => rang(a) - rang(b) || (Number(a.ordre) || 0) - (Number(b.ordre) || 0));
 }
+
+/** Limites vérifiées dans l'appli avant tout envoi (la base a les mêmes). */
+const MAX_TAILLES = 30;
+const MAX_COULEURS = 20;
+const MAX_CASES = 400;
 
 const classeQuantite = (n) => (n <= 0 ? 'zero' : n === 1 ? 'un' : '');
 
@@ -88,7 +95,9 @@ export function monterEditeurVariantes(zone, { produit = null, parDefaut = false
         <section class="var-bloc">
           <div class="var-bloc-titre"><strong>Grille de tailles</strong><span class="discret">choisissez un modèle prêt ou créez la vôtre</span></div>
           <div class="var-pastilles">
-            ${s.grilles.map((g) => `<button type="button" class="pastille-grille ${s.grille === g.id ? 'actif' : ''}" data-grille="${esc(g.id)}">${esc(g.nom)}${g.boutique_id ? ' <span class="discret">· ma grille</span>' : ''}</button>`).join('')}
+            ${s.grilles.map((g) => (g.boutique_id
+              ? `<span class="pastille-grille-perso ${s.grille === g.id ? 'actif' : ''}"><button type="button" class="pastille-grille ${s.grille === g.id ? 'actif' : ''}" data-grille="${esc(g.id)}">${esc(g.nom)} <span class="discret">· ma grille</span></button>${peut('gerer_stock') ? `<button type="button" class="grille-supprimer" data-supprimer-grille="${esc(g.id)}" aria-label="Supprimer la grille ${esc(g.nom)}">×</button>` : ''}</span>`
+              : `<button type="button" class="pastille-grille ${s.grille === g.id ? 'actif' : ''}" data-grille="${esc(g.id)}">${esc(g.nom)}</button>`)).join('')}
             <button type="button" class="pastille-grille pastille-ajout" data-var="ma-grille" ${s.tailles.length ? '' : 'disabled'}>+ Ma grille</button>
           </div>
           <div class="var-pastilles var-choisies" aria-label="Tailles du modèle">
@@ -267,6 +276,19 @@ export function monterEditeurVariantes(zone, { produit = null, parDefaut = false
     if (v === 'palette') { s.paletteOuverte = !s.paletteOuverte; render(); }
     if (v === 'ajouter-couleur') ajouterCouleur(zone.querySelector('#var-couleur-libre').value);
     if (v === 'ma-grille') ouvrirMaGrille();
+    const supprimer = e.target.closest('[data-supprimer-grille]');
+    if (supprimer) {
+      const g = s.grilles.find((x) => x.id === supprimer.dataset.supprimerGrille);
+      if (!g?.boutique_id) return;
+      if (!(await confirmer(`La grille « ${g.nom} » sera supprimée. Les modèles qui l’utilisent gardent leurs tailles.`, { titre: 'Supprimer la grille', libelleOk: 'Supprimer', danger: true }))) return;
+      const { error } = await sb.rpc('supprimer_grille', { p_grille: g.id });
+      if (error) { toast(messageErreur(error), 'erreur'); return; }
+      toast(`Grille « ${g.nom} » supprimée.`, 'succes');
+      if (s.grille === g.id) s.grille = null;
+      s.grilles = await chargerGrilles();
+      render();
+      return;
+    }
     const grille = e.target.closest('[data-grille]');
     if (grille) {
       const g = s.grilles.find((x) => x.id === grille.dataset.grille);
@@ -358,11 +380,25 @@ export function monterEditeurVariantes(zone, { produit = null, parDefaut = false
     actif: () => s.actif,
     /** Somme des cases (pour l'affichage du champ stock en lecture seule). */
     total: () => casesVisibles().filter((x) => x.v && !x.v.retiree).reduce((t, x) => t + (Number(x.v.stock) || 0), 0),
+    /** Vérification complète avant de créer ou modifier l'article : rien n'est envoyé si la grille est invalide. */
     valider() {
       if (!s.actif) return null;
       if (!s.charge) return 'La grille est encore en chargement.';
       if (!s.tailles.length && !s.couleurs.length) return 'Ajoutez au moins une taille ou une couleur (ou désactivez « tailles / couleurs »).';
-      if (!casesVisibles().some((x) => x.v && !x.v.retiree)) return 'Gardez au moins une case dans la grille.';
+      const doublon = (liste) => liste.find((x, i) => liste.findIndex((y) => y.toLowerCase() === x.toLowerCase()) !== i);
+      if (s.tailles.some((t) => !String(t).trim())) return 'Une taille est vide.';
+      if (s.couleurs.some((c) => !String(c.nom).trim())) return 'Une couleur n’a pas de nom.';
+      const tailleEnDouble = doublon(s.tailles.map(String));
+      if (tailleEnDouble) return `La taille « ${tailleEnDouble} » est en double.`;
+      const couleurEnDouble = doublon(s.couleurs.map((c) => c.nom));
+      if (couleurEnDouble) return `La couleur « ${couleurEnDouble} » est en double.`;
+      if (s.tailles.length > MAX_TAILLES) return `${MAX_TAILLES} tailles au maximum.`;
+      if (s.couleurs.length > MAX_COULEURS) return `${MAX_COULEURS} couleurs au maximum.`;
+      const actives = casesVisibles().filter((x) => x.v && !x.v.retiree);
+      if (!actives.length) return 'Gardez au moins une case dans la grille.';
+      if (actives.length > MAX_CASES) return `${MAX_CASES} cases au maximum : réduisez le nombre de tailles ou de couleurs.`;
+      const negative = actives.find((x) => !(Number.isInteger(Number(x.v.stock)) && Number(x.v.stock) >= 0));
+      if (negative) return `Quantité invalide pour ${libelleVariante(negative.t, negative.c) || 'une case'} (nombre entier, 0 ou plus).`;
       return null;
     },
     /** enregistrer_variantes puis, pour les cases existantes modifiées, mouvement_variantes(ajustement). */
@@ -376,6 +412,11 @@ export function monterEditeurVariantes(zone, { produit = null, parDefaut = false
       });
       if (error) throw error;
       let d = memoriserVariantes(data);
+      // Les cases sont maintenant enregistrées : si la suite échoue, un nouvel essai corrige au lieu de recréer.
+      d.cases.forEach((c) => {
+        const v = s.cases.get(cleCase(c.taille, c.couleur));
+        if (v && !v.id) Object.assign(v, { id: c.id, stockAvant: c.stock });
+      });
       const corrections = actives.filter((x) => x.v.id && Number(x.v.stock) !== Number(x.v.stockAvant))
         .map((x) => ({ variante_id: x.v.id, quantite: Number(x.v.stock) || 0 }));
       if (corrections.length) {
@@ -481,32 +522,39 @@ function chargerJsBarcode() {
   if (!promesseJsBarcode) {
     promesseJsBarcode = new Promise((ok, ko) => {
       const script = document.createElement('script');
-      script.src = JSBARCODE.src;
-      script.integrity = JSBARCODE.integrite;
-      script.crossOrigin = 'anonymous';
-      script.referrerPolicy = 'no-referrer';
+      script.src = JSBARCODE;
       script.onload = () => (window.JsBarcode ? ok(window.JsBarcode) : ko(new Error('JsBarcode indisponible')));
-      script.onerror = () => { promesseJsBarcode = null; ko(new Error('Impossible de charger le générateur de codes-barres (connexion ?).')); };
+      script.onerror = () => { promesseJsBarcode = null; ko(new Error('Impossible de charger le générateur de codes-barres : rechargez l’appli une fois avec internet.')); };
       document.head.appendChild(script);
     });
   }
   return promesseJsBarcode;
 }
 
+/** Préchargement (fiche d'un modèle ouverte) : les étiquettes restent imprimables si la connexion tombe ensuite. */
+export function prechargerEtiquettes() {
+  chargerJsBarcode().catch(() => { /* chargé à l'impression */ });
+}
+
 /** Génère les codes manquants, choisit le nombre d'étiquettes par case (= stock), puis imprime une planche A4. */
 export async function imprimerEtiquettes(produit) {
   let d;
+  let horsLigne = false;
   try {
     const r = await sb.rpc('generer_codes_variantes', { p_boutique: etat.boutique.id, p_produit: produit.id });
     if (r.error) throw r.error;
     oublierVariantes(produit.id);
     d = await chargerVariantes(produit.id, { recharger: true });
-  } catch (err) { toast(messageErreur(err), 'erreur'); return; }
+  } catch (err) {
+    // Hors connexion : grille déjà lue (fiche ouverte) → étiquettes avec les codes déjà attribués.
+    try { d = await chargerVariantes(produit.id); horsLigne = true; } catch { toast(messageErreur(err), 'erreur'); return; }
+  }
   const { el, fermer } = ouvrirModale({
     titre: `Étiquettes · ${produit.nom}`,
     contenu: `
       <form class="form-modale" novalidate>
         <p class="texte-modale">Nombre d’étiquettes par case (par défaut : le stock). Planche A4 de 24 étiquettes (3 × 8).</p>
+        ${horsLigne ? `<p class="note-alerte">${icone('alerte', 16, 2)} Hors connexion : seuls les codes déjà attribués sont imprimés${d.cases.some((c) => !c.code_barre) ? ' (les cases sans code n’auront pas de code-barres)' : ''}.</p>` : ''}
         <ul class="liste-etiquettes">${d.cases.map((c) => `
           <li><span class="ae-textes"><span class="gras">${esc(c.libelle || produit.nom)}</span><span class="discret">${esc(c.code_barre || '—')} · ${formatNombre(c.prix ?? d.prix ?? produit.prix_detail)} GNF</span></span>
             <label class="sr-only" for="et-${esc(c.id)}">Nombre d’étiquettes ${esc(c.libelle)}</label>
@@ -573,7 +621,7 @@ export function afficherReassort(conteneur) {
       <div class="actions-reassort" data-zone="actions"></div>
     </div>`;
   const zone = (n) => conteneur.querySelector(`[data-zone="${n}"]`);
-  const nomLigne = (l) => nomAvecVariante(l.nom, l.libelle || libelleVariante(l.taille, l.couleur));
+  const nomLigne = (l) => nomAvecVariante(l.nom, l.libelle);
   const choisies = () => s.liste.filter((l) => s.choix.get(l.variante_id)?.coche);
   const texteListe = () => `Réassort ${boutique.nom} :\n${choisies().map((l) => `- ${nomLigne(l)} × ${s.choix.get(l.variante_id).quantite}`).join('\n')}`;
 
@@ -652,8 +700,8 @@ export function afficherReassort(conteneur) {
     if (!conteneur.isConnected) return;
     if (error) { zone('liste').innerHTML = `<li class="bloc-erreur">${esc(messageErreur(error))}</li>`; zone('resume').textContent = ''; return; }
     const r = (Array.isArray(data) ? data[0] : data) || {};
-    s.liste = (r.liste || []).map((l) => ({ ...l, stock: Number(l.stock) || 0, vendus_60j: Number(l.vendus_60j) || 0 }))
-      .sort((a, b) => a.stock - b.stock || b.vendus_60j - a.vendus_60j);
+    // Déjà triée par la base (stock, puis ventes des 60 jours) ; nombres possibles en « 1.00 ».
+    s.liste = (r.liste || []).map((l) => ({ ...l, stock: Number(l.stock) || 0, vendus_60j: Number(l.vendus_60j) || 0 }));
     s.liste.forEach((l) => s.choix.set(l.variante_id, { coche: true, quantite: Math.max(1, l.vendus_60j) }));
     zone('resume').textContent = `${formatNombre(Number(r.epuisees) || 0)} épuisée(s) · ${formatNombre(Number(r.dernieres) || 0)} dernière(s) pièce(s)`;
     render();

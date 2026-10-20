@@ -14,7 +14,7 @@ import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aModule, vocab, unArticle } from './modules.js';
-import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVariantes, oublierVariantes, nomAvecVariante } from './variantes.js';
+import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVariantes, oublierVariantes, nomAvecVariante, libelleVariante } from './variantes.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -62,6 +62,8 @@ export function afficherCaisse(conteneur, params) {
     panierOuvert: false,
     /** Devis en cours de transformation en vente (relu en base) : { id, numero, total, lignes, libres, client_nom }. */
     devis: null,
+    /** Codes-barres des cases des modèles chargés (code → case) : scan possible sans réseau. */
+    codesCases: new Map(),
     /** Réglages des documents (facture A4 / reçu A4, format par défaut). */
     reglagesDocs: null
   };
@@ -576,7 +578,8 @@ export function afficherCaisse(conteneur, params) {
     const effacer = () => { champ.value = ''; s.recherche = ''; renderGrille(); champ.focus(); };
     const parCode = s.produits.find((p) => p.code_barre && String(p.code_barre) === q);
     if (!parCode && /^\d{6,}$/.test(q)) {
-      const cas = await chercherVarianteParCode(q, new Set(s.produits.map((p) => p.id)));
+      // Case connue de la caisse d'abord (hors connexion), sinon recherche en ligne.
+      const cas = s.codesCases.get(q) || await chercherVarianteParCode(q, new Set(s.produits.map((p) => p.id))).catch(() => null);
       const produit = cas && s.produits.find((p) => p.id === cas.produit_id);
       if (produit) {
         if (!produit.sur_commande && cas.stock - (s.panier.get(cleLigne(produit.id, cas.id))?.quantite || 0) <= 0) {
@@ -1068,6 +1071,7 @@ export function afficherCaisse(conteneur, params) {
     s.produits = produitsRes.data;
     s.categories = categoriesRes.data;
     s.charge = true;
+    chargerCodesCases();
     if (s.categorie !== 'tous' && !s.categories.some((c) => c.id === s.categorie)) s.categorie = 'tous';
 
     // Le panier suit les stocks à jour ; un article désactivé entre-temps en est retiré.
@@ -1078,6 +1082,25 @@ export function afficherCaisse(conteneur, params) {
     });
     renderCategories();
     renderTout();
+  }
+
+  /** Cases (code-barres) des modèles à tailles / couleurs de la caisse, gardées en mémoire pour le scan hors connexion. */
+  async function chargerCodesCases() {
+    const ids = s.produits.filter(aVariantes).map((p) => p.id);
+    const codes = new Map();
+    try {
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await sb.from('produit_variantes').select('id, produit_id, taille, couleur, stock, prix, code_barre')
+          .in('produit_id', ids.slice(i, i + 100)).eq('actif', true).not('code_barre', 'is', null);
+        if (error) throw error;
+        (data || []).forEach((c) => codes.set(String(c.code_barre), {
+          ...c, stock: Number(c.stock) || 0, prix: c.prix === null || c.prix === undefined ? null : Number(c.prix), libelle: libelleVariante(c.taille, c.couleur)
+        }));
+      }
+      s.codesCases = codes;
+    } catch (err) {
+      console.warn('[YOUMMA] Codes des tailles non chargés :', err?.message || err);
+    }
   }
 
   function majBasculePrix() {

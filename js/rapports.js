@@ -199,12 +199,12 @@ export function afficherRapports(conteneur) {
     if (jeton !== s.jeton || !cadre) return;
     if (error) { cadre.innerHTML = `<h2>Tailles & couleurs les plus vendues</h2><p class="bloc-erreur">${esc(messageErreur(error))}</p>`; return; }
     const r = (Array.isArray(data) ? data[0] : data) || {};
-    const qteDe = (x) => Number(x.quantite ?? x.qte ?? x.nb) || 0;
-    const montantDe = (x) => Number(x.montant ?? x.total ?? x.ca) || 0;
-    const classement = (liste, cle) => (liste || []).map((x) => ({ nom: x[cle] || x.libelle || x.nom || '—', q: qteDe(x), m: montantDe(x) })).sort((a, b) => b.q - a.q).slice(0, 8);
-    const tailles = classement(r.tailles, 'taille');
-    const couleurs = classement(r.couleurs, 'couleur');
-    const top = (r.top || []).map((x) => ({ nom: x.libelle && x.nom ? `${x.nom} — ${x.libelle}` : x.nom || x.libelle || '—', q: qteDe(x), m: montantDe(x) })).sort((a, b) => b.q - a.q).slice(0, 10);
+    // Format : { tailles: [{ taille, quantite, total }], couleurs: [{ couleur, quantite, total }], top: [{ nom, libelle, quantite, total }] },
+    // déjà triés par quantité décroissante (top : 10 au plus) ; les nombres peuvent arriver en « 1.00 ».
+    const ligne = (nom, x) => ({ nom: nom || '—', q: Number(x.quantite) || 0, m: Number(x.total) || 0 });
+    const tailles = (r.tailles || []).slice(0, 8).map((x) => ligne(x.taille, x));
+    const couleurs = (r.couleurs || []).slice(0, 8).map((x) => ligne(x.couleur, x));
+    const top = (r.top || []).slice(0, 10).map((x) => ligne(x.libelle ? `${x.nom} — ${x.libelle}` : x.nom, x));
     const petitClassement = (titre, liste) => `<div class="classement-variantes"><h3>${titre}</h3>${liste.length ? `<ol>${liste.map((x) => {
       const max = liste[0].q || 1;
       return `<li><span class="gras">${esc(x.nom)}</span><span class="jauge jauge-repartition"><span style="width:${Math.round((x.q / max) * 100)}%"></span></span><span class="tres-gras">${formatNombre(x.q)} pcs</span></li>`;
