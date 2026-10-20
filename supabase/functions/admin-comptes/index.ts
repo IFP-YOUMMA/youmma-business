@@ -18,7 +18,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ORIGINES = ['https://ifp-youmma.github.io'];
 const DOMAINE_TECHNIQUE = 'tel.yoummabusiness.app';
-const TYPES = ['materiaux', 'habillement', 'alimentation', 'services', 'general'];
+const TYPES = ['materiaux', 'habillement', 'alimentation', 'services', 'general', 'cosmetiques', 'telephones', 'pieces_auto', 'pharmacie', 'restaurant'];
 
 function enTetesCors(req: Request): Record<string, string> {
   const origine = req.headers.get('origin') ?? '';

@@ -10,6 +10,7 @@ import { naviguer } from './router.js';
 import { carteLicence } from './layout.js';
 import { chargerSituationCredits, texteEcheance } from './clients-commun.js';
 import { boutonsRelanceHTML, relancerParSms, chargerSoldeSms } from './sms.js';
+import { aModule, moduleVisible, vocab, donneesModules, unArticle } from './modules.js';
 
 /** Clients affichés dans « Crédits clients à relancer » (pour les boutons de relance). */
 const clientsARelancer = new Map();
@@ -33,11 +34,11 @@ export function afficherTableauDeBord(conteneur) {
 
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   // Situation des crédits calculée une seule fois, partagée par les indicateurs et la liste.
-  const situation = chargerSituationCredits(b.id).catch((err) => { console.error(err); return null; });
+  const situation = moduleVisible('credits') ? chargerSituationCredits(b.id).catch((err) => { console.error(err); return null; }) : Promise.resolve(null);
   chargerStats(b.id, zone, situation);
-  chargerStockBas(b.id, zone('stock'));
-  chargerCredits(situation, zone('credits'));
-  if (peut('messages.voir')) afficherSoldeSms(zone('sms-restants'));
+  if (zone('stock')) chargerStockBas(b.id, zone('stock'));
+  if (zone('credits')) chargerCredits(situation, zone('credits'));
+  if (peut('messages.voir') && aModule('messages')) afficherSoldeSms(zone('sms-restants'));
   chargerDernieresVentes(b.id, zone('ventes'));
   chargerBlocEnLigne(zone('en-ligne'));
 }
@@ -61,7 +62,7 @@ function afficherTableauVendeur(conteneur) {
         <span class="squelette" style="height:38px;width:220px"></span>
       </section>
       <nav class="raccourcis" aria-label="Raccourcis">
-        ${[['caisse', 'Caisse', 'caisse'], ['clients', 'Clients', 'client'], ['stock', 'Stock', 'stock']]
+        ${[['caisse', 'Caisse', 'caisse'], ['clients', 'Clients', 'client'], ['stock', vocab('menu'), 'stock']]
           .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 24, 1.8)}${libelle}</a>`).join('')}
       </nav>
       <section class="rangee dash-en-ligne" data-zone="en-ligne" hidden></section>
@@ -84,10 +85,10 @@ function afficherTableauVendeur(conteneur) {
 async function chargerBlocEnLigne(zone) {
   if (!zone) return;
   const [commandes, afficheRes] = await Promise.all([
-    peut('commandes.voir')
+    peut('commandes.voir') && aModule('boutique_en_ligne')
       ? sb.from('commandes_web').select('statut').eq('boutique_id', etat.boutique.id).in('statut', ['nouvelle', 'confirmee', 'prete'])
       : Promise.resolve({ data: [] }),
-    peut('affiche.partager') ? chargerAfficheDuJour().catch(() => null) : Promise.resolve(null)
+    peut('affiche.partager') && aModule('affiche') ? chargerAfficheDuJour().catch(() => null) : Promise.resolve(null)
   ]);
   if (!zone.isConnected) return;
   const actives = commandes.data || [];
@@ -195,13 +196,13 @@ function gabarit(b) {
         <div class="dash-entete-textes">
           <h1>Bonjour, ${esc(prenom(etat.membre?.nom) || 'et bienvenue')}</h1>
           <span>${esc(aujourdhui)} · voici l’activité de votre boutique aujourd’hui</span>
-          ${peut('messages.voir') ? '<span class="ligne-sms" data-zone="sms-restants"></span>' : ''}
+          ${peut('messages.voir') && aModule('messages') ? '<span class="ligne-sms" data-zone="sms-restants"></span>' : ''}
         </div>
         <div class="dash-entete-actions">
           <form class="recherche-entete" role="search" data-form="recherche">
             ${icone('recherche', 18, 2)}
-            <label class="sr-only" for="recherche-accueil">Rechercher un article</label>
-            <input id="recherche-accueil" type="search" placeholder="Rechercher un article…" autocomplete="off">
+            <label class="sr-only" for="recherche-accueil">Rechercher ${esc(vocab('article').toLowerCase())}</label>
+            <input id="recherche-accueil" type="search" placeholder="Rechercher ${esc(unArticle())}…" autocomplete="off">
           </form>
           <a class="btn btn-primaire" href="#/caisse">${icone('plus', 18, 2.4)} Nouvelle vente</a>
         </div>
@@ -218,10 +219,7 @@ function gabarit(b) {
       </section>
 
       <nav class="acces-rapides seul-mobile" aria-label="Accès rapides">
-        ${[['stock', 'Stock', 'stock'], ['clients', 'Clients', 'client'], ['depenses', 'Dépenses', 'depenses'],
-          // Boutique de matériaux : accès direct aux chantiers à la place des rapports.
-          b.type_activite === 'materiaux' ? ['chantiers', 'Chantiers', 'casque'] : ['rapports', 'Rapports', 'rapports']]
-          .map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 22, 1.8)}${libelle}</a>`).join('')}
+        ${raccourcis().map(([route, libelle, ic]) => `<a href="#/${route}" class="acces-rapide">${icone(ic, 22, 1.8)}${esc(libelle)}</a>`).join('')}
       </nav>
 
       <section class="rangee dash-en-ligne" data-zone="en-ligne" hidden></section>
@@ -244,23 +242,23 @@ function gabarit(b) {
         </div>
       </section>
 
-      <section class="rangee">
-        <div class="carte bloc-liste">
+      ${!vocab('sans_stock') || moduleVisible('credits') ? `<section class="rangee">
+        ${!vocab('sans_stock') ? `<div class="carte bloc-liste">
           <div class="bloc-entete">
             <h2>Stock bas · à commander</h2>
             <a class="lien-bloc" href="#/stock?filtre=bas">Voir le stock</a>
           </div>
           <div data-zone="stock">${squelettesLignes(3)}</div>
-        </div>
-        <div class="carte bloc-liste">
+        </div>` : ''}
+        ${moduleVisible('credits') ? `<div class="carte bloc-liste">
           <div class="bloc-entete">
             <h2>Crédits clients à relancer</h2>
             <a class="lien-bloc seul-ordi" href="#/clients">Tous les crédits</a>
             <span class="total-credits seul-mobile" data-zone="credits-total"></span>
           </div>
           <div data-zone="credits">${squelettesLignes(3)}</div>
-        </div>
-      </section>
+        </div>` : ''}
+      </section>` : ''}
 
       <div class="seul-mobile dash-licence">${carteLicence('clair')}</div>
 
@@ -324,9 +322,10 @@ function etatVide(texte, lien = null) {
 /* ------------------------------------------------------------ Indicateurs (RPC stats_tableau_bord) */
 
 async function chargerStats(idBoutique, zone, situationPromesse) {
-  const [{ data, error }, situation] = await Promise.all([
+  const [{ data, error }, situation, extras] = await Promise.all([
     sb.rpc('stats_tableau_bord', { p_boutique: idBoutique }),
-    situationPromesse
+    situationPromesse,
+    chargerIndicateursModules(idBoutique)
   ]);
   if (error) {
     console.error(error);
@@ -347,36 +346,17 @@ async function chargerStats(idBoutique, zone, situationPromesse) {
     <span class="dash-hero-montant">${formatNombre(s.ventes_jour)} <span>GNF</span></span>
     <span class="dash-hero-variation">${esc(variation.texte)}</span>`;
 
-  zone('kpis').innerHTML = [
-    { libelle: 'Ventes du jour', valeur: s.ventes_jour, sous: variation.texte, encreSous: variation.encre,
-      teinte: '#E3F2EC', encre: '#0A5E48', icone: 'rapports' },
-    { libelle: 'Encaissé aujourd’hui', valeur: s.encaisse_jour, sous: `Dépenses : ${formatGNF(s.depenses_jour)}`, encreSous: '#55665F',
-      teinte: '#E0F2F1', encre: '#00695C', icone: 'caisse' },
-    { libelle: 'Crédits en cours', valeur: s.credits_total,
-      sous: `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''} · ${s.nb_credits_retard} en retard`
-        + (s.dettes_chantiers > 0 ? ` · + Chantiers : ${formatGNF(s.dettes_chantiers)} dus` : ''),
-      encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client' },
-    { libelle: 'Valeur du stock', valeur: s.valeur_stock,
-      sous: s.nb_stock_bas > 0 ? `${s.nb_stock_bas} article${s.nb_stock_bas > 1 ? 's' : ''} sous le seuil` : 'Aucun article sous le seuil',
-      encreSous: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A', teinte: '#FFF3CD', encre: '#8A5A00', icone: 'stock' }
-  ].map(kpiHTML).join('');
-
-  zone('kpis-mobile').innerHTML = [
-    { libelle: 'Encaissé', valeur: formatNombre(s.encaisse_jour), sous: 'Espèces + mobile', encre: '#55665F' },
-    { libelle: 'Crédits en cours', valeur: formatNombre(s.credits_total),
-      sous: s.nb_credits_retard > 0 ? `${s.nb_credits_retard} en retard` : `${s.nb_clients_credit} client${s.nb_clients_credit > 1 ? 's' : ''}`,
-      encre: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F' },
-    { libelle: 'Dépenses du jour', valeur: formatNombre(s.depenses_jour), sous: 'Aujourd’hui', encre: '#55665F' },
-    { libelle: 'Stock bas', valeur: `${s.nb_stock_bas} article${s.nb_stock_bas > 1 ? 's' : ''}`,
-      sous: s.nb_stock_bas > 0 ? 'À commander' : 'Tout va bien', encre: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A' }
-  ].map((k) => `
+  const cartes = cartesIndicateurs(s, variation, extras);
+  zone('kpis').innerHTML = cartes.slice(0, 4).map(kpiHTML).join('');
+  // Téléphone : les ventes du jour sont déjà dans le bandeau ; les 4 cartes suivantes.
+  zone('kpis-mobile').innerHTML = cartes.slice(1, 5).map((k) => `
     <div class="kpi-mobile">
       <span class="kpi-mobile-libelle">${esc(k.libelle)}</span>
-      <span class="kpi-mobile-valeur">${esc(k.valeur)}</span>
-      <span class="kpi-mobile-sous" style="color:${k.encre}">${esc(k.sous)}</span>
+      <span class="kpi-mobile-valeur">${esc(k.texteValeur || formatNombre(k.valeur))}</span>
+      <span class="kpi-mobile-sous" style="color:${k.encreSous}">${esc(k.sous)}</span>
     </div>`).join('');
 
-  zone('credits-total').textContent = s.credits_total > 0 ? formatGNF(s.credits_total) : '';
+  if (zone('credits-total')) zone('credits-total').textContent = s.credits_total > 0 ? formatGNF(s.credits_total) : '';
   zone('graphique').innerHTML = graphiqueHTML(s.ventes_7j);
   zone('paiements').innerHTML = paiementsHTML(s.paiements_jour);
 }
@@ -404,16 +384,90 @@ function variationVentes(s) {
   return { texte: `▼ ${Math.abs(pct)} % vs hier · ${nb}`, encre: '#A51C1C' };
 }
 
+/** Indicateurs propres aux modules : devis en attente, commandes en ligne à traiter. */
+async function chargerIndicateursModules(idBoutique) {
+  const [devis, commandes] = await Promise.all([
+    aModule('devis') ? sb.from('proformas').select('total').eq('boutique_id', idBoutique).in('statut', ['brouillon', 'envoye']).then((r) => r.data || [], () => []) : Promise.resolve(null),
+    aModule('boutique_en_ligne') && peut('commandes.voir')
+      ? sb.from('commandes_web').select('statut').eq('boutique_id', idBoutique).in('statut', ['nouvelle', 'confirmee', 'prete']).then((r) => r.data || [], () => [])
+      : Promise.resolve(null)
+  ]);
+  return { devis, commandes };
+}
+
+/**
+ * Cartes du tableau de bord, par ordre de priorité (les 4 premières sont affichées) :
+ * Ventes du jour, Dettes chantiers, Devis en attente, Commandes en ligne, Crédits à encaisser, Stock bas, Dépenses du jour.
+ */
+function cartesIndicateurs(s, variation, extras = {}) {
+  const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+  const cartes = [{ libelle: 'Ventes du jour', valeur: s.ventes_jour, sous: variation.texte, encreSous: variation.encre, teinte: '#E3F2EC', encre: '#0A5E48', icone: 'rapports' }];
+  if (moduleVisible('chantiers')) {
+    cartes.push({ libelle: 'Dettes chantiers', valeur: s.dettes_chantiers, sous: s.dettes_chantiers > 0 ? 'À encaisser sur les chantiers' : 'Aucune dette chantier',
+      encreSous: s.dettes_chantiers > 0 ? '#A51C1C' : '#1B6E2A', teinte: '#FBE9E7', encre: '#BF360C', icone: 'casque', lien: '#/chantiers' });
+  }
+  if (aModule('devis') && extras.devis) {
+    const total = extras.devis.reduce((t, d) => t + (Number(d.total) || 0), 0);
+    cartes.push({ libelle: 'Devis en attente', valeur: extras.devis.length, unite: '', texteValeur: String(extras.devis.length), sous: total ? `${formatMillions(total)} GNF` : 'Aucun devis en attente',
+      encreSous: '#7A4A00', teinte: '#FFF3CD', encre: '#7A4A00', icone: 'document', lien: '#/proformas' });
+  }
+  if (aModule('boutique_en_ligne') && extras.commandes) {
+    const nouvelles = extras.commandes.filter((c) => c.statut === 'nouvelle').length;
+    cartes.push({ libelle: 'Commandes en ligne', valeur: extras.commandes.length, unite: '', texteValeur: String(extras.commandes.length), sous: nouvelles ? `${pluriel(nouvelles, 'nouvelle')} à confirmer` : extras.commandes.length ? 'à traiter' : 'Aucune commande en cours',
+      encreSous: '#7A4A00', teinte: '#FFF4EA', encre: '#7A3300', icone: 'enLigne', lien: '#/commandes' });
+  }
+  if (moduleVisible('credits')) {
+    cartes.push({ libelle: 'Crédits à encaisser', valeur: s.credits_total,
+      sous: `${pluriel(s.nb_clients_credit, 'client')} · ${s.nb_credits_retard} en retard`,
+      encreSous: s.nb_credits_retard > 0 ? '#B23A0E' : '#55665F', teinte: '#FBE9E7', encre: '#BF360C', icone: 'client', lien: '#/clients' });
+  }
+  if (!vocab('sans_stock')) {
+    cartes.push({ libelle: 'Stock bas', valeur: s.nb_stock_bas, unite: '', texteValeur: pluriel(s.nb_stock_bas, vocab('article').toLowerCase()),
+      sous: s.nb_stock_bas > 0 ? 'À commander' : 'Tout va bien', encreSous: s.nb_stock_bas > 0 ? '#8A5A00' : '#1B6E2A', teinte: '#FFF3CD', encre: '#8A5A00', icone: 'stock', lien: '#/stock?filtre=bas' });
+  }
+  cartes.push({ libelle: 'Dépenses du jour', valeur: s.depenses_jour, sous: `Encaissé : ${formatGNF(s.encaisse_jour)}`, encreSous: '#55665F', teinte: '#E0F2F1', encre: '#00695C', icone: 'depenses', lien: '#/depenses' });
+  return cartes;
+}
+
+/** Raccourcis (téléphone) : Caisse, puis les modules actifs (ordre du catalogue), puis Stock, Clients, Rapports — 8 au plus. */
+function raccourcis() {
+  const ACCES = {
+    chantiers: ['chantiers', 'Chantiers', 'casque'],
+    devis: ['proformas', 'Devis', 'document'],
+    bons_livraison: ['ventes', 'Bons de livraison', 'livraison'],
+    fournisseurs: ['messages/fournisseurs', 'Fournisseurs', 'camion'],
+    credits: ['clients', 'Crédits', 'client'],
+    messages: ['messages', 'Messages', 'sms'],
+    boutique_en_ligne: ['commandes', 'Commandes', 'enLigne'],
+    affiche: ['affiche', 'Affiche', 'image']
+  };
+  const droits = { messages: 'messages.voir', fournisseurs: 'messages.voir', boutique_en_ligne: 'commandes.voir', affiche: 'affiche.partager', devis: 'devis.creer' };
+  const liste = [['caisse', 'Caisse', 'caisse']];
+  const ordre = (donneesModules()?.modules || []).map((m) => m.code);
+  const codes = [...ordre.filter((c) => ACCES[c]), ...Object.keys(ACCES).filter((c) => !ordre.includes(c))];
+  for (const code of codes) {
+    if (!aModule(code) || (droits[code] && !peut(droits[code]))) continue;
+    // Fournisseurs : écran dans « Messages » (il faut le module Messages pour y accéder).
+    if (code === 'fournisseurs' && !aModule('messages')) continue;
+    if (!liste.some((x) => x[0] === ACCES[code][0])) liste.push(ACCES[code]);
+  }
+  for (const r of [['stock', vocab('menu'), 'stock'], ['clients', 'Clients', 'client'], ['rapports', 'Rapports', 'rapports']]) {
+    if (r[0] === 'rapports' && !peut('rapports')) continue;
+    if (!liste.some((x) => x[0] === r[0])) liste.push(r);
+  }
+  return liste.slice(0, 8);
+}
+
 function kpiHTML(k) {
   return `
-    <div class="carte kpi">
+    <${k.lien ? `a href="${k.lien}"` : 'div'} class="carte kpi ${k.lien ? 'kpi-lien' : ''}">
       <div class="kpi-haut">
         <span class="kpi-libelle">${esc(k.libelle)}</span>
         <span class="kpi-icone" style="background:${k.teinte};color:${k.encre}">${icone(k.icone, 18, 2)}</span>
       </div>
-      <span class="kpi-valeur">${formatNombre(k.valeur)} <span>GNF</span></span>
+      <span class="kpi-valeur">${k.texteValeur ? esc(k.texteValeur) : `${formatNombre(k.valeur)} <span>GNF</span>`}</span>
       <span class="kpi-sous" style="color:${k.encreSous}">${esc(k.sous)}</span>
-    </div>`;
+    </${k.lien ? 'a' : 'div'}>`;
 }
 
 /** Histogramme des 7 derniers jours (jours sans vente complétés à 0). */

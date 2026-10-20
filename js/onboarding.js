@@ -12,6 +12,23 @@ import {
   esc, icone, logoMarque, normaliserTelephone, formatTelephone, messageErreur, boutonOccupe, toast, prenom, TYPES_ACTIVITE
 } from './utils.js';
 
+import { chargerActivites } from './mes-modules.js';
+import { chargerModules } from './modules.js';
+
+/** Tuiles « type d'activité » : table activites (10 activités, emoji et couleur), sinon liste interne. */
+function tuilesActivites(activites) {
+  const liste = activites.length
+    ? activites.map((a) => ({ code: a.code, nom: a.nom, emoji: a.emoji, couleur: a.couleur }))
+    : Object.entries(TYPES_ACTIVITE).map(([code, nom]) => ({ code, nom }));
+  return liste.map((a) => `
+                <label class="carte-type" ${a.couleur ? `style="--couleur-activite:${esc(a.couleur)}"` : ''}>
+                  <input type="radio" name="type" value="${esc(a.code)}" required>
+                  <span class="carte-type-icone">${a.emoji ? `<span class="carte-type-emoji" aria-hidden="true">${esc(a.emoji)}</span>` : icone(ICONES_TYPES[a.code] || 'magasin', 26, 1.8)}</span>
+                  <span class="carte-type-libelle">${esc(a.nom)}</span>
+                </label>`).join('');
+}
+let activitesConnues = [];
+
 const ICONES_TYPES = {
   materiaux: 'brique',
   habillement: 'chemise',
@@ -172,14 +189,7 @@ function afficherCreation(conteneur) {
 
           <fieldset class="champ champ-types">
             <legend>Type d’activité</legend>
-            <div class="grille-types">
-              ${Object.entries(TYPES_ACTIVITE).map(([valeur, libelle]) => `
-                <label class="carte-type">
-                  <input type="radio" name="type" value="${valeur}" required>
-                  <span class="carte-type-icone">${icone(ICONES_TYPES[valeur], 26, 1.8)}</span>
-                  <span class="carte-type-libelle">${esc(libelle)}</span>
-                </label>`).join('')}
-            </div>
+            <div class="grille-types" data-zone="types">${tuilesActivites(activitesConnues)}</div>
           </fieldset>
 
           <div class="rangee-champs">
@@ -202,6 +212,13 @@ function afficherCreation(conteneur) {
     </div>`;
 
   const formulaire = conteneur.querySelector('form');
+  // Les 10 activités de la table (emoji et couleur) remplacent la liste interne dès qu'elles arrivent.
+  chargerActivites().then((activites) => {
+    const grille = formulaire.querySelector('[data-zone="types"]');
+    if (!activites.length || !grille?.isConnected || formulaire.type.value) return;
+    activitesConnues = activites;
+    grille.innerHTML = tuilesActivites(activites);
+  }).catch(() => {});
   conteneur.querySelector('[data-action="deconnexion"]')?.addEventListener('click', deconnecter);
 
   // Mise en avant de la carte « type d'activité » choisie.
@@ -247,7 +264,9 @@ async function creerBoutique(formulaire) {
 
     await chargerBoutiques();
     choisirBoutique(idBoutique);
-    toast('Votre essai gratuit de 14 jours commence aujourd’hui', 'succes', 6000);
+    await chargerModules(idBoutique, { annoncer: false });
+    const nomActivite = activitesConnues.find((a) => a.code === type)?.nom || TYPES_ACTIVITE[type] || 'votre activité';
+    toast(`Votre appli est prête pour ${nomActivite.toLowerCase()} : menu et modules adaptés (Paramètres › Mes modules pour changer). Essai gratuit de 14 jours.`, 'succes', 8000);
     naviguer('tableau-de-bord', { remplacer: true });
   } catch (err) {
     afficherErreur(messageErreur(err));

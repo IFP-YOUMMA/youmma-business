@@ -273,3 +273,16 @@ body.page-admin-youmma { background: var(--bg); }
 .adm-cellule-boutique { display: flex; align-items: center; gap: 10px; min-width: 0; }
 a.adm-sante { text-decoration: none; color: inherit; }
 a.adm-sante:hover .gras { color: var(--primary); }
+
+/* Étape 11 — modules et activités */
+.adm-barres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.adm-barres li { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; align-items: center; gap: 10px; font-size: 13.5px; }
+.adm-barre-libelle { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-stat-barre { display: block; height: 10px; border-radius: 6px; background: #EEF2F0; overflow: hidden; }
+.adm-stat-barre i { display: block; height: 10px; border-radius: 6px; }
+.adm-grille-activites { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.adm-grille-activites .carte-type { min-height: 84px; padding: 10px; gap: 6px; font-size: 13px; }
+.adm-grille-activites .carte-type-icone { width: 36px; height: 36px; }
+.adm-segments-module .segment { min-height: 34px; padding: 0 10px; font-size: 12.5px; }
+.adm-tableau-modules td { vertical-align: middle; }
+.adm-filtres #filtre-activite { min-height: 40px; max-width: 100%; }

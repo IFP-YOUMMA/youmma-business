@@ -13,6 +13,7 @@ import { etat, peut, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { imprimerRecuVente } from './recu.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
+import { aModule } from './modules.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatNumeroVente, dateISO, decalerDate,
@@ -509,7 +510,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
 
         <div class="dv-actions boutons-documents">
           <button type="button" class="btn ${ticketParDefaut ? 'btn-secondaire' : 'btn-primaire'}" data-document="${typeA4}">${icone('document', 18, 2)} ${typeA4 === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>
-          <button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>
+          ${aModule('bons_livraison') ? `<button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>` : ''}
           <button type="button" class="btn ${ticketParDefaut ? 'btn-primaire' : 'btn-secondaire'}" data-action="reimprimer">${icone('imprimante', 18, 2)} Ticket 80 mm</button>
         </div>
         <div class="dv-actions">

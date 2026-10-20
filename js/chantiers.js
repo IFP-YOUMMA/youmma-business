@@ -20,6 +20,7 @@ import {
 import { imprimerBonEnlevement } from './recu.js';
 import { ouvrirOutilImage } from './images/outil.js';
 import { ouvrirDocument } from './documents/donnees.js';
+import { aModule } from './modules.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
@@ -142,9 +143,14 @@ function lienWhatsAppClient(client, message) {
 }
 
 /** Point d'entrée de toutes les routes #/chantiers… */
+/** Module Chantiers masqué avec des chantiers encore ouverts : consulter et encaisser seulement. */
+const lectureSeule = () => !aModule('chantiers');
+const BANDEAU_LECTURE = `<p class="bandeau-lecture-seule">${'Module Chantiers masqué : vous pouvez encore consulter vos chantiers et encaisser les versements. Réactivez-le dans Paramètres › Mes modules pour ouvrir un chantier ou faire un enlèvement.'}</p>`;
+
 export function afficherChantiers(conteneur, params) {
   const id = params.get('id');
   const vue = params.get('vue');
+  if (id && vue === 'enlevement' && lectureSeule()) { naviguer(`#/chantiers/${encodeURIComponent(id)}`); return; }
   if (id && vue === 'enlevement') afficherEnlevement(conteneur, id, params);
   else if (id && vue === 'releve') afficherReleve(conteneur, id);
   else if (id) afficherCompte(conteneur, id, params);
@@ -174,9 +180,10 @@ function afficherListe(conteneur) {
             <span class="sr-only">Rechercher un chantier</span>
             <input id="recherche-chantiers" type="search" placeholder="Chantier, client ou n°…" autocomplete="off">
           </label>
-          <button type="button" class="btn btn-primaire" data-action="ouvrir">${icone('plus', 18, 2.4)} Ouvrir un chantier</button>
+          ${lectureSeule() ? '' : `<button type="button" class="btn btn-primaire" data-action="ouvrir">${icone('plus', 18, 2.4)} Ouvrir un chantier</button>`}
         </div>
       </header>
+      ${lectureSeule() ? BANDEAU_LECTURE : ''}
       <section class="kpis-clients kpis-chantiers" aria-label="Résumé des chantiers" data-zone="kpis">
         ${'<div class="carte kpi-client"><span class="squelette" style="height:13px;width:60%"></span><span class="squelette" style="height:26px;width:80%"></span></div>'.repeat(3)}
       </section>
@@ -221,7 +228,7 @@ function afficherListe(conteneur) {
       zone('liste').innerHTML = `
         <li class="etat-vide etat-vide-large">
           <p>Aucun chantier pour l’instant. Ouvrez un compte chantier pour suivre l’avance d’un client et ses enlèvements.</p>
-          <button type="button" class="btn btn-primaire" data-action="ouvrir">Ouvrir un chantier</button>
+          ${lectureSeule() ? '' : '<button type="button" class="btn btn-primaire" data-action="ouvrir">Ouvrir un chantier</button>'}
         </li>`;
       return;
     }
@@ -374,7 +381,7 @@ function afficherCompte(conteneur, id, params) {
           </div>
           <div class="actions-chantier">
             ${ouvert ? `
-              <a class="btn btn-primaire" href="#/chantiers/${encodeURIComponent(c.id)}/enlevement">${icone('stock', 18, 2.2)} Nouvel enlèvement</a>
+              ${lectureSeule() ? '' : `<a class="btn btn-primaire" href="#/chantiers/${encodeURIComponent(c.id)}/enlevement">${icone('stock', 18, 2.2)} Nouvel enlèvement</a>`}
               <button type="button" class="btn btn-succes" data-action="versement">${icone('plus', 18, 2.2)} Versement</button>` : ''}
             <a class="btn btn-secondaire" href="#/chantiers/${encodeURIComponent(c.id)}/releve">${icone('document', 18, 2)} Situation globale</a>
           </div>
@@ -426,8 +433,8 @@ function afficherCompte(conteneur, id, params) {
               ${client.telephone
                 ? `<a class="btn btn-whatsapp btn-bloc" href="${esc(lienWhatsAppClient(client, messageWa))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} Situation par WhatsApp</a>`
                 : `<button type="button" class="btn btn-whatsapp btn-bloc" disabled title="Aucun numéro enregistré pour ce client">${icone('whatsapp', 18, 2)} Situation par WhatsApp</button>`}
-              <button type="button" class="btn btn-secondaire btn-bloc" data-action="sms">Relancer par SMS</button>
-              ${peut('cloturer_chantier')
+              ${aModule('messages') ? '<button type="button" class="btn btn-secondaire btn-bloc" data-action="sms">Relancer par SMS</button>' : ''}
+              ${peut('cloturer_chantier') && (ouvert || !lectureSeule())
                 ? (ouvert
                   ? '<button type="button" class="btn btn-secondaire btn-bloc btn-discret" data-action="cloturer">Clôturer le chantier</button>'
                   : '<button type="button" class="btn btn-secondaire btn-bloc" data-action="rouvrir">Rouvrir le chantier</button>')
@@ -493,7 +500,7 @@ function afficherCompte(conteneur, id, params) {
         </div>
         <div class="modale-actions">
           <button type="button" class="btn btn-secondaire btn-grand" data-action="imprimer">${icone('imprimante', 18, 2)} Bon d’enlèvement 80 mm</button>
-          <button type="button" class="btn btn-secondaire btn-grand" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison A4</button>
+          ${aModule('bons_livraison') ? `<button type="button" class="btn btn-secondaire btn-grand" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison A4</button>` : ''}
           <button type="button" class="btn btn-secondaire btn-grand" data-document="facture">${icone('document', 18, 2)} Facture A4</button>
           <button type="button" class="btn btn-primaire btn-grand" data-fermer>Terminé</button>
         </div>`

@@ -3,7 +3,7 @@
  * (licences / SMS en barres empilées), à traiter, dernières inscriptions, santé du système.
  */
 import { esc, capitaliser, formatDate, formatMillions } from '../utils.js';
-import { rpc, premiere, champ, liste, gnf, nombre, ilYa, telLocal, badgeLicence, blocErreur, squelette, TYPES, avatarBoutique } from './commun.js';
+import { rpc, premiere, champ, liste, gnf, nombre, ilYa, telLocal, badgeLicence, blocErreur, squelette, TYPES, avatarBoutique, chargerActivites } from './commun.js';
 import { lireStockage, taille } from './stockage.js';
 
 const PLAN_BASE = 500 * 1024 * 1024;   // 500 Mo (plan gratuit Supabase)
@@ -66,8 +66,14 @@ export function afficherAccueil(conteneur) {
         <div data-zone="dernieres">${squelette(4)}</div>
       </section>
       <section class="adm-carte adm-etroite"><h2>Santé du système</h2><div data-zone="sante">${squelette(4)}</div></section>
+    </div>
+    <div class="adm-rangee">
+      <section class="adm-carte adm-moitie"><h2>Boutiques par activité</h2><div data-zone="par-activite">${squelette(4)}</div></section>
+      <section class="adm-carte adm-moitie"><h2>Modules les plus utilisés</h2><div data-zone="modules-utilises">${squelette(4)}</div></section>
     </div>`;
   const zone = (n) => conteneur.querySelector(`[data-zone="${n}"]`);
+
+  chargerStatsModules(zone, conteneur);
 
   // Stockage et base (limites et seuil réglables) : lus en parallèle des statistiques.
   const infosStockage = lireStockage().catch(() => null);
@@ -145,4 +151,35 @@ export function afficherAccueil(conteneur) {
     zone('sante').innerHTML = sante.map(([l, v, c, lien]) => `
       <${lien ? `a href="${lien}"` : 'div'} class="adm-sante"><span class="adm-point ${c}" aria-hidden="true"></span><span class="gras">${esc(l)}</span><span class="discret">${esc(v)}</span></${lien ? 'a' : 'div'}>`).join('');
   })();
+}
+
+/** Barres horizontales simples (libellé, nombre, part du maximum). */
+function barres(lignes, couleur = '#0F7B5F') {
+  if (!lignes.length) return '<p class="vide-admin">Pas encore de données.</p>';
+  const max = Math.max(1, ...lignes.map((l) => l.n));
+  return `<ul class="adm-barres">${lignes.map((l) => `
+    <li><span class="adm-barre-libelle">${esc(l.libelle)}</span><span class="adm-stat-barre"><i style="width:${Math.max(2, Math.round((l.n / max) * 100))}%;background:${esc(l.couleur || couleur)}"></i></span><strong>${nombre(l.n)}</strong></li>`).join('')}</ul>`;
+}
+
+/** admin_stats_modules : boutiques par activité et modules actifs (lecture souple des colonnes). */
+async function chargerStatsModules(zone, conteneur) {
+  let s;
+  try { s = premiere(await rpc('admin_stats_modules')) || {}; } catch (err) {
+    if (!conteneur.isConnected) return;
+    zone('par-activite').innerHTML = blocErreur(err);
+    zone('modules-utilises').innerHTML = '';
+    return;
+  }
+  const activites = await chargerActivites().catch(() => []);
+  if (!conteneur.isConnected) return;
+  const parAct = liste(s.par_activite ?? s.activites ?? s.boutiques_par_activite).map((l) => {
+    const code = champ(l, 'code', 'type_activite', 'activite');
+    const a = activites.find((x) => x.code === code) || {};
+    return { libelle: [a.emoji || l.emoji, l.nom || a.nom || TYPES[code] || code].filter(Boolean).join(' '), n: Number(champ(l, 'nb', 'boutiques', 'total', 'nombre')) || 0, couleur: a.couleur || l.couleur };
+  }).sort((a, b) => b.n - a.n);
+  const mods = liste(s.modules ?? s.modules_utilises ?? s.par_module).map((l) => ({
+    libelle: l.nom || champ(l, 'code', 'module'), n: Number(champ(l, 'nb', 'actifs', 'boutiques', 'total', 'nombre')) || 0
+  })).sort((a, b) => b.n - a.n).slice(0, 12);
+  zone('par-activite').innerHTML = barres(parAct);
+  zone('modules-utilises').innerHTML = barres(mods, '#C99A2E');
 }

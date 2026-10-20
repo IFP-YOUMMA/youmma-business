@@ -44,6 +44,10 @@ export function afficherParametres(conteneur) {
           <section class="carte section-parametres" aria-labelledby="titre-compte" data-zone="compte"></section>
         </div>
         <div class="parametres-droite">
+          ${peut('parametres_boutique') ? `<a class="carte lien-reglages-documents" href="#/modules">
+            <span class="avatar">${icone('tableau', 20, 2)}</span>
+            <span class="client-textes"><span class="gras">Mes modules</span><span class="discret">Fonctions affichées selon votre activité : crédits, devis, chantiers, boutique en ligne…</span></span>
+            ${icone('chevronDroite', 18, 2)}</a>` : ''}
           ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/identite">
             <span class="avatar">${icone('image', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Logo &amp; images</span><span class="discret">Logo partout, photo de couverture, logos Orange Money / MTN MoMo et partenaires</span></span>

@@ -2799,3 +2799,67 @@ body.lecture-seule [data-verrou-licence] { cursor: not-allowed; }
 }
 .liste-resultats .item-produit-devis { display: grid; grid-template-columns: 40px 1fr; column-gap: 10px; align-items: center; }
 .item-produit-devis .vignette-mini { grid-row: span 2; width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #EEF2EF; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+
+/* Étape 11 : fine touche de la couleur de l’activité (la palette reste celle de YOUMMA Business) */
+.selecteur-bouton { border-left: 3px solid var(--couleur-activite, transparent); }
+.entete-mobile { box-shadow: inset 0 -3px 0 var(--couleur-activite, transparent); }
+
+/* Étape 11 — Mes modules (maquette MesModules) */
+.mes-modules { display: flex; gap: 20px; align-items: flex-start; }
+.mes-modules-gauche { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.carte-activite { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid var(--border); flex-wrap: wrap; }
+.activite-pastille { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex: none; }
+.carte-activite-textes { flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px; }
+.groupe-modules { display: flex; flex-direction: column; gap: 10px; }
+.groupe-modules h2 { font-size: 13px; font-weight: 800; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.grille-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.carte-module { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: #FFFFFF; min-width: 0; }
+.carte-module.active { border-color: #BFE0D3; background: #F6FBF9; }
+.carte-module.grisee { opacity: .62; }
+.carte-module-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.carte-module-nom { font-size: 14px; font-weight: 800; }
+.carte-module-desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.carte-module-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; }
+.badge-module { font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+.badge-module.recommande { background: var(--primary-soft); color: var(--primary-dark); }
+.badge-module.nouveau { background: #FFF3CD; color: #6B4E00; }
+.badge-module.offert { background: #E6F0FB; color: #1D4E7A; }
+.pastille-module { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.pastille-module.formule { background: #FFF3CD; color: #6B4E00; }
+.pastille-module.bientot { background: var(--border-doux); color: var(--text-2); }
+.pastille-module.bloque { background: var(--danger-bg); color: var(--danger); }
+.lien-module { font-weight: 800; font-size: 12px; }
+.note-module { color: var(--alerte); font-weight: 700; }
+.autres-modules { background: #FFFFFF; border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; }
+.autres-modules summary { font-weight: 800; font-size: 14px; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.autres-modules .grille-modules { margin-top: 10px; }
+.rappel-modules { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.rappel-modules svg { color: var(--succes); flex: none; }
+.apercu-menu-modules { flex: 0 0 300px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: 16px; font-size: 12px; line-height: 1.5; }
+.apercu-menu { background: var(--navy); border-radius: 18px; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.apercu-menu-lien { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 700; color: var(--navy-lien); }
+.apercu-menu-lien.actif { background: var(--navy-2); color: #FFFFFF; }
+.grille-activites { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.tuile-activite { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 92px; padding: 10px 8px; border: 2px solid var(--border-input); border-radius: 14px; background: #FFFFFF; font: inherit; font-size: 12.5px; font-weight: 800; text-align: center; cursor: pointer; color: var(--text); border-top: 5px solid var(--couleur-activite); }
+.tuile-activite[aria-checked="true"] { border-color: var(--primary); border-top-color: var(--couleur-activite); background: var(--primary-soft); }
+.tuile-activite-emoji { font-size: 26px; line-height: 1; }
+.changer-activite { display: flex; flex-direction: column; gap: 14px; }
+.resume-activite { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); font-size: 13.5px; }
+.resume-plus { color: var(--succes); font-weight: 700; }
+.resume-moins { color: var(--alerte); font-weight: 700; }
+@media (max-width: 1099.98px) {
+  .mes-modules { flex-direction: column; }
+  .apercu-menu-modules { position: static; flex: none; width: 100%; max-width: 420px; }
+}
+@media (max-width: 699.98px) { .grille-modules { grid-template-columns: 1fr; } }
+
+/* Étape 11 — masquages selon les modules */
+.sans-credits .lc-echeance, .sans-credits .entete-liste-clients > span:nth-child(2),
+.sans-credits .lc-montant, .sans-credits .entete-liste-clients > span:nth-child(4) { visibility: hidden; }
+.bandeau-lecture-seule { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: #FFF6DD; border: 1px solid #F0D894; color: #5C4300; font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+a.kpi-lien { text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s; }
+a.kpi-lien:hover { box-shadow: 0 6px 18px rgba(4, 60, 44, .12); }
+a.kpi-lien:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.sans-gros .entete-liste-stock > span:nth-child(4), .sans-gros .ligne-stock > .ls-prix:nth-of-type(4) { visibility: hidden; }
+.carte-type-emoji { font-size: 24px; line-height: 1; }
+.carte-type[style*="--couleur-activite"] { border-top: 4px solid var(--couleur-activite); }

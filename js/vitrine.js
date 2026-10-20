@@ -198,6 +198,8 @@ function changerQuantite(id, quantite) {
 async function demarrer() {
   if (!slug) { afficherIntrouvable(); return; }
   const { data, error } = await sb.rpc('boutique_publique', { p_slug: slug });
+  // Module « Boutique en ligne » masqué ou bloqué : la vitrine est simplement fermée.
+  if (error && /MODULE_(INACTIF|BLOQUE|FORMULE)/.test(error.message || '')) { afficherFerme({}); return; }
   if (error) {
     racine.innerHTML = `
       <main class="v-page-simple">

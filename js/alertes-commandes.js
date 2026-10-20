@@ -7,6 +7,7 @@
  */
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
+import { aModule } from './modules.js';
 import { toast, lireStockage, ecrireStockage } from './utils.js';
 
 const INTERVALLE_MS = 60000;
@@ -52,7 +53,8 @@ function afficherBadge(n) {
 /** Relit le nombre de nouvelles commandes (et prévient si une commande vient d'arriver). */
 export async function verifierCommandes() {
   const boutique = etat.boutique;
-  if (!boutique || !peut('commandes.voir')) return null;
+  // Module « Boutique en ligne » masqué : rien à surveiller.
+  if (!boutique || !peut('commandes.voir') || !aModule('boutique_en_ligne')) return null;
   const { count, error } = await sb.from('commandes_web').select('id', { count: 'exact', head: true })
     .eq('boutique_id', boutique.id).eq('statut', 'nouvelle');
   if (error || boutique !== etat.boutique) return null;

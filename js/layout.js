@@ -10,6 +10,7 @@ import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
+import { moduleVisible, aModule, vocab, activite, chargerModules } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, TYPES_ACTIVITE
 } from './utils.js';
@@ -19,17 +20,17 @@ export const SECTIONS = [
   { route: 'tableau-de-bord', libelle: 'Tableau de bord', icone: 'tableau', active: true },
   { route: 'caisse', libelle: 'Caisse', icone: 'caisse', active: true },
   { route: 'ventes', libelle: 'Ventes', icone: 'ventes', active: true },
-  { route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer' },
+  { route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer', module: 'devis' },
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
-  { route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true },
+  { route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true, module: 'chantiers' },
   { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
-  { route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true },
+  { route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true, module: 'messages' },
   // Commandes de la boutique en ligne (badge : nombre de commandes « nouvelle », relu toutes les 60 s).
-  { route: 'commandes', libelle: 'Commandes en ligne', libelleCourt: 'Commandes', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true },
-  { route: 'affiche', libelle: 'Affiche du jour', icone: 'image', active: true, droit: 'affiche.partager' },
+  { route: 'commandes', libelle: 'Commandes en ligne', libelleCourt: 'Commandes', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true, module: 'boutique_en_ligne' },
+  { route: 'affiche', libelle: 'Affiche du jour', icone: 'image', active: true, droit: 'affiche.partager', module: 'affiche' },
   { route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
   // Administration de la plateforme : visible seulement pour l'équipe YOUMMA (est_admin_plateforme).
   { route: 'aide', libelle: 'Aide', icone: 'aide', active: true, badgeAide: true },
@@ -42,12 +43,20 @@ export const SECTIONS = [
  * Boutique de matériaux : « Chantiers » est mis en avant, juste après « Caisse ».
  */
 function sectionsVisibles() {
-  const visibles = SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.admin || etat.adminPlateforme));
+  // Droits du rôle ET modules de la boutique (un module en lecture seule reste visible pour consulter et encaisser).
+  const visibles = SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.admin || etat.adminPlateforme)
+    && (!section.module || moduleVisible(section.module)));
   if (etat.boutique?.type_activite !== 'materiaux') return visibles;
   const chantiers = visibles.find((section) => section.route === 'chantiers');
+  if (!chantiers) return visibles;
   const autres = visibles.filter((section) => section !== chantiers);
   autres.splice(autres.findIndex((section) => section.route === 'caisse') + 1, 0, chantiers);
   return autres;
+}
+
+/** Onglet « Stock » : libellé du menu de l'activité (« Stock », « Menu », « Prestations »…). */
+function libelleOnglet(o) {
+  return o.vocab ? vocab('menu') : o.libelle;
 }
 
 /** Onglets de la barre du bas (téléphone). */
@@ -55,7 +64,7 @@ const ONGLETS = [
   { route: 'tableau-de-bord', libelle: 'Accueil', icone: 'tableau' },
   { route: 'caisse', libelle: 'Caisse', icone: 'caisse' },
   { route: 'caisse?vendre=1', libelle: 'Vendre', icone: 'plusCercle', central: true },
-  { route: 'stock', libelle: 'Stock', icone: 'stock' }
+  { route: 'stock', libelle: 'Stock', icone: 'stock', vocab: true }
 ];
 /** Sections accessibles depuis « Plus » (celles absentes de la barre du bas). */
 const ROUTES_BARRE_BAS = ['tableau-de-bord', 'caisse', 'stock'];
@@ -115,7 +124,7 @@ function construireShell() {
       </nav>
 
       <div class="colonne">
-        <header class="entete-mobile">
+        <header class="entete-mobile" style="--couleur-activite:${esc(couleurActivite())}">
           ${logoSymbole(34, 'YOUMMA Business')}
           <div class="entete-mobile-textes">
             <span class="entete-mobile-nom">${esc(b.nom)}</span>
@@ -132,7 +141,7 @@ function construireShell() {
       <nav class="barre-bas" aria-label="Navigation">
         ${ONGLETS.map((o) => `
           <a href="#/${o.route}" class="onglet ${o.central ? 'onglet-central' : ''}" ${o.central ? '' : `data-route="${o.route}"`}>
-            <span class="onglet-icone">${icone(o.icone, 22, 1.9)}</span>${esc(o.libelle)}
+            <span class="onglet-icone">${icone(o.icone, 22, 1.9)}</span><span data-ref="onglet-${esc(o.route.split('?')[0])}">${esc(libelleOnglet(o))}</span>
           </a>`).join('')}
         <button type="button" class="onglet" data-action="plus" aria-haspopup="dialog">
           <span class="onglet-icone">${icone('menu', 22, 1.9)}</span>Plus
@@ -142,8 +151,8 @@ function construireShell() {
 
   const shell = app.querySelector('.shell');
   brancherShell(shell);
-  majCreditSmsAffiche(); // badge du menu et bandeau « crédit bas » (gérant / propriétaire)
-  demarrerSurveillanceCommandes(); // badge « Commandes » + toast et son à chaque nouvelle commande en ligne
+  if (aModule('messages')) majCreditSmsAffiche(); // badge du menu et bandeau « crédit bas » (gérant / propriétaire)
+  if (aModule('boutique_en_ligne')) demarrerSurveillanceCommandes(); // badge « Commandes » + toast et son à chaque nouvelle commande
   appliquerLectureSeule();        // licence en lecture seule ou suspendue : boutons d'écriture désactivés
   afficherAnnonces();             // annonce de l'équipe YOUMMA (la plus récente, fermable)
   majBadgeAide();                 // badge « Aide » si YOUMMA a répondu
@@ -162,13 +171,49 @@ function brancherShell(shell) {
   });
 }
 
+/* ------------------------------------------------------------ Modules : menu redessiné */
+
+/** Entrées du menu (pour l'aperçu « Votre menu » de Paramètres › Mes modules). */
+export function entreesMenu() {
+  return sectionsVisibles().filter((s) => !s.admin).map((s) => ({ route: s.route, libelle: libelleSection(s, false), icone: s.icone }));
+}
+
+/** Couleur de l'activité (fine touche : liseré du sélecteur de boutique et de l'en-tête téléphone). */
+function couleurActivite() {
+  const c = activite()?.couleur;
+  return /^#[0-9a-f]{6}$/i.test(c || '') ? c : 'transparent';
+}
+
+/** Redessine les liens du menu, la barre du bas et la touche de couleur (modules ou activité changés). */
+export function majMenu() {
+  const shell = document.querySelector('.shell');
+  if (!shell) return;
+  const actif = shell.querySelector('.menu-liens .lien-menu.actif')?.dataset.route;
+  const liens = shell.querySelector('.menu-liens');
+  if (liens) liens.innerHTML = sectionsVisibles().map(lienMenu).join('');
+  if (actif) shell.querySelector(`.menu-liens [data-route="${actif}"]`)?.classList.add('actif');
+  ONGLETS.forEach((o) => { const el = shell.querySelector(`[data-ref="onglet-${o.route.split('?')[0]}"]`); if (el) el.textContent = libelleOnglet(o); });
+  shell.querySelectorAll('.selecteur-bouton, .entete-mobile').forEach((el) => el.style.setProperty('--couleur-activite', couleurActivite()));
+  if (aModule('messages')) majCreditSmsAffiche();
+  if (aModule('boutique_en_ligne')) verifierCommandes();
+  majBadgeAide();
+}
+window.addEventListener('modules:change', majMenu);
+
 /* ------------------------------------------------------------ Éléments du menu */
+
+/** Libellé d'une section : « Stock » suit le vocabulaire de l'activité (« Modèles & stock », « Prestations »…). */
+function libelleSection(section, court = true) {
+  if (section.route === 'stock') return vocab('menu') || section.libelle;
+  if (section.route === 'clients' && !moduleVisible('credits')) return 'Clients';
+  return court ? section.libelleCourt || section.libelle : section.libelle;
+}
 
 function lienMenu(section) {
   return `
     <a href="${section.lien || `#/${section.route}`}" class="lien-menu" data-route="${section.route}">
       ${icone(section.icone, 20)}
-      <span class="lien-menu-libelle">${esc(section.libelleCourt || section.libelle)}</span>
+      <span class="lien-menu-libelle">${esc(libelleSection(section))}</span>
       ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
       ${section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
@@ -182,7 +227,7 @@ function selecteurBoutique() {
   const autres = etat.boutiques.filter((x) => x.boutique.id !== b.id);
   return `
     <div class="selecteur-boutique">
-      <button type="button" class="selecteur-bouton" data-action="ouvrir-boutiques" aria-expanded="false" aria-controls="liste-boutiques">
+      <button type="button" class="selecteur-bouton" data-action="ouvrir-boutiques" aria-expanded="false" aria-controls="liste-boutiques" style="--couleur-activite:${esc(couleurActivite())}">
         <span class="selecteur-textes">
           <span class="selecteur-nom">${esc(b.nom)}</span>
           <span class="selecteur-sous">${esc(descriptionBoutique(b))}</span>
@@ -226,7 +271,7 @@ document.addEventListener('keydown', (e) => {
 /** Active une autre boutique et repart de son tableau de bord. */
 export async function changerBoutique(id) {
   if (!choisirBoutique(id)) return;
-  await chargerEtatLicence();
+  await Promise.all([chargerEtatLicence(), chargerModules(id, { annoncer: false })]);
   retirerShell();
   naviguer('tableau-de-bord');
 }
@@ -287,7 +332,7 @@ function ouvrirPanneauPlus() {
       <div class="plus-groupe">
         ${sections.map((s) => `
           <a href="${s.lien || `#/${s.route}`}" class="plus-lien">
-            ${icone(s.icone, 20)}<span>${esc(s.libelle)}</span>
+            ${icone(s.icone, 20)}<span>${esc(libelleSection(s, false))}</span>
             ${s.badge ? `<span class="badge-premium">${esc(s.badge)}</span>` : ''}
             ${s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
             ${s.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}

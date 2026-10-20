@@ -13,6 +13,7 @@ import { chargerChantierOuvert } from './chantiers-commun.js';
 import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
+import { aModule, vocab, unArticle } from './modules.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
@@ -120,10 +121,10 @@ export function afficherCaisse(conteneur, params) {
           </div>
         </div>
         <div class="caisse-outils">
-          <div class="segments segments-sombre" role="group" aria-label="Type de prix">
+          ${aModule('prix_gros') ? `<div class="segments segments-sombre" role="group" aria-label="Type de prix">
             <button type="button" class="segment actif" data-prix="detail" aria-pressed="true">Prix détail</button>
             <button type="button" class="segment" data-prix="gros" aria-pressed="false">Prix gros</button>
-          </div>
+          </div>` : ''}
           <button type="button" class="btn btn-sombre" data-action="liste-attente">
             ${icone('horloge', 18, 2)}<span>Ventes en attente (<span data-ref="nb-attente">0</span>)</span>
           </button>
@@ -135,8 +136,8 @@ export function afficherCaisse(conteneur, params) {
           <div class="bandeau-devis" data-zone="devis" hidden></div>
           <label class="recherche-caisse">
             ${icone('recherche', 20, 2)}
-            <span class="sr-only">Rechercher un article ou scanner un code-barres</span>
-            <input id="recherche-caisse" type="search" placeholder="Rechercher un article ou scanner un code-barres…" autocomplete="off" enterkeyhint="search">
+            <span class="sr-only">Rechercher ${esc(unArticle())} ou scanner un code-barres</span>
+            <input id="recherche-caisse" type="search" placeholder="Rechercher ${esc(unArticle())} ou scanner un code-barres…" autocomplete="off" enterkeyhint="search">
             <kbd class="seul-ordi">F2</kbd>
           </label>
           <div class="puces" data-zone="categories" role="group" aria-label="Catégories"></div>
@@ -171,7 +172,7 @@ export function afficherCaisse(conteneur, params) {
     if (!s.produits.length) {
       conteneurArticles.innerHTML = `
         <div class="etat-vide etat-vide-large">
-          <p>Aucun article dans votre boutique pour l’instant.</p>
+          <p>Aucun${unArticle().startsWith('une') ? 'e' : ''} ${esc(vocab('article').toLowerCase())} dans votre boutique pour l’instant.</p>
           ${peut('gerer_stock')
             ? '<a class="btn btn-primaire" href="#/stock?ajouter=1">Ajouter mes premiers articles</a>'
             : '<p class="discret">Demandez au gérant d’ajouter les articles.</p>'}
@@ -281,10 +282,10 @@ export function afficherCaisse(conteneur, params) {
 
         ${detailModeHTML(total)}
 
-        <label class="case-sms ${s.client?.telephone ? '' : 'inactive'}">
+        ${aModule('messages') ? `<label class="case-sms ${s.client?.telephone ? '' : 'inactive'}">
           <input type="checkbox" data-ref="sms" ${s.recuSms && s.client?.telephone ? 'checked' : ''} ${s.client?.telephone ? '' : 'disabled'}>
           <span>Envoyer le reçu par SMS au client${s.client?.telephone ? '' : ' <small>(client avec téléphone requis)</small>'}</span>
-        </label>
+        </label>` : ''}
 
         ${expiree ? `<p class="note-licence" role="alert">${icone('alerte', 18, 2)} ${MESSAGE_LICENCE}</p>` : ''}
 
@@ -353,7 +354,7 @@ export function afficherCaisse(conteneur, params) {
   function modesHTML(compact) {
     return `
       <div class="modes ${compact ? 'modes-compacts' : ''}" role="group" aria-label="Mode de paiement">
-        ${Object.entries(MODES_PAIEMENT).filter(([code]) => MODES_CAISSE.includes(code)).map(([code, m]) => `
+        ${Object.entries(MODES_PAIEMENT).filter(([code]) => MODES_CAISSE.includes(code) && (code !== 'credit' || aModule('credits'))).map(([code, m]) => `
           <button type="button" class="mode" data-mode="${code}" aria-pressed="${s.mode === code}">
             ${compact ? '' : `<span class="mode-pastille" style="background:${m.couleur}"></span>`}
             ${esc(compact ? m.court : m.libelle)}
@@ -474,7 +475,7 @@ export function afficherCaisse(conteneur, params) {
           ? sb.from('message_modeles').select('actif').eq('boutique_id', boutique.id).eq('cle', 'recu_vente').maybeSingle()
           : Promise.resolve({ data: null })
       ]);
-      s.recuSmsParDefaut = solde > 0 && modele.data?.actif !== false;
+      s.recuSmsParDefaut = aModule('messages') && solde > 0 && modele.data?.actif !== false;
     } catch (err) {
       console.warn('[YOUMMA] Réglage du reçu SMS indisponible :', err);
     }
@@ -484,7 +485,7 @@ export function afficherCaisse(conteneur, params) {
   async function verifierChantierClient(idClient) {
     try {
       const chantier = await chargerChantierOuvert(idClient);
-      if (s.client?.id !== idClient || !chantier) return;
+      if (s.client?.id !== idClient || !chantier || !aModule('chantiers')) return;
       s.chantierClient = chantier;
       renderPanier();
     } catch (err) {
@@ -613,7 +614,7 @@ export function afficherCaisse(conteneur, params) {
     const vente = liste.find((v) => String(v.id) === String(id));
     if (!vente) return;
     viderPanier();
-    s.typePrix = vente.typePrix === 'gros' ? 'gros' : 'detail';
+    s.typePrix = vente.typePrix === 'gros' && aModule('prix_gros') ? 'gros' : 'detail';
     s.client = vente.client || null;
     s.recuSms = Boolean(s.client?.telephone) && s.recuSmsParDefaut;
     s.remise = Number(vente.remise) || 0;
@@ -835,7 +836,7 @@ export function afficherCaisse(conteneur, params) {
     const a4 = `<button type="button" class="btn ${ticket80 ? 'btn-secondaire' : 'btn-primaire'}" data-document="${type}">${icone('document', 18, 2)} ${type === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>`;
     const ticket = `<button type="button" class="btn ${ticket80 ? 'btn-primaire' : 'btn-secondaire'}" data-action="imprimer">${icone('imprimante', 18, 2)} Ticket 80 mm</button>`;
     const bl = `<button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>`;
-    return `<div class="boutons-documents">${ticket80 ? ticket + a4 : a4 + ticket}${bl}</div>`;
+    return `<div class="boutons-documents">${ticket80 ? ticket + a4 : a4 + ticket}${aModule('bons_livraison') ? bl : ''}</div>`;
   }
 
   /* ======================================================= Devis → vente */

@@ -286,7 +286,13 @@ export const TYPES_ACTIVITE = {
   habillement: 'Habillement',
   alimentation: 'Alimentation',
   services: 'Prestations de services',
-  general: 'Autre commerce'
+  general: 'Autre commerce',
+  // Étape 11 : activités ajoutées (libellés de repli ; la table « activites » fait foi).
+  cosmetiques: 'Cosmétiques',
+  telephones: 'Téléphones & électronique',
+  pieces_auto: 'Pièces auto',
+  pharmacie: 'Pharmacie',
+  restaurant: 'Restaurant'
 };
 
 /** Modes de paiement : libellés et couleurs des maquettes. */
@@ -384,6 +390,12 @@ const MESSAGES_METIER = {
   STATUT_INVALIDE: 'Cette étape n’est pas possible pour cette commande.',
   PROMO_INVALIDE: 'Le prix promo doit être inférieur au prix de détail.',
   PROFORMA_INTROUVABLE: 'Ce devis est introuvable dans votre boutique.',
+  MODULE_INACTIF: 'Cette fonction n’est pas activée pour votre boutique — Paramètres › Mes modules.',
+  MODULE_FORMULE: 'Disponible avec une formule supérieure.',
+  MODULE_BIENTOT: 'Ce module sera bientôt disponible.',
+  MODULE_BLOQUE: 'Désactivé par YOUMMA — contactez le support.',
+  MODULE_INCONNU: 'Ce module est inconnu.',
+  ACTIVITE_INCONNUE: 'Cette activité est inconnue.',
   PROFORMA_VERROUILLEE: 'Ce devis a déjà été accepté ou transformé en vente : il ne peut plus être modifié.'
 };
 
@@ -400,6 +412,10 @@ export function messageErreur(err) {
   const epuise = brut.match(/PRODUIT_EPUISE\s*:?\s*(.+)$/i);
   if (epuise) return `« ${epuise[1].trim()} » est épuisé : retirez-le du panier.`;
   if (brut.includes('PRODUIT_EPUISE')) return 'Un article du panier est épuisé.';
+  // Module masqué : message clair, et les modules de la boutique sont relus (menu redessiné).
+  const enCoursModule = brut.match(/MODULE_EN_COURS\s*:?\s*(.*)$/);
+  if (enCoursModule) return `Impossible de masquer ce module${enCoursModule[1] ? ` : ${enCoursModule[1].trim().replace(/\.$/, '')}` : ''}. Terminez d’abord ces opérations.`;
+  if (brut.includes('MODULE_INACTIF') && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('yb:module-inactif'));
   const quota = brut.match(/QUOTA_PHOTOS\s*:?\s*(\d+)/);
   if (quota || brut.includes('QUOTA_PHOTOS')) {
     return `Limite de ${quota ? formatNombre(Number(quota[1])) + ' ' : ''}photos atteinte pour votre formule. Retirez des photos ou passez à une formule supérieure.`;

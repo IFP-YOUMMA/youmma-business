@@ -29,6 +29,8 @@ import { afficherProformas } from './proformas.js';
 import { afficherReglagesDocuments } from './documents/reglages.js';
 import { afficherIdentite } from './identite.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
+import { chargerModules, modulesPour, accesRoute } from './modules.js';
+import { afficherMesModules } from './mes-modules.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
 const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
@@ -75,7 +77,9 @@ const ROUTES = {
   // Paramètres → Documents (réglages des factures, reçus, devis)
   documents: { vue: afficherReglagesDocuments, droit: 'documents.reglages' },
   // Paramètres → Logo & images (logo, couverture, paiements, partenaires, miniatures)
-  identite: { vue: afficherIdentite, droit: 'documents.reglages' }
+  identite: { vue: afficherIdentite, droit: 'documents.reglages' },
+  // Paramètres → Mes modules (gérant et propriétaire)
+  modules: { vue: afficherMesModules, droit: 'parametres_boutique' }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -103,6 +107,16 @@ function resoudre() {
     toast('Accès réservé au gérant.', 'erreur');
     return naviguer('tableau-de-bord', { remplacer: true });
   }
+  // Modules de la boutique : connus avant d'afficher un écran (copie locale immédiate, sinon réseau).
+  if (!route.publique && !route.horsShell && etat.boutique && !modulesPour(etat.boutique.id)) {
+    chargerModules(etat.boutique.id, { annoncer: false }).then(() => resoudre());
+    return undefined;
+  }
+  // Écran d'un module masqué (lien ancien, favori) : retour au tableau de bord avec le message.
+  if (!route.publique && !route.horsShell && accesRoute(nom) === 'refuse') {
+    toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000);
+    return naviguer('tableau-de-bord', { remplacer: true });
+  }
 
   nettoyerVue?.();
   nettoyerVue = null;
@@ -121,6 +135,14 @@ function resoudre() {
   if (typeof nettoyage === 'function') nettoyerVue = nettoyage;
   return undefined;
 }
+
+/** Modules modifiés (choix, activité, rechargement) : on quitte un écran devenu inaccessible, on redessine l'accueil. */
+window.addEventListener('modules:change', () => {
+  if (!etat.boutique || !document.querySelector('.shell')) return;
+  const nom = lireRoute().nom.split('/')[0];
+  if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer('tableau-de-bord', { remplacer: true }); return; }
+  if (nom === 'tableau-de-bord') resoudre();
+});
 
 /** Écran affiché tant que js/config.js n'est pas rempli. */
 function afficherAideConfiguration() {

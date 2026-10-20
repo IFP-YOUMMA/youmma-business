@@ -12,6 +12,7 @@ import {
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
 } from './utils.js';
 import { modifierPhotoArticle } from './images/actions.js';
+import { aModule, vocab, unArticle, unites } from './modules.js';
 import { retirerPhotoArticle } from './images/envoi.js';
 import { vignetteProduit } from './images/affichage.js';
 
@@ -35,6 +36,14 @@ function normaliserTexte(texte) {
 }
 
 /** Classe et libellé de la pastille de stock (rouge ≤ seuil, orange ≤ 2× seuil, vert sinon). */
+/** « l’article », « le modèle », « la prestation » ; « de l’article », « du modèle », « de la prestation ». */
+function leArticle() {
+  const mot = vocab('article').toLowerCase();
+  if (/^[aeiouyéèêh]/.test(mot)) return `l’${mot}`;
+  return `${unArticle().startsWith('une') ? 'la' : 'le'} ${mot}`;
+}
+const deArticle = () => { const l = leArticle(); return l.startsWith('le ') ? `du ${l.slice(3)}` : `de ${l}`; };
+
 function pastilleStock(p) {
   if (p.sur_commande) return { classe: 'commande', texte: 'Sur commande' };
   const stock = Number(p.stock) || 0;
@@ -67,19 +76,19 @@ export function afficherStock(conteneur, params) {
   /* ======================================================= Gabarit */
 
   conteneur.innerHTML = `
-    <div class="page">
+    <div class="page ${aModule('prix_gros') ? '' : 'sans-gros'}">
       <header class="page-entete">
         <div class="page-titres">
-          <h1>Stock</h1>
-          <span data-zone="resume">Chargement des articles…</span>
+          <h1>${esc(vocab('menu'))}</h1>
+          <span data-zone="resume">Chargement…</span>
         </div>
-        ${gerer ? `<button type="button" class="btn btn-primaire" data-action="ajouter">${icone('plus', 18, 2.4)} Ajouter un article</button>` : ''}
+        ${gerer ? `<button type="button" class="btn btn-primaire" data-action="ajouter">${icone('plus', 18, 2.4)} Ajouter ${esc(unArticle())}</button>` : ''}
       </header>
 
       <section class="carte outils-stock" aria-label="Filtres">
         <label class="recherche-entete recherche-large">
           ${icone('recherche', 18, 2)}
-          <span class="sr-only">Rechercher un article</span>
+          <span class="sr-only">Rechercher ${esc(unArticle())}</span>
           <input type="search" id="recherche-stock" placeholder="Nom ou code-barres…" value="${esc(s.recherche)}" autocomplete="off">
         </label>
         <div class="champ champ-en-ligne">
@@ -95,7 +104,7 @@ export function afficherStock(conteneur, params) {
 
       <section class="carte carte-liste-stock" aria-label="Articles">
         <div class="entete-liste-stock seul-ordi" aria-hidden="true">
-          <span>Article</span><span>Catégorie</span><span>Prix détail</span><span>Prix gros</span><span>Stock</span><span></span>
+          <span>${esc(vocab('article'))}</span><span>Catégorie</span><span>Prix détail</span><span>Prix gros</span><span>Stock</span><span></span>
         </div>
         <ul class="liste-stock" data-zone="liste">
           ${'<li class="squelette-ligne"><span class="squelette" style="height:14px;width:40%"></span><span class="squelette" style="height:10px;width:70%"></span></li>'.repeat(6)}
@@ -131,7 +140,7 @@ export function afficherStock(conteneur, params) {
     if (!s.charge) return;
     const actifs = s.produits.filter((p) => p.actif);
     const nbBas = actifs.filter(estStockBas).length;
-    zone('resume').textContent = `${actifs.length} article${actifs.length > 1 ? 's' : ''} actif${actifs.length > 1 ? 's' : ''}`
+    zone('resume').textContent = `${actifs.length} ${(actifs.length > 1 ? vocab('articles') : vocab('article')).toLowerCase()} actif${actifs.length > 1 ? 's' : ''}`
       + (nbBas ? ` · ${nbBas} sous le seuil d’alerte` : '');
 
     const liste = produitsFiltres();
@@ -158,7 +167,7 @@ export function afficherStock(conteneur, params) {
   function ligneHTML(p) {
     const pastille = pastilleStock(p);
     const unite = esc(p.unite || 'unité');
-    const gros = p.prix_gros !== null && p.prix_gros !== undefined;
+    const gros = p.prix_gros !== null && p.prix_gros !== undefined && aModule('prix_gros');
     const promo = promoActive(p);
     const prixDetailHTML = promo
       ? `<s class="discret">${formatNombre(p.prix_detail)}</s> <span class="gras texte-promo">${formatNombre(p.prix_promo)}</span>`
@@ -169,7 +178,7 @@ export function afficherStock(conteneur, params) {
           <span class="ls-article">
             <span class="vignette-mini">${vignetteProduit(p, 44, icone('stock', 18, 1.8))}</span>
             <span class="ls-textes">
-              <span class="gras">${esc(p.nom)}${promo ? ' <span class="badge-promo">Promo</span>' : ''}${p.en_ligne === false ? ' <span class="tag-masque">Masqué en ligne</span>' : ''}</span>
+              <span class="gras">${esc(p.nom)}${promo ? ' <span class="badge-promo">Promo</span>' : ''}${p.en_ligne === false && aModule('boutique_en_ligne') ? ' <span class="tag-masque">Masqué en ligne</span>' : ''}</span>
               <span class="discret">
                 <span class="seul-mobile">${esc(nomCategorie(p.categorie_id))}${p.code_barre ? ' · ' : ''}</span>${p.code_barre ? esc(p.code_barre) : ''}${p.actif ? '' : ' · Désactivé'}
               </span>
@@ -303,12 +312,12 @@ export function afficherStock(conteneur, params) {
           ${info('Unité', esc(p.unite || '—'))}
           ${info('Prix détail', formatGNF(p.prix_detail))}
           ${promo ? info('Prix promo', `<span class="texte-promo gras">${formatGNF(p.prix_promo)}</span>${p.promo_fin ? ` jusqu’au ${esc(formatDate(p.promo_fin, 'court'))}` : ' (sans fin)'}`) : ''}
-          ${info('En ligne', p.en_ligne === false ? 'Masqué sur la boutique en ligne' : 'Visible sur la boutique en ligne')}
-          ${info('Prix gros', p.prix_gros !== null && p.prix_gros !== undefined ? formatGNF(p.prix_gros) : '—')}
+          ${aModule('boutique_en_ligne') ? info('En ligne', p.en_ligne === false ? 'Masqué sur la boutique en ligne' : 'Visible sur la boutique en ligne') : ''}
+          ${aModule('prix_gros') ? info('Prix gros', p.prix_gros !== null && p.prix_gros !== undefined ? formatGNF(p.prix_gros) : '—') : ''}
           ${peut('voir_prix_achat') ? info('Prix d’achat', p.prix_achat !== null && p.prix_achat !== undefined ? formatGNF(p.prix_achat) : '—') : ''}
           ${info('Seuil d’alerte', p.sur_commande ? '—' : esc(formatQuantite(p.seuil_alerte, p.unite)))}
           ${info('Code-barres', esc(p.code_barre || '—'))}
-          ${gerer ? info('Fournisseur', esc(s.fournisseurs.find((f) => f.id === p.fournisseur_id)?.nom || '—')) : ''}
+          ${gerer && aModule('fournisseurs') ? info('Fournisseur', esc(s.fournisseurs.find((f) => f.id === p.fournisseur_id)?.nom || '—')) : ''}
         </dl>
         ${gerer ? `
           <div class="fiche-actions">
@@ -419,15 +428,15 @@ export function afficherStock(conteneur, params) {
 
   function ouvrirFormulaire(produit = null, apres = null) {
     const creation = !produit;
-    const p = produit || { nom: '', categorie_id: s.categorie || null, unite: '', prix_detail: '', prix_gros: null, prix_achat: null, stock: '', seuil_alerte: '', sur_commande: false, code_barre: '' };
+    const p = produit || { nom: '', categorie_id: s.categorie || null, unite: '', prix_detail: '', prix_gros: null, prix_achat: null, stock: '', seuil_alerte: '', sur_commande: Boolean(vocab('sans_stock')), code_barre: '' };
     const valeur = (v) => (v === null || v === undefined ? '' : esc(v));
     const { el, fermer } = ouvrirModale({
-      titre: creation ? 'Ajouter un article' : 'Modifier l’article',
+      titre: creation ? `Ajouter ${unArticle()}` : `Modifier ${leArticle()}`,
       variante: 'large',
       contenu: `
         <form class="form-modale" novalidate>
           <div class="champ">
-            <label for="art-nom">Nom de l’article</label>
+            <label for="art-nom">Nom ${esc(deArticle())}</label>
             <input id="art-nom" name="nom" class="input" type="text" required maxlength="120" value="${valeur(p.nom)}" placeholder="Ex. Ciment CPJ 42,5">
           </div>
 
@@ -448,7 +457,7 @@ export function afficherStock(conteneur, params) {
             <div class="champ">
               <label for="art-unite">Unité de vente</label>
               <input id="art-unite" name="unite" class="input" type="text" list="liste-unites" required maxlength="30" value="${valeur(p.unite)}" placeholder="Choisir ou saisir (sac, kg, pièce…)">
-              <datalist id="liste-unites">${UNITES.map((u) => `<option value="${esc(u)}">`).join('')}</datalist>
+              <datalist id="liste-unites">${(unites() || UNITES).map((u) => `<option value="${esc(u)}">`).join('')}</datalist>
             </div>
           </div>
 
@@ -457,7 +466,7 @@ export function afficherStock(conteneur, params) {
               <label for="art-prix-detail">Prix détail (GNF)</label>
               <input id="art-prix-detail" name="prix_detail" class="input" type="number" inputmode="numeric" min="0" step="1" required value="${valeur(p.prix_detail)}">
             </div>
-            <div class="champ">
+            <div class="champ" ${aModule('prix_gros') ? '' : 'hidden'}>
               <label for="art-prix-gros">Prix gros (GNF, facultatif)</label>
               <input id="art-prix-gros" name="prix_gros" class="input" type="number" inputmode="numeric" min="0" step="1" value="${valeur(p.prix_gros)}">
             </div>
@@ -474,7 +483,7 @@ export function afficherStock(conteneur, params) {
             </div>
           </div>
 
-          <div class="champ">
+          <div class="champ" ${aModule('fournisseurs') ? '' : 'hidden'}>
             <label for="art-fournisseur">Fournisseur (facultatif)</label>
             <select id="art-fournisseur" name="fournisseur" class="input">
               <option value="">Aucun fournisseur</option>
@@ -500,14 +509,14 @@ export function afficherStock(conteneur, params) {
               <button type="button" class="btn-lien btn-lien-gauche btn-lien-danger" data-action-form="retirer-promo" ${p.prix_promo ? '' : 'hidden'}>Retirer la promo</button>
             </fieldset>` : ''}
 
-          <label class="case-option">
+          <label class="case-option" ${aModule('boutique_en_ligne') ? '' : 'hidden'}>
             <input type="checkbox" name="en_ligne" ${p.en_ligne === false ? '' : 'checked'}>
             <span><strong>Visible en ligne</strong> (sur votre boutique en ligne)</span>
           </label>
 
           <label class="case-option">
             <input type="checkbox" name="sur_commande" ${p.sur_commande ? 'checked' : ''}>
-            <span><strong>Article sur commande</strong> (pas de stock : sable, gravier, prestation…)</span>
+            <span><strong>${esc(vocab('article'))} sur commande</strong> (pas de stock : sable, gravier, prestation…)</span>
           </label>
 
           <div class="rangee-champs" data-zone="champs-stock">
@@ -526,7 +535,7 @@ export function afficherStock(conteneur, params) {
           <p class="erreur-form" role="alert" hidden></p>
           <div class="modale-actions">
             <button type="button" class="btn btn-secondaire" data-fermer>Annuler</button>
-            <button type="submit" class="btn btn-primaire">${creation ? 'Ajouter l’article' : 'Enregistrer'}</button>
+            <button type="submit" class="btn btn-primaire">${creation ? esc(`Ajouter ${leArticle()}`) : 'Enregistrer'}</button>
           </div>
         </form>`
     });

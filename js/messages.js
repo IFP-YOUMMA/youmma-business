@@ -13,6 +13,7 @@
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
 import { monterFournisseurs } from './fournisseurs.js';
+import { aModule, moduleVisible } from './modules.js';
 import { afficherNouvelleCampagne, LIBELLES_CIBLES } from './campagne.js';
 import {
   chargerSoldeSms, ouvrirRecharge, majCreditSmsAffiche, texteCompteur, compterSms, SMS_MAX_CARACTERES
@@ -74,6 +75,14 @@ const GROUPES = [
     cles: ['bon_commande', 'relance_livraison'], recoit: 'le fournisseur' }
 ];
 const groupeDe = (cle) => GROUPES.find((g) => g.cles.includes(cle));
+/** Modèles qui n'ont de sens qu'avec un module (masqués sinon). */
+const MODULE_DU_MODELE = {
+  commande_web: 'boutique_en_ligne', commande_confirmee: 'boutique_en_ligne',
+  rappel_echeance: 'credits', relance_retard: 'credits', recu_remboursement: 'credits',
+  situation_chantier: 'chantiers', bon_commande: 'fournisseurs', relance_livraison: 'fournisseurs'
+};
+const modeleVisible = (cle) => !MODULE_DU_MODELE[cle] || moduleVisible(MODULE_DU_MODELE[cle]);
+const ongletsVisibles = () => ONGLETS.filter(([code]) => code !== 'fournisseurs' || aModule('fournisseurs'));
 
 /** Champs de réglage : libellé, type de saisie. */
 const REGLAGES = {
@@ -107,7 +116,7 @@ function badgeStatut(statut, erreur) {
 export function afficherMessages(conteneur, params) {
   const vue = params.get('id') || 'automatiques';
   if (vue === 'campagne') { afficherNouvelleCampagne(conteneur); return; }
-  const onglet = ONGLETS.some(([code]) => code === vue) ? vue : 'automatiques';
+  const onglet = ongletsVisibles().some(([code]) => code === vue) ? vue : 'automatiques';
 
   conteneur.innerHTML = `
     <div class="page page-messages">
@@ -127,7 +136,7 @@ export function afficherMessages(conteneur, params) {
         </div>
       </header>
       <nav class="onglets" role="tablist" aria-label="Sections">
-        ${ONGLETS.map(([code, libelle]) => `
+        ${ongletsVisibles().map(([code, libelle]) => `
           <a href="#/messages/${code}" class="onglet-messages ${code === onglet ? 'actif' : ''}" role="tab" aria-selected="${code === onglet}">${esc(libelle)}</a>`).join('')}
       </nav>
       <div data-zone="onglet"></div>
@@ -199,7 +208,8 @@ function monterAutomatiques(zone) {
 
   function renderGroupes() {
     sous('groupes').innerHTML = GROUPES.map((g) => {
-      const modeles = g.cles.map((cle) => s.modeles.find((m) => m.cle === cle)).filter(Boolean);
+      const modeles = g.cles.filter(modeleVisible).map((cle) => s.modeles.find((m) => m.cle === cle)).filter(Boolean);
+      if (!modeles.length) return '';
       return `
         <div class="carte groupe-modeles">
           <div class="groupe-entete">

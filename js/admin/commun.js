@@ -47,6 +47,31 @@ export async function appelComptes(corps) {
 /* ------------------------------------------------------------ Libellés */
 
 export const TYPES = TYPES_ACTIVITE;
+
+/** Activités (table « activites » : 10 valeurs, emoji, couleur) ; repli sur la liste interne. Mises en cache. */
+let activitesCache = null;
+export async function chargerActivites() {
+  if (activitesCache) return activitesCache;
+  const { data } = await sb.from('activites').select('code, nom, emoji, couleur, ordre').order('ordre');
+  activitesCache = data?.length ? data : Object.entries(TYPES_ACTIVITE).map(([code, nom], i) => ({ code, nom, emoji: '', couleur: '', ordre: i }));
+  return activitesCache;
+}
+/** Tuiles radio des activités (formulaires admin). */
+export function tuilesActivites(activites, nom, choisie = '') {
+  return `<div class="grille-types adm-grille-activites">${activites.map((a) => `
+    <label class="carte-type ${a.code === choisie ? 'choisie' : ''}" ${a.couleur ? `style="--couleur-activite:${esc(a.couleur)}"` : ''}>
+      <input type="radio" name="${esc(nom)}" value="${esc(a.code)}" ${a.code === choisie ? 'checked' : ''} required>
+      <span class="carte-type-icone">${a.emoji ? `<span class="carte-type-emoji" aria-hidden="true">${esc(a.emoji)}</span>` : icone('magasin', 22, 1.8)}</span>
+      <span class="carte-type-libelle">${esc(a.nom)}</span>
+    </label>`).join('')}</div>`;
+}
+/** Met en avant la tuile cochée (à brancher sur le formulaire). */
+export function suivreTuiles(form) {
+  form.addEventListener('change', (e) => {
+    if (e.target.type !== 'radio' || !e.target.closest('.carte-type')) return;
+    form.querySelectorAll('.carte-type').forEach((c) => c.classList.toggle('choisie', c.querySelector('input').checked));
+  });
+}
 export const MODES_PAIEMENT_YOUMMA = {
   especes: 'Espèces', orange_money: 'Orange Money', mtn_momo: 'MTN MoMo', virement: 'Virement', chapchap: 'ChapChap Pay', offert: 'Offert'
 };

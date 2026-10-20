@@ -7,6 +7,7 @@ import { configurationValide } from '../supabase.js';
 import { etat, chargerSession, chargerBoutiques, choisirBoutique, peut } from '../state.js';
 import { esc, icone, toast, messageErreur, formatGNF, normaliserTelephone } from '../utils.js';
 import { rendreDocument, LIBELLES_DOCUMENTS, lienVerification, donneesExemple } from './rendu.js';
+import { chargerModules, aModule } from '../modules.js';
 import {
   chargerReglages, normaliserReglages, typeVente, emettreDocument, documentExistant, imagesSignature, chargerVente, chargerProforma
 } from './donnees.js';
@@ -38,6 +39,8 @@ async function demarrer() {
     if (!choisirBoutique(params.get('b') || etat.boutique?.id)) return erreur('Cette boutique n’est pas dans votre compte.');
     if (!peut('documents.imprimer')) return erreur('Vous n’avez pas accès aux documents de cette boutique.');
     const essai = params.get('essai') === '1';
+    await chargerModules(etat.boutique.id, { annoncer: false });
+    if (s.type === 'bon_livraison' && !aModule('bons_livraison')) s.type = 'facture';
     s.reglages = essai ? lireBrouillon() : await chargerReglages(etat.boutique.id);
     s.signatures = await imagesSignature(s.reglages);
     if (params.get('proforma')) {
@@ -96,7 +99,7 @@ function render() {
       <div class="barre-doc-actions">
         ${venteDoc && !essai ? `<div class="segments" role="group" aria-label="Type de document">
           <button type="button" class="segment ${s.type === typePrincipal ? 'actif' : ''}" data-type="${typePrincipal}">${typePrincipal === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>
-          <button type="button" class="segment ${s.type === 'bon_livraison' ? 'actif' : ''}" data-type="bon_livraison">Bon de livraison</button></div>` : ''}
+          ${aModule('bons_livraison') ? `<button type="button" class="segment ${s.type === 'bon_livraison' ? 'actif' : ''}" data-type="bon_livraison">Bon de livraison</button>` : ''}</div>` : ''}
         ${s.type === 'bon_livraison' ? `<label class="doc-option"><input type="checkbox" data-action="prix" ${s.avecPrix ? 'checked' : ''}> Avec les prix</label>` : ''}
         <button type="button" class="btn btn-primaire" data-action="imprimer">${icone('imprimante', 18, 2)} Imprimer / PDF</button>
         ${!essai && doc?.code ? `<button type="button" class="btn btn-whatsapp" data-action="whatsapp">${icone('whatsapp', 18, 2)} WhatsApp</button>` : ''}

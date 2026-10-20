@@ -20,6 +20,7 @@ import { ouvrirDocument } from './documents/donnees.js';
 import { LIBELLES_DOCUMENTS } from './documents/rendu.js';
 import { COLONNES_CHANTIER, badgeSolde, ouvrirFormulaireChantier } from './chantiers-commun.js';
 import { relancerParSms } from './sms.js';
+import { aModule, moduleVisible } from './modules.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales,
   formatNombre, formatGNF, formatDate, formatTelephone, formatNumeroVente,
@@ -83,7 +84,7 @@ function afficherListe(conteneur, idSelection) {
     totaux: null,
     rembourse: { montant: 0, nb: 0 },
     derniersAchats: new Map(),
-    filtre: 'credit',
+    filtre: moduleVisible('credits') ? 'credit' : 'tous',
     recherche: '',
     selection: idSelection,
     charge: false
@@ -92,11 +93,11 @@ function afficherListe(conteneur, idSelection) {
   const nomsMembres = chargerNomsMembres(boutique.id);
 
   conteneur.innerHTML = `
-    <div class="page page-clients">
+    <div class="page page-clients ${moduleVisible('credits') ? '' : 'sans-credits'}">
       <header class="page-entete">
         <div class="page-titres">
           <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
-          <h1>Clients &amp; crédits</h1>
+          <h1>${moduleVisible('credits') ? 'Clients &amp; crédits' : 'Clients'}</h1>
         </div>
         <div class="dash-entete-actions entete-clients-actions">
           <label class="recherche-entete recherche-clients">
@@ -108,13 +109,13 @@ function afficherListe(conteneur, idSelection) {
         </div>
       </header>
 
-      <section class="kpis-clients" aria-label="Résumé des crédits" data-zone="kpis">
+      <section class="kpis-clients" aria-label="Résumé des crédits" data-zone="kpis" ${moduleVisible('credits') ? '' : 'hidden'}>
         ${'<div class="carte kpi-client"><span class="squelette" style="height:13px;width:60%"></span><span class="squelette" style="height:26px;width:80%"></span><span class="squelette" style="height:12px;width:55%"></span></div>'.repeat(4)}
       </section>
 
       <div class="clients-corps">
         <section class="carte clients-liste" aria-label="Liste des clients">
-          <div class="puces" role="group" aria-label="Filtrer" data-zone="filtres"></div>
+          <div class="puces" role="group" aria-label="Filtrer" data-zone="filtres" ${moduleVisible('credits') ? '' : 'hidden'}></div>
           <div class="entete-liste-clients seul-ordi" aria-hidden="true">
             <span>Client</span><span>Échéance</span><span>Dernier achat</span><span class="droite">Doit</span>
           </div>
@@ -175,7 +176,7 @@ function afficherListe(conteneur, idSelection) {
     if (!s.clients.length) {
       zone('liste').innerHTML = `
         <li class="etat-vide etat-vide-large">
-          <p>Aucun client pour l’instant. Ajoutez vos clients pour suivre leurs achats et leurs crédits.</p>
+          <p>Aucun client pour l’instant. Ajoutez vos clients pour suivre leurs achats${moduleVisible('credits') ? ' et leurs crédits' : ''}.</p>
           <button type="button" class="btn btn-primaire" data-action="nouveau-client">Ajouter un client</button>
         </li>`;
       return;
@@ -423,7 +424,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
             </div>
             <button type="button" class="btn-icone btn-icone-sombre btn-crayon" data-action="modifier" aria-label="Modifier le client">${icone('crayon', 18, 2)}</button>
           </div>
-          <div class="fiche-reste">
+          <div class="fiche-reste" ${moduleVisible('credits') || client.solde_credit > 0 ? '' : 'hidden'}>
             <span class="fiche-reste-libelle">Reste à payer</span>
             <span class="fiche-reste-montant">${formatNombre(client.solde_credit)} <span>GNF</span></span>
             ${badgeEcheance(client, 'long')}
@@ -433,7 +434,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
 
         <div class="fiche-corps">
           <div class="actions-client">
-            <button type="button" class="action-client" data-action="relancer" ${tel && client.solde_credit > 0 && peut('clients.relancer') ? '' : `disabled title="${tel ? 'Ce client ne doit rien' : 'Aucun numéro enregistré'}"`}>${icone('sms', 20, 2)}<span>Relancer<span class="seul-ordi"> par</span> SMS</span></button>
+            ${aModule('messages') && moduleVisible('credits') ? `<button type="button" class="action-client" data-action="relancer" ${tel && client.solde_credit > 0 && peut('clients.relancer') ? '' : `disabled title="${tel ? 'Ce client ne doit rien' : 'Aucun numéro enregistré'}"`}>${icone('sms', 20, 2)}<span>Relancer<span class="seul-ordi"> par</span> SMS</span></button>` : ''}
             ${tel
               ? `<a class="action-client" href="tel:+${esc(tel)}">${icone('telephone', 20, 2)}<span>Appeler</span></a>`
               : `<button type="button" class="action-client" disabled title="Aucun numéro enregistré">${icone('telephone', 20, 2)}<span>Appeler</span></button>`}
@@ -443,13 +444,13 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
             <a class="action-client seul-ordi" href="#/caisse?client=${encodeURIComponent(client.id)}">${icone('plus', 20, 2)}<span>Nouvelle vente</span></a>
           </div>
 
-          ${peut('messages.modifier') ? `
+          ${peut('messages.modifier') && aModule('messages') ? `
             <label class="case-option case-promo">
               <input type="checkbox" data-action="stop-promo" ${client.stop_promo ? 'checked' : ''}>
               <span><strong>Ne pas envoyer de promotions</strong> <span class="discret">(campagnes SMS). Les reçus et relances de crédit restent envoyés.</span></span>
             </label>` : ''}
 
-          <section class="bloc-chantier-client" aria-label="Chantier" data-zone="chantier-client"></section>
+          ${moduleVisible('chantiers') ? '<section class="bloc-chantier-client" aria-label="Chantier" data-zone="chantier-client"></section>' : ''}
 
           ${remb.detteSoldee ? `<p class="dette-soldee" role="status">${icone('valide', 18, 2.4)} Dette soldée ✔</p>` : ''}
           ${client.solde_credit > 0 ? blocRemboursementHTML() : ''}
@@ -512,6 +513,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
 
   async function chargerChantiersClient() {
     const zoneChantier = zone.querySelector('[data-zone="chantier-client"]');
+    if (!zoneChantier) return;
     const { data, error } = await sb.from('chantiers').select(COLONNES_CHANTIER)
       .eq('boutique_id', boutique.id).eq('client_id', client.id).order('created_at', { ascending: false });
     if (!zoneChantier?.isConnected) return;
@@ -525,7 +527,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
           <span class="client-textes"><span class="gras">${esc(ouvert.nom)}</span><span class="discret">${esc(ouvert.numero)}</span></span>
           ${badgeSolde(ouvert.solde)}
           <a class="btn btn-secondaire btn-petit" href="#/chantiers/${encodeURIComponent(ouvert.id)}">Ouvrir le compte</a>
-        </div>` : '<button type="button" class="btn btn-secondaire btn-bloc" data-action="ouvrir-chantier">Ouvrir un chantier pour ce client</button>'}
+        </div>` : aModule('chantiers') ? '<button type="button" class="btn btn-secondaire btn-bloc" data-action="ouvrir-chantier">Ouvrir un chantier pour ce client</button>' : '<p class="discret">Aucun chantier ouvert.</p>'}
       ${clotures.length ? `<ul class="chantiers-clotures">${clotures.map((c) => `
         <li><a href="#/chantiers/${encodeURIComponent(c.id)}">${esc(c.numero)} · ${esc(c.nom)}</a> <span class="discret">clôturé</span></li>`).join('')}</ul>` : ''}`;
   }

@@ -9,13 +9,14 @@ import { PACKS_SMS } from '../sms.js';
 import {
   estSuper, rpc, premiere, champ, liste, appelComptes, erreurAdmin, badgeLicence, etatLicenceTexte, ilYa, telLocal, lienWa,
   urlVitrine, gnf, nombre, exporterCsv, afficherMotDePasse, nouveauMotDePasse, tableau, blocErreur, squelette, libelleAction,
-  detailsAction, TYPES, MODES_PAIEMENT_YOUMMA, avatarBoutique } from './commun.js';
+  detailsAction, TYPES, MODES_PAIEMENT_YOUMMA, avatarBoutique, chargerActivites, tuilesActivites, suivreTuiles } from './commun.js';
 import { ouvrirEnregistrerPaiement } from './licences.js';
 
 const FILTRES = [['toutes', 'Toutes'], ['actives', 'Actives'], ['essai', 'Essai'], ['expirent_7j', 'Expirent < 7 j'], ['expirees', 'Expirées'], ['suspendues', 'Suspendues'], ['inactives', 'Inactives 7 j']];
 const PAGE = 50;
-const MODULES = [['chantiers', 'Chantiers'], ['boutique_en_ligne', 'Boutique en ligne'], ['messages', 'Messages SMS'], ['affiches', 'Affiches du jour']];
-const ONGLETS = [['resume', 'Résumé'], ['membres', 'Membres'], ['licence', 'Licence & paiements'], ['sms', 'SMS'], ['vitrine', 'Boutique en ligne'], ['activite', 'Activité']];
+const ONGLETS = [['resume', 'Résumé'], ['membres', 'Membres'], ['licence', 'Licence & paiements'], ['modules', 'Modules'], ['sms', 'SMS'], ['vitrine', 'Boutique en ligne'], ['activite', 'Activité']];
+const ETATS_MODULE = { actif: ['Actif', 'vert'], inactif: ['Masqué', 'gris'], formule: ['Formule trop basse', 'orange'], bloque: ['Bloqué', 'rouge'], bientot: ['Bientôt', 'gris'] };
+const GROUPES_MODULES = { vente: 'Vente', activite: 'Activité', communication: 'Communication' };
 const ROLES = { proprietaire: 'Propriétaire', gerant: 'Gérant', vendeur: 'Vendeur' };
 const estMobile = () => window.matchMedia('(max-width: 899.98px)').matches;
 
@@ -34,7 +35,7 @@ async function chargerFormules() {
 }
 
 export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
-  const s = { filtre: params.get('filtre') || 'toutes', recherche: params.get('q') || '', offset: 0, total: 0, lignes: [], jeton: 0 };
+  const s = { filtre: params.get('filtre') || 'toutes', recherche: params.get('q') || '', type: params.get('type') || '', offset: 0, total: 0, lignes: [], jeton: 0 };
   const pageFiche = Boolean(id) && estMobile();
 
   if (pageFiche) {
@@ -55,6 +56,11 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
       <label class="recherche-entete"><span class="sr-only">Rechercher</span>${icone('recherche', 18, 2)}
         <input type="search" id="recherche-boutiques" placeholder="Nom, téléphone, ville…" value="${esc(s.recherche)}" autocomplete="off"></label>
       <div class="adm-puces" role="group" aria-label="Filtres" data-zone="filtres"></div>
+      <label class="adm-select-ligne"><span class="sr-only">Activité</span>
+        <select id="filtre-activite" class="input">
+          <option value="">Toutes les activités</option>
+          ${Object.entries(TYPES).map(([c, l]) => `<option value="${esc(c)}" ${c === s.type ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+        </select></label>
     </div>
     <div class="adm-maitre-detail">
       <section class="adm-carte adm-liste-boutiques" aria-label="Liste des boutiques">
@@ -85,7 +91,7 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
       }, { droite: true }]
     ], s.lignes, {
       classe: 'cliquable',
-      vide: s.recherche ? 'Aucune boutique ne correspond.' : 'Aucune boutique dans ce filtre.',
+      vide: s.recherche || s.type ? 'Aucune boutique ne correspond.' : 'Aucune boutique dans ce filtre.',
       attributsLigne: (b) => `data-boutique="${esc(b.id)}" tabindex="0" class="${b.id === id ? 'selectionnee' : ''}"`
     });
     const pages = Math.ceil(s.total / PAGE);
@@ -100,10 +106,26 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
     const jeton = ++s.jeton;
     zone('liste').innerHTML = squelette(6);
     try {
-      const r = premiere(await rpc('admin_liste_boutiques', { p_recherche: s.recherche || null, p_filtre: s.filtre, p_limite: PAGE, p_offset: s.offset })) || {};
-      if (jeton !== s.jeton || !conteneur.isConnected) return;
-      s.lignes = liste(r, 'lignes');
-      s.total = Number(r.total) || s.lignes.length;
+      let r;
+      if (s.type) {
+        // Filtre par activité : toutes les pages du filtre courant, puis tri et pagination ici.
+        const toutes = [];
+        for (let o = 0; o < 20000; o += 500) {
+          r = premiere(await rpc('admin_liste_boutiques', { p_recherche: s.recherche || null, p_filtre: s.filtre, p_limite: 500, p_offset: o })) || {};
+          const l = liste(r, 'lignes');
+          toutes.push(...l);
+          if (l.length < 500) break;
+        }
+        const filtrees = toutes.filter((b) => (b.type_activite || 'general') === s.type);
+        if (jeton !== s.jeton || !conteneur.isConnected) return;
+        s.total = filtrees.length;
+        s.lignes = filtrees.slice(s.offset, s.offset + PAGE);
+      } else {
+        r = premiere(await rpc('admin_liste_boutiques', { p_recherche: s.recherche || null, p_filtre: s.filtre, p_limite: PAGE, p_offset: s.offset })) || {};
+        if (jeton !== s.jeton || !conteneur.isConnected) return;
+        s.lignes = liste(r, 'lignes');
+        s.total = Number(r.total) || s.lignes.length;
+      }
       conteneur.querySelector('[data-ref="total"]').textContent = nombre(champ(r.compteurs, 'toutes') ?? s.total);
       renderFiltres(r.compteurs || {});
       renderListe();
@@ -127,7 +149,7 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
       for (let o = 0; o < 20000; o += 500) {
         const r = premiere(await rpc('admin_liste_boutiques', { p_recherche: s.recherche || null, p_filtre: s.filtre, p_limite: 500, p_offset: o })) || {};
         const l = liste(r, 'lignes');
-        toutes.push(...l);
+        toutes.push(...l.filter((b) => !s.type || (b.type_activite || 'general') === s.type));
         if (l.length < 500) break;
       }
       exporterCsv(`boutiques-youmma-${new Date().toISOString().slice(0, 10)}.csv`, [
@@ -148,18 +170,19 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
     if (f) { s.filtre = f.dataset.filtre; s.offset = 0; charger(); return; }
     const p = e.target.closest('[data-page]');
     if (p) { s.offset = Math.max(0, s.offset + Number(p.dataset.page) * PAGE); charger(); return; }
-    const tr = e.target.closest('[data-boutique]');
+    const tr = e.target.closest('tr[data-boutique]');
     if (tr) { ouvrir(tr.dataset.boutique); return; }
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (action === 'exporter') exporter(e.target.closest('button'));
     if (action === 'creer') ouvrirCreation((nouvelle) => { charger(); if (nouvelle) ouvrir(nouvelle); majCompteurs(); });
   });
   conteneur.addEventListener('keydown', (e) => {
-    const tr = e.target.closest('[data-boutique]');
+    const tr = e.target.closest('tr[data-boutique]');
     if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ouvrir(tr.dataset.boutique); }
   });
   const rechercher = differer(() => { s.offset = 0; charger(); }, 350);
   conteneur.querySelector('#recherche-boutiques').addEventListener('input', (e) => { s.recherche = e.target.value.trim(); rechercher(); });
+  conteneur.querySelector('#filtre-activite').addEventListener('change', (e) => { s.type = e.target.value; s.offset = 0; charger(); });
   renderFiltres();
   charger();
   if (id) monterFiche(zone('fiche'), id, { majCompteurs, recharger: charger });
@@ -170,7 +193,8 @@ export function afficherBoutiques(conteneur, { id, params, majCompteurs }) {
    ========================================================================= */
 
 async function ouvrirCreation(apres) {
-  const formules = (await chargerFormules()).filter((f) => f.actif !== false);
+  const [formulesToutes, activites] = await Promise.all([chargerFormules(), chargerActivites()]);
+  const formules = formulesToutes.filter((f) => f.actif !== false);
   const choix = estSuper() ? formules : formules.filter((f) => f.code === 'essai');
   const { el, fermer } = ouvrirModale({
     titre: 'Créer une boutique pour un client',
@@ -182,10 +206,8 @@ async function ouvrirCreation(apres) {
           <div class="champ"><label for="cr-tel">Téléphone du propriétaire</label><input id="cr-tel" name="telephone" class="input" type="tel" inputmode="tel" placeholder="620 00 00 00" required></div>
           <div class="champ"><label for="cr-proprio">Nom du propriétaire</label><input id="cr-proprio" name="nom_proprietaire" class="input" type="text" maxlength="80" required></div>
         </div>
-        <div class="rangee-champs">
-          <div class="champ"><label for="cr-nom">Nom de la boutique</label><input id="cr-nom" name="nom_boutique" class="input" type="text" maxlength="80" required></div>
-          <div class="champ"><label for="cr-type">Activité</label><select id="cr-type" name="type" class="input">${Object.entries(TYPES).map(([c, l]) => `<option value="${c}">${esc(l)}</option>`).join('')}</select></div>
-        </div>
+        <div class="champ"><label for="cr-nom">Nom de la boutique</label><input id="cr-nom" name="nom_boutique" class="input" type="text" maxlength="80" required></div>
+        <fieldset class="champ champ-types"><legend>Activité</legend>${tuilesActivites(activites, 'type', 'general')}</fieldset>
         <div class="rangee-champs">
           <div class="champ"><label for="cr-ville">Ville</label><input id="cr-ville" name="ville" class="input" type="text" maxlength="60"></div>
           <div class="champ"><label for="cr-formule">Formule</label><select id="cr-formule" name="formule" class="input">${(choix.length ? choix : [{ code: 'essai', nom: 'Essai' }]).map((f) => `<option value="${esc(f.code)}">${esc(f.nom)}</option>`).join('')}</select>
@@ -199,6 +221,7 @@ async function ouvrirCreation(apres) {
   const zoneErreur = form.querySelector('.erreur-form');
   const erreur = (m) => { zoneErreur.textContent = m; zoneErreur.hidden = !m; };
   form.telephone.focus();
+  suivreTuiles(form);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const telephone = normaliserTelephone(form.telephone.value);
@@ -214,7 +237,8 @@ async function ouvrirCreation(apres) {
         type: form.type.value, ville: form.ville.value.trim(), formule: form.formule.value
       });
       fermer();
-      toast(`Boutique « ${form.nom_boutique.value.trim()} » créée.`, 'succes');
+      const nomAct = activites.find((a) => a.code === form.type.value)?.nom || TYPES[form.type.value] || '';
+      toast(`Boutique « ${form.nom_boutique.value.trim()} » créée${nomAct ? ` : son appli est prête pour ${nomAct.toLowerCase()}` : ''}.`, 'succes', 7000);
       afficherMotDePasse({ titre: 'Compte créé : mot de passe provisoire', telephone, motDePasse: r.mot_de_passe, nom: form.nom_proprietaire.value.trim() });
       apres(r.boutique_id);
     } catch (err) {
@@ -287,7 +311,6 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         ['Articles', `${nombre(champ(st, 'articles') || 0)} · ${nombre(champ(st, 'articles_en_ligne') || 0)} en ligne`],
         ['Commandes en ligne', `${nombre(champ(vit, 'commandes') || 0)} · ${nombre(champ(vit, 'livrees') || 0)} livrées`]
       ];
-      const modules = b.modules && typeof b.modules === 'object' ? b.modules : {};
       return `
         <div class="adm-faits">${faits.map(([l, v]) => `<div><span>${esc(l)}</span><strong>${esc(v)}</strong></div>`).join('')}</div>
         <div class="adm-groupe-actions">
@@ -299,9 +322,8 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
               <button type="button" class="btn btn-secondaire" data-action="an1">+ 1 an</button>
               <button type="button" class="btn btn-secondaire" data-action="date">Date libre</button>
               <button type="button" class="btn btn-secondaire" data-action="formule">Changer de formule</button>
-              <button type="button" class="btn btn-secondaire" data-action="modules">Modules</button>` : ''}
+              <button type="button" class="btn btn-secondaire" data-onglet="modules">Modules</button>` : ''}
           </div>
-          ${Object.keys(modules).length ? `<span class="discret">Modules : ${esc(MODULES.filter(([c]) => modules[c]).map(([, l]) => l).join(', ') || 'aucun')}</span>` : ''}
           <span class="gras">Compte et support</span>
           <div class="adm-boutons">
             <button type="button" class="btn btn-secondaire" data-action="sms">+ SMS</button>
@@ -342,6 +364,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
           ['Statut', (p) => statutPaiement(p.statut)]
         ], paiements, { vide: 'Aucun paiement enregistré.' })}`;
     }
+    if (s.onglet === 'modules') return `<div data-zone="modules-admin">${squelette(6)}</div>`;
     if (s.onglet === 'sms') {
       const recharges = liste(sms, 'recharges');
       return `
@@ -383,6 +406,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
 
   function brancher() {
     cadre.querySelectorAll('[data-onglet]').forEach((b) => b.addEventListener('click', () => { s.onglet = b.dataset.onglet; render(); }));
+    if (s.onglet === 'modules') chargerModulesAdmin();
     const note = cadre.querySelector('#note-interne');
     if (note) {
       const etatNote = cadre.querySelector('[data-ref="etat-note"]');
@@ -395,6 +419,81 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         } catch (err) { etatNote.textContent = erreurAdmin(err); }
       }, 1000);
       note.addEventListener('input', () => { etatNote.textContent = '…'; enregistrer(); });
+    }
+  }
+
+  /* ---------------- Onglet Modules : Normal / Offert / Bloqué (super admin) ; les agents consultent. */
+  const choixAdmin = (v) => (v === true ? 'offert' : v === false ? 'bloque' : 'normal');
+  async function chargerModulesAdmin() {
+    const zoneMod = cadre.querySelector('[data-zone="modules-admin"]');
+    if (!zoneMod) return;
+    let d;
+    try { d = premiere(await rpc('admin_modules_boutique', { p_boutique: idBoutique })) || {}; } catch (err) { zoneMod.innerHTML = blocErreur(err); return; }
+    if (!zoneMod.isConnected) return;
+    s.modulesAdmin = d;
+    const b = s.fiche.boutique || {};
+    const act = d.activite || {};
+    const modules = liste(d, 'modules');
+    const modif = estSuper();
+    const ligne = (m) => {
+      const [libEtat, couleur] = ETATS_MODULE[m.etat] || [m.etat || '—', 'gris'];
+      const c = choixAdmin(m.admin);
+      return `
+        <tr data-module="${esc(m.code)}" data-initial="${c}">
+          <td data-label="Module"><span class="adm-cellule-nom"><strong>${esc(m.nom || m.code)}</strong><span class="discret">${esc(GROUPES_MODULES[m.groupe] || m.groupe || '')}${m.formule_min ? ` · dès ${esc(m.formule_min)}` : ''}${Number(m.niveau) === 2 ? ' · recommandé' : ''}</span></span></td>
+          <td data-label="État"><span class="pastille-admin ${couleur}">${esc(libEtat)}</span>${m.en_cours ? ` <span class="discret">${esc(String(m.en_cours))}</span>` : ''}</td>
+          <td data-label="Réglage" class="droite">${modif && m.etat !== 'bientot' ? `<div class="segments adm-segments-module" role="group" aria-label="Réglage YOUMMA pour ${esc(m.nom || m.code)}">
+            ${[['normal', 'Normal'], ['offert', 'Offert'], ['bloque', 'Bloqué']].map(([v, l]) => `<button type="button" class="segment ${v === c ? 'actif' : ''}" data-choix="${v}" aria-pressed="${v === c}">${l}</button>`).join('')}
+          </div>` : `<span class="discret">${c === 'normal' ? '—' : c === 'offert' ? 'Offert' : 'Bloqué'}</span>`}</td>
+        </tr>`;
+    };
+    zoneMod.innerHTML = `
+      <div class="adm-faits">
+        <div><span>Activité</span><strong>${esc([act.emoji, act.nom || TYPES[b.type_activite] || b.type_activite].filter(Boolean).join(' '))}</strong></div>
+        <div><span>Formule</span><strong>${esc(d.formule || b.licence_formule || '—')}</strong></div>
+        <div><span>Modules actifs</span><strong>${nombre(modules.filter((m) => m.etat === 'actif').length)} / ${nombre(modules.length)}</strong></div>
+      </div>
+      ${modif ? '<div class="adm-boutons"><button type="button" class="btn btn-secondaire" data-action="changer-activite">Changer l’activité</button></div>' : ''}
+      <div class="tableau-adm-cadre"><table class="tableau-adm adm-tableau-modules">
+        <thead><tr><th>Module</th><th>État pour la boutique</th><th class="droite">Réglage YOUMMA</th></tr></thead>
+        <tbody>${modules.map(ligne).join('') || '<tr><td colspan="3" class="vide-admin">Aucun module.</td></tr>'}</tbody>
+      </table></div>
+      ${modif ? `
+        <div class="champ"><label for="motif-modules">Motif (facultatif, ajouté à la note interne)</label>
+          <input id="motif-modules" class="input" type="text" maxlength="200" placeholder="Ex. Offert pendant le lancement"></div>
+        <div class="adm-boutons"><button type="button" class="btn btn-primaire" data-action="enregistrer-modules" disabled>Enregistrer les modules</button></div>
+        <p class="aide">Normal : le propriétaire choisit. Offert : actif même si sa formule ne le comprend pas. Bloqué : masqué et non activable par la boutique.</p>` : '<p class="aide">Lecture seule : seul le super admin modifie les modules.</p>'}`;
+    zoneMod.querySelectorAll('[data-choix]').forEach((btn) => btn.addEventListener('click', () => {
+      const tr = btn.closest('tr');
+      tr.querySelectorAll('[data-choix]').forEach((x) => { x.classList.toggle('actif', x === btn); x.setAttribute('aria-pressed', String(x === btn)); });
+      tr.dataset.choix = btn.dataset.choix;
+      const changes = [...zoneMod.querySelectorAll('tr[data-module]')].some((l) => l.dataset.choix && l.dataset.choix !== l.dataset.initial);
+      zoneMod.querySelector('[data-action="enregistrer-modules"]').disabled = !changes;
+    }));
+  }
+
+  async function enregistrerModules(bouton) {
+    const zoneMod = cadre.querySelector('[data-zone="modules-admin"]');
+    const lignes = [...zoneMod.querySelectorAll('tr[data-module]')].filter((l) => l.dataset.choix && l.dataset.choix !== l.dataset.initial);
+    if (!lignes.length) return;
+    const valeur = { normal: null, offert: true, bloque: false };
+    const p_modules = Object.fromEntries(lignes.map((l) => [l.dataset.module, valeur[l.dataset.choix]]));
+    const motif = zoneMod.querySelector('#motif-modules')?.value.trim();
+    boutonOccupe(bouton, true, 'Enregistrement…');
+    try {
+      await rpc('admin_modules', { p_boutique: idBoutique, p_modules });
+      if (motif) {
+        const noms = Object.fromEntries(liste(s.modulesAdmin, 'modules').map((m) => [m.code, m.nom || m.code]));
+        const libelle = { normal: 'normal', offert: 'offert', bloque: 'bloqué' };
+        const resume = lignes.map((l) => `${noms[l.dataset.module] || l.dataset.module} : ${libelle[l.dataset.choix]}`).join(', ');
+        const avant = String(s.fiche.boutique?.note_interne || '').trim();
+        const note = `${avant ? `${avant}\n` : ''}${formatDate(new Date(), 'court')} — Modules (${resume}) : ${motif}`;
+        await rpc('admin_note', { p_boutique: idBoutique, p_note: note });
+      }
+      rafraichir('Modules enregistrés.');
+    } catch (err) {
+      boutonOccupe(bouton, false);
+      toast(erreurAdmin(err), 'erreur');
     }
   }
 
@@ -415,9 +514,10 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
     if (action === 'an1' && await confirmer(`Prolonger la licence de « ${b.nom} » d’1 an ?`, { titre: 'Prolonger', libelleOk: '+ 1 an' })) licence('mois', 12, { message: 'Licence prolongée d’1 an.' });
     if (action === 'date') ouvrirDateLibre(b, (date) => licence('date', null, { date, message: 'Date de fin modifiée.' }));
     if (action === 'formule') ouvrirChangerFormule(b, (formule, mois) => licence('mois', mois, { formule, message: 'Formule changée.' }));
-    if (action === 'modules') ouvrirModules(b, async (modules) => {
-      try { await rpc('admin_modules', { p_boutique: idBoutique, p_modules: modules }); rafraichir('Modules enregistrés.'); } catch (err) { toast(erreurAdmin(err), 'erreur'); }
+    if (action === 'changer-activite') ouvrirChangerActivite(b, async (type, garder) => {
+      try { await rpc('changer_activite', { p_boutique: idBoutique, p_type: type, p_garder_choix: garder }); rafraichir('Activité changée : modules recommandés appliqués.'); } catch (err) { toast(erreurAdmin(err), 'erreur'); }
     });
+    if (action === 'enregistrer-modules') enregistrerModules(e.target.closest('button'));
     if (action === 'suspendre') ouvrirSuspension(b, async (suspendre, motif) => {
       try { await rpc('admin_suspendre', { p_boutique: idBoutique, p_suspendre: suspendre, p_motif: motif }); rafraichir(suspendre ? 'Boutique suspendue.' : 'Boutique réactivée.'); } catch (err) { toast(erreurAdmin(err), 'erreur'); }
     });
@@ -504,22 +604,27 @@ async function ouvrirChangerFormule(b, valider) {
   });
 }
 
-function ouvrirModules(b, valider) {
-  const actuels = b.modules && typeof b.modules === 'object' ? b.modules : {};
+/** Changer l'activité d'une boutique (super admin) : tuiles + garder les choix du propriétaire. */
+async function ouvrirChangerActivite(b, valider) {
+  const activites = await chargerActivites();
   const { el, fermer } = ouvrirModale({
-    titre: 'Modules de la boutique',
+    titre: `Changer l’activité de « ${b.nom || 'la boutique'} »`,
+    variante: 'large',
     contenu: `
       <form class="form-modale" novalidate>
-        ${MODULES.map(([c, l]) => `<label class="case-option"><input type="checkbox" name="${c}" ${actuels[c] !== false ? 'checked' : ''}> ${esc(l)}</label>`).join('')}
-        <p class="aide">Enregistré pour la boutique. L’appli n’applique pas encore ces modules : tout reste visible pour l’instant.</p>
-        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
+        ${tuilesActivites(activites, 'type', b.type_activite || 'general')}
+        <label class="case-option"><input type="checkbox" name="garder" checked> Garder les choix actuels du propriétaire (modules masqués ou ajoutés)</label>
+        <p class="aide">Le menu, le vocabulaire et les modules recommandés suivent la nouvelle activité. Aucune donnée n’est supprimée.</p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Changer l’activité</button></div>
       </form>`
   });
-  el.querySelector('form').addEventListener('submit', (e) => {
+  const form = el.querySelector('form');
+  suivreTuiles(form);
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const modules = Object.fromEntries(MODULES.map(([c]) => [c, el.querySelector(`[name="${c}"]`).checked]));
+    if (!form.type.value) return;
     fermer();
-    valider(modules);
+    valider(form.type.value, form.garder.checked);
   });
 }
 
