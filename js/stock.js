@@ -16,6 +16,7 @@ import { aModule, vocab, unArticle, unites } from './modules.js';
 import { retirerPhotoArticle } from './images/envoi.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aVariantes, chargerVariantes, oublierVariantes } from './variantes.js';
+import { monterFaconsDeVendre, ouvrirChangerUniteBase } from './unites.js';
 import { monterEditeurVariantes, grilleLectureHTML, ouvrirGrilleMouvement, imprimerEtiquettes, afficherReassort, prechargerEtiquettes } from './variantes-fiche.js';
 
 /**
@@ -301,6 +302,15 @@ export function afficherStock(conteneur, params) {
       el.querySelector('[data-zone="fiche"]').innerHTML = ficheHTML(produit);
       chargerHistorique(produit, el.querySelector('[data-zone="historique"]'));
       if (aVariantes(produit)) chargerGrilleFiche(produit, el.querySelector('[data-zone="grille-modele"]'));
+      const zoneUnites = el.querySelector('[data-zone="unites"]');
+      if (zoneUnites) monterFaconsDeVendre(zoneUnites, { produit, gerer });
+    }
+
+    /** Après une conversion d'unité de base : article relu (unité, stock, prix, seuil). */
+    async function apresConversion() {
+      const { data } = await sb.from('produits').select(COLONNES_PRODUIT).eq('id', produit.id).single();
+      if (data) remplacerProduit({ ...data, prix_achat: produit.prix_achat });
+      rafraichir();
     }
 
     /** Après un mouvement sur la grille : article et cases relus. */
@@ -321,6 +331,7 @@ export function afficherStock(conteneur, params) {
         else ouvrirMouvement(produit, action, rafraichir);
       }
       if (action === 'etiquettes') imprimerEtiquettes(produit);
+      if (action === 'unite-base') ouvrirChangerUniteBase(produit, apresConversion);
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
       if (action === 'photo' || action === 'retoucher') {
         // Outil d'image : recadrer, nettoyer le fond (blanc ou détourage automatique), grande photo + miniature.
@@ -395,6 +406,7 @@ export function afficherStock(conteneur, params) {
           ${p.actif ? '' : '<span class="statut-inactif">Article désactivé</span>'}
         </div>
         ${modele ? '<section class="fiche-grille-modele" data-zone="grille-modele"><div class="squelette" style="height:120px"></div></section>' : ''}
+        ${aModule('unites') && !modele ? '<section class="fiche-unites" data-zone="unites"></section>' : ''}
         <dl class="fiche-infos">
           ${info('Catégorie', esc(nomCategorie(p.categorie_id)))}
           ${info('Unité', esc(p.unite || '—'))}
@@ -416,6 +428,7 @@ export function afficherStock(conteneur, params) {
               <button type="button" class="btn btn-primaire" data-action-fiche="entree">${icone('entree', 18, 2)} Entrée de stock</button>
               <button type="button" class="btn btn-secondaire" data-action-fiche="ajustement">${icone('inventaire', 18, 2)} Inventaire</button>`}
             <button type="button" class="btn btn-secondaire" data-action-fiche="modifier">${icone('crayon', 18, 2)} Modifier</button>
+            ${aModule('unites') && !modele ? '<button type="button" class="btn-lien" data-action-fiche="unite-base">Changer l’unité de base</button>' : ''}
             <button type="button" class="btn ${p.actif ? 'btn-lien btn-lien-danger' : 'btn-secondaire'}" data-action-fiche="activer">${p.actif ? 'Désactiver l’article' : 'Réactiver l’article'}</button>
           </div>` : ''}
         <h3 class="fiche-sous-titre">Derniers mouvements</h3>

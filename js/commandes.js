@@ -12,6 +12,8 @@ import { imprimerRecuVente } from './recu.js';
 import { ouvrirDocument } from './documents/donnees.js';
 import { chargerSoldeSms } from './sms.js';
 import { verifierCommandes } from './alertes-commandes.js';
+import { ouvrirOrganiserLivraison } from './livraisons.js';
+import { aModule } from './modules.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, formatNombre, formatGNF, formatDate, formatQuantite,
   formatTelephone, formatNumeroVente, prenom, dateISO, decalerDate, MODES_PAIEMENT, MODES_CAISSE, lienBoutique
@@ -329,6 +331,7 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
         ${(c.statut === 'prete' || c.statut === 'confirmee') && peut('commandes.traiter') ? `<button type="button" class="btn ${c.statut === 'prete' ? 'btn-primaire btn-action-principale' : 'btn-secondaire'}" data-action="livrer">Livrée et encaissée</button>` : ''}
         ${vente ? `<button type="button" class="btn btn-secondaire" data-action="facture">${icone('document', 18, 2)} Facture A4</button>` : ''}
         ${vente ? `<button type="button" class="btn btn-secondaire" data-action="recu">${icone('imprimante', 18, 2)} Ticket</button>` : ''}
+        ${aModule('livraisons') && c.reception === 'livraison' && c.statut !== 'annulee' ? `<button type="button" class="btn btn-secondaire" data-action="organiser-livraison">${icone('camion', 18, 2)} Organiser la livraison</button>` : ''}
         ${telephone ? `<a class="btn btn-whatsapp" href="${esc(lienWhatsAppClient(c))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} WhatsApp</a>` : ''}
         ${telephone ? `<a class="btn btn-secondaire" href="tel:+${esc(telephone)}">${icone('telephone', 18, 2)} Appeler</a>` : ''}
         ${peutRefuser ? `<button type="button" class="btn btn-refuser" data-action="refuser">${c.statut === 'nouvelle' ? 'Refuser' : 'Annuler'}</button>` : ''}
@@ -351,6 +354,7 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
     }
     if (action === 'livrer') ouvrirLivraison(c, apresAction);
     if (action === 'refuser') ouvrirRefus(c, apresAction);
+    if (action === 'organiser-livraison') ouvrirOrganiserLivraison({ commande: { nom: c.nom, telephone: c.telephone, adresse: [c.zone_nom, c.adresse].filter(Boolean).join(' · '), vente_id: c.vente_id || null } });
     if (action === 'recu') imprimerRecuCommande(c, vente, bouton);
     if (action === 'facture') ouvrirDocument({ type: 'facture', vente: vente.id, retour: `#/commandes/${encodeURIComponent(c.id)}` });
   };

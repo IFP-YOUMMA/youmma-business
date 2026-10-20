@@ -17,6 +17,7 @@ import { rendreDocument, lienVerification } from './documents/rendu.js';
 import { vignetteProduit } from './images/affichage.js';
 import { chargerReglages, chargerProforma, imagesSignature, ouvrirDocument } from './documents/donnees.js';
 import { aVariantes, ouvrirChoixVariante, chargerVariantes, nomAvecVariante } from './variantes.js';
+import { chargerUnitesArticles, ouvrirChoixUnite, prixUnite } from './unites.js';
 
 export const STATUTS_DEVIS = {
   brouillon: { libelle: 'Brouillon', classe: 'gris' },
@@ -258,7 +259,9 @@ function afficherEditeur(conteneur, id) {
   const boutique = etat.boutique;
   const s = {
     id, produits: [], client: null, clientLibre: { nom: '', telephone: '', info: '' }, modeClient: 'existant',
-    objet: '', lignes: [], remise: 0, validite: 15, note: '', enCours: false, recherche: '', rechercheClient: '', clients: []
+    objet: '', lignes: [], remise: 0, validite: 15, note: '', enCours: false, recherche: '', rechercheClient: '', clients: [],
+    /** Unités de vente (module « unites ») : produit_id → unités actives. */
+    unites: new Map()
   };
   let cle = 0;
   const nouvelleCle = () => ++cle;
@@ -273,6 +276,7 @@ function afficherEditeur(conteneur, id) {
         chargerReglages(boutique.id)
       ]);
       s.produits = produits;
+      s.unites = await chargerUnitesArticles(produits.filter((p) => !aVariantes(p)).map((p) => p.id));
       s.validite = Number(reglages.validite_proforma) || 15;
       if (id) {
         const d = await chargerProforma(id);
@@ -307,11 +311,30 @@ function afficherEditeur(conteneur, id) {
     s.note = pf.note || '';
     s.lignes = (pf.lignes || []).map((l) => {
       const produit = l.produit_id ? s.produits.find((p) => p.id === l.produit_id) : null;
-      return { cle: nouvelleCle(), produit_id: l.produit_id || null, variante_id: l.variante_id || null, variante: null, nom: l.nom, unite: l.unite || 'pièce', quantite: Number(l.quantite) || 1, prix: Number(l.prix) || 0, produit };
+      const uniteVente = l.unite_id && produit ? (s.unites.get(produit.id) || []).find((u) => u.id === l.unite_id) || null : null;
+      return { cle: nouvelleCle(), produit_id: l.produit_id || null, variante_id: l.variante_id || null, variante: null, unite_id: l.unite_id || null, uniteVente, nom: l.nom, unite: l.unite || 'pièce', quantite: Number(l.quantite) || 1, prix: Number(l.prix) || 0, produit };
     });
   }
 
-  const prixActuel = (l) => (l.produit ? (l.variante?.prix ?? prixApplique(l.produit, 'detail')) : null);
+  const prixActuel = (l) => {
+    if (!l.produit) return null;
+    if (l.uniteVente) return prixUnite(l.produit, l.uniteVente, 'detail');
+    return l.variante?.prix ?? prixApplique(l.produit, 'detail');
+  };
+
+  /** Article vendu dans plusieurs unités : choix de l'unité (sans contrôle de stock : c'est un devis). */
+  function choisirUnite(p) {
+    ouvrirChoixUnite({
+      produit: p, unites: s.unites.get(p.id) || [], controleStock: false, libelleAction: 'Ajouter au devis',
+      onAjout: (u, q) => {
+        const existante = s.lignes.find((l) => l.produit_id === p.id && (l.unite_id || null) === (u?.id || null));
+        if (existante) existante.quantite = Number(existante.quantite) + q;
+        else if (u) s.lignes.push({ cle: nouvelleCle(), produit_id: p.id, unite_id: u.id, uniteVente: u, nom: `${p.nom} (${u.nom})`, unite: u.nom, quantite: q, prix: prixUnite(p, u, 'detail'), produit: p });
+        else s.lignes.push({ cle: nouvelleCle(), produit_id: p.id, nom: p.nom, unite: p.unite, quantite: q, prix: prixApplique(p, 'detail'), produit: p });
+        renderLignes();
+      }
+    });
+  }
   /** Ligne d'un modèle à tailles sans case choisie (ancien devis) : à compléter avant d'enregistrer. */
   const sansTaille = (l) => l.produit && aVariantes(l.produit) && !l.variante_id;
 
@@ -485,11 +508,11 @@ function afficherEditeur(conteneur, id) {
     const produit = e.target.closest('[data-produit]');
     if (produit) {
       const p = s.produits.find((x) => x.id === produit.dataset.produit);
-      if (aVariantes(p)) {
+      if (aVariantes(p) || s.unites.get(p.id)?.length) {
         s.recherche = '';
         conteneur.querySelector('[data-ref="recherche"]').value = '';
         renderResultats();
-        choisirVariante(p);
+        if (aVariantes(p)) choisirVariante(p); else choisirUnite(p);
         return;
       }
       const existante = s.lignes.find((l) => l.produit_id === p.id);
@@ -558,7 +581,9 @@ function afficherEditeur(conteneur, id) {
     const lignes = s.lignes.map((l) => {
       if (!l.produit_id) return { nom: String(l.nom).trim(), unite: String(l.unite || 'forfait').trim(), quantite: Number(l.quantite), prix: Math.round(Number(l.prix)) };
       const actuel = prixActuel(l);
-      const base = l.variante_id ? { produit_id: l.produit_id, variante_id: l.variante_id, quantite: Number(l.quantite) } : { produit_id: l.produit_id, quantite: Number(l.quantite) };
+      let base = { produit_id: l.produit_id, quantite: Number(l.quantite) };
+      if (l.variante_id) base = { ...base, variante_id: l.variante_id };
+      else if (l.unite_id) base = { ...base, unite_id: l.unite_id };
       return actuel !== null && Math.round(actuel) === Math.round(Number(l.prix)) ? base : { ...base, prix: Math.round(Number(l.prix)) };
     });
     boutonOccupe(bouton, true, 'Enregistrement…');

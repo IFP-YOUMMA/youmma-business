@@ -402,7 +402,14 @@ const MESSAGES_METIER = {
   TAILLE_INCONNUE: 'Cette taille ne fait pas partie de la grille du modèle.',
   COULEUR_INCONNUE: 'Cette couleur ne fait pas partie du modèle.',
   VARIANTE_VIDE: 'Ajoutez au moins une taille ou une couleur, avec au moins une case.',
-  TROP_DE_VARIANTES: 'Trop de cases pour un seul modèle : réduisez le nombre de tailles ou de couleurs.'
+  TROP_DE_VARIANTES: 'Trop de cases pour un seul modèle : réduisez le nombre de tailles ou de couleurs.',
+  // Étape 13 : unités multiples et livraisons
+  UNITE_INTROUVABLE: 'Cette unité de vente n’existe plus pour cet article. Rechargez la page.',
+  TROP_D_UNITES: '10 unités de vente au maximum par article.',
+  UNITE_ET_VARIANTE: 'Un article à tailles ou couleurs ne se vend pas dans une autre unité.',
+  MOTIF_REQUIS: 'Indiquez le motif de l’annulation.',
+  LIVRAISON_INTROUVABLE: 'Cette livraison est introuvable.',
+  LIVRAISON_TERMINEE: 'Cette livraison est déjà livrée ou annulée.'
 };
 
 /** Transforme n'importe quelle erreur (RPC, Auth, réseau) en message français clair. */
@@ -416,6 +423,10 @@ export function messageErreur(err) {
   }
   if (brut.includes('STOCK_INSUFFISANT')) return 'Stock insuffisant pour un article du panier.';
   // Tailles & couleurs : messages avec le nom du modèle ou le libellé de la case.
+  const uniteBase = brut.match(/UNITE_DE_BASE\s*:?\s*(.*)$/);
+  if (uniteBase) return `${uniteBase[1].trim() ? `« ${uniteBase[1].trim()} »` : 'Cette unité'} est déjà l’unité de base.`;
+  const facteur = brut.match(/FACTEUR_INVALIDE\s*:?\s*(.*)$/);
+  if (facteur) return `Indiquez combien d’unités de base font ${facteur[1].trim() ? `une « ${facteur[1].trim()} »` : 'la nouvelle unité'} (nombre positif, différent de 1).`;
   const requise = brut.match(/VARIANTE_REQUISE\s*:?\s*(.*)$/);
   if (requise) return `Choisissez la taille et la couleur${requise[1].trim() ? ` pour « ${requise[1].trim()} »` : ''}.`;
   const avecStock = brut.match(/VARIANTE_AVEC_STOCK\s*:?\s*(.*?)\s*\(\s*([\d.,]+)\s*en stock\s*\)/i);

@@ -95,6 +95,7 @@ export function htmlRecuVente(recu, { mentions = [], reglages = {}, code = null 
       <div class="recu-article">
         <span class="recu-article-nom">${esc(l.nom_produit)}</span>
         <div class="recu-ligne"><span>${esc(formatQuantite(l.quantite, l.unite))} × ${formatNombre(l.prix_unitaire)}</span><span>${formatNombre(l.total)}</span></div>
+        ${l.base ? `<span class="recu-base">(${esc(l.base)})</span>` : ''}
       </div>`).join('')}
     <div class="recu-sep"></div>
     ${ligne('Sous-total', formatGNF(recu.sousTotal))}
@@ -129,6 +130,7 @@ export async function imprimerBonEnlevement(bon) {
       <div class="recu-article">
         <span class="recu-article-nom">${esc(l.nom_produit)}</span>
         <div class="recu-ligne"><span>${esc(formatQuantite(l.quantite, l.unite))} × ${formatNombre(l.prix_unitaire)}</span><span>${formatNombre(l.total)}</span></div>
+        ${l.base ? `<span class="recu-base">(${esc(l.base)})</span>` : ''}
       </div>`).join('')}
     <div class="recu-sep"></div>
     ${ligne('TOTAL', formatGNF(bon.total), 'recu-total')}

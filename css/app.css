@@ -3028,3 +3028,85 @@ a.kpi-lien:focus-visible { outline: 3px solid var(--primary); outline-offset: 2p
 .grille-supprimer:hover { background: #FDECEC; }
 .case-option.interrupteur-variantes { align-items: center; gap: 12px; }
 .case-option.interrupteur-variantes input.bascule-doc { width: 44px; height: 26px; }
+
+/* =============================================================================
+   Étape 13 — Unités multiples (maquette Unites) et Livraisons (maquette Livraisons)
+   ============================================================================= */
+/* Choix de l'unité (caisse, enlèvement, devis) */
+.cu-choix { display: flex; flex-direction: column; gap: 14px; }
+.cu-bloc { display: flex; flex-direction: column; gap: 8px; }
+.cu-etape { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.cu-unites { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.cu-unite { min-height: 58px; border-radius: 12px; border: 2px solid var(--border-input); background: #FFFFFF; font: inherit; color: var(--text); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px; text-align: center; }
+.cu-unite.actif { border-color: var(--primary); background: var(--primary-soft); }
+.cu-nom { font-size: 14px; font-weight: 800; }
+.cu-prix { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.cu-base { font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); vertical-align: 1px; }
+.cu-quantite { display: flex; align-items: center; gap: 8px; }
+.cu-quantite button { width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--border-input); background: #FFFFFF; font-size: 20px; font-weight: 800; color: var(--text); cursor: pointer; }
+.cu-quantite button:disabled { opacity: .4; cursor: not-allowed; }
+.cu-quantite .input { width: 110px; text-align: center; font-size: 18px; font-weight: 800; min-height: 48px; }
+.cu-rappel { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+/* Fiche article : façons de vendre */
+.fiche-unites { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cu-entete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cu-entete .fiche-sous-titre { margin: 0; }
+.cu-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cu-table th { text-align: left; font-size: 12px; color: var(--muted); padding: 0 10px 6px; }
+.cu-table td { padding: 9px 10px; border-top: 1px solid var(--border-doux); vertical-align: middle; }
+.cu-table .droite { text-align: right; }
+.cu-edition .input { min-height: 42px; min-width: 90px; }
+.cu-facteur { display: inline-flex; align-items: center; gap: 6px; }
+.cu-facteur .input { width: 90px; min-width: 0; }
+.cu-suggestions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cu-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.cu-stock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.cu-stock-valeur strong { font-size: 26px; }
+.cu-equivalence { min-height: 30px; padding: 0 11px; border-radius: 999px; background: #EEF4F2; font-size: 12.5px; font-weight: 800; display: inline-flex; align-items: center; }
+.cu-seuil { margin: 0; font-size: 12.5px; font-weight: 700; color: #7A4A00; background: #FFF8E6; border-radius: 10px; padding: 8px 10px; }
+.btn-autre-unite { margin-left: 8px; }
+#recu .recu-base { display: block; font-size: 10px; color: #333333; }
+
+/* Livraisons */
+.kpis-livraisons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.kpi-livraison { padding: 13px 15px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.kpi-livraison-valeur { font-size: 22px; }
+.kpi-livraison-sous { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-livraison-sous.encre-alerte { color: #7A4A00; }
+.kpi-livraison-sous.encre-route { color: #1F3A5F; }
+.kpi-livraison-sous.encre-succes { color: #1B6E2A; }
+.kpi-livraison-sous.encre-primaire { color: var(--primary); }
+.liste-livraisons { padding: 0; overflow: hidden; }
+.tableau-livraisons { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tableau-livraisons th { text-align: left; background: #F7F9F8; padding: 11px 12px; font-size: 12px; color: var(--muted); }
+.tableau-livraisons td { padding: 11px 12px; border-top: 1px solid var(--border-doux); vertical-align: top; }
+.lv-ligne { display: block; font-size: 12px; }
+.statut-livraison { display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.statut-livraison.a-charger { background: #FFF8E6; color: #7A4A00; }
+.statut-livraison.en-route { background: #EAF0F7; color: #1F3A5F; }
+.statut-livraison.livree { background: #EAF6EC; color: #1B6E2A; }
+.statut-livraison.annulee { background: #F1F3F2; color: var(--muted); }
+.actions-livraison { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag-frais-payes { font-size: 12px; font-weight: 800; color: #1B6E2A; }
+.cartes-livraisons { list-style: none; margin: 0; padding: 0; }
+.carte-livraison { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-top: 1px solid var(--border-doux); font-size: 13.5px; }
+.carte-livraison:first-child { border-top: 0; }
+.carte-livraison-haut { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.carte-livraison .actions-livraison { margin-top: 6px; }
+.rangee-livraisons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.bloc-vehicules, .bloc-arrivee { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.bloc-vehicules h2, .bloc-arrivee h2 { margin: 0; font-size: 16px; }
+.bloc-arrivee p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.liste-vehicules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ligne-vehicule { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.ligne-vehicule.inactif { opacity: .55; }
+.ligne-vehicule .ae-textes { flex: 1; min-width: 0; }
+.vehicule-emoji { font-size: 20px; }
+.vehicule-frais { font-size: 13.5px; white-space: nowrap; }
+.lien-chauffeur { padding: 10px 12px; border-radius: 10px; background: #F7F9F8; border: 1px solid var(--border); overflow-wrap: anywhere; font-family: ui-monospace, monospace; font-size: 13px; }
+.champ-jour .input { min-height: 44px; }
+@media (max-width: 899.98px) {
+  .kpis-livraisons { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .rangee-livraisons { grid-template-columns: 1fr; }
+  .carte-livraison .actions-livraison .btn { flex: 1 1 auto; }
+}

@@ -22,7 +22,8 @@ export const MODULE_DE_ROUTE = {
   messages: 'messages',
   commandes: 'boutique_en_ligne',
   'boutique-en-ligne': 'boutique_en_ligne',
-  affiche: 'affiche'
+  affiche: 'affiche',
+  livraisons: 'livraisons'
 };
 
 /** Modules dont les écrans restent consultables en lecture seule (encaisser, consulter). */

@@ -14,6 +14,8 @@ import { naviguer } from './router.js';
 import { imprimerRecuVente } from './recu.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { aModule } from './modules.js';
+import { completerLignesBase } from './unites.js';
+import { ouvrirOrganiserLivraison } from './livraisons.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatNumeroVente, dateISO, decalerDate,
@@ -385,11 +387,12 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
       sb.from('ventes')
         .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut, chantier_id, frais_livraison, commande_web_id')
         .eq('boutique_id', boutique.id).eq('id', idVente).maybeSingle(),
-      sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente),
+      sb.from('ventes_lignes').select('produit_id, nom_produit, unite, quantite, prix_unitaire, total, facteur, quantite_base').eq('vente_id', idVente),
       refsPromesse
     ]);
     if (venteRes.error) throw venteRes.error;
     if (lignesRes.error) throw lignesRes.error;
+    await completerLignesBase(lignesRes.data);
     vente = venteRes.data;
     lignes = lignesRes.data;
     refs = references;
@@ -488,7 +491,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
             <li>
               <span class="detail-lignes-textes">
                 <span class="gras">${esc(l.nom_produit)}</span>
-                <span class="discret">${esc(formatQuantite(l.quantite, l.unite))} × ${formatGNF(l.prix_unitaire)}</span>
+                <span class="discret">${esc(formatQuantite(l.quantite, l.unite))} × ${formatGNF(l.prix_unitaire)}${l.base ? ` · ${esc(l.base)}` : ''}</span>
               </span>
               <span class="gras">${formatGNF(l.total)}</span>
             </li>`).join('')}
@@ -512,6 +515,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
           <button type="button" class="btn ${ticketParDefaut ? 'btn-secondaire' : 'btn-primaire'}" data-document="${typeA4}">${icone('document', 18, 2)} ${typeA4 === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>
           ${aModule('bons_livraison') ? `<button type="button" class="btn btn-secondaire" data-document="bon_livraison">${icone('livraison', 18, 2)} Bon de livraison</button>` : ''}
           <button type="button" class="btn ${ticketParDefaut ? 'btn-primaire' : 'btn-secondaire'}" data-action="reimprimer">${icone('imprimante', 18, 2)} Ticket 80 mm</button>
+          ${aModule('livraisons') && !annulee ? `<button type="button" class="btn btn-secondaire" data-action="organiser-livraison">${icone('camion', 18, 2)} Organiser la livraison</button>` : ''}
         </div>
         <div class="dv-actions">
           ${gerer && !annulee ? `<button type="button" class="btn btn-annuler-vente" data-action="annuler">${icone('annuler', 18, 2)} Annuler la vente</button>` : ''}
@@ -587,6 +591,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
     if (doc) ouvrirDocument({ type: doc.dataset.document, vente: vente.id, retour: `#/ventes/${encodeURIComponent(vente.id)}` });
     if (action === 'reimprimer') reimprimer();
     if (action === 'annuler') confirmerAnnulation();
+    if (action === 'organiser-livraison') ouvrirOrganiserLivraison({ vente: { id: vente.id, numero: vente.numero, client_id: vente.client_id } });
   };
   rendre();
 }

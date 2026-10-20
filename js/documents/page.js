@@ -14,7 +14,27 @@ import {
 
 const racine = document.getElementById('doc-app');
 const params = new URLSearchParams(location.search);
-const s = { type: params.get('type') || 'facture', avecPrix: false, donnees: null, reglages: null, documents: new Map(), signatures: null };
+const s = { type: params.get('type') || 'facture', avecPrix: false, donnees: null, reglages: null, documents: new Map(), signatures: null, transport: null };
+
+/** Colonnes de « livraisons » lues ici (jamais la colonne jeton). La signature est lue si la colonne existe. */
+const COLONNES_LIVRAISON = 'id, numero, statut, vehicule_id, chauffeur, chauffeur_tel, recu_par, livree_le, photo_path, adresse, repere, client_nom';
+
+/** Livraison (module « livraisons ») liée à la vente : véhicule, chauffeur, reçu par, heure, signature, photo du bon. */
+async function chargerTransport(idVente) {
+  if (!aModule('livraisons') || !idVente) return null;
+  const { sb } = await import('../supabase.js');
+  const lire = (colonnes) => sb.from('livraisons').select(colonnes).eq('boutique_id', etat.boutique.id).eq('vente_id', idVente)
+    .neq('statut', 'annulee').order('created_at', { ascending: false }).limit(1);
+  let r = await lire(`${COLONNES_LIVRAISON}, signature`);
+  if (r.error) r = await lire(COLONNES_LIVRAISON);
+  const l = r.data?.[0];
+  if (!l) return null;
+  const [vehicule, photo] = await Promise.all([
+    l.vehicule_id ? sb.from('vehicules').select('nom, immatriculation').eq('id', l.vehicule_id).maybeSingle().then((x) => x.data) : null,
+    l.photo_path ? sb.storage.from('bons').createSignedUrl(l.photo_path, 3600).then((x) => x.data?.signedUrl || null, () => null) : null
+  ]);
+  return { ...l, vehicule: vehicule ? [vehicule.nom, vehicule.immatriculation].filter(Boolean).join(' · ') : '', photoUrl: photo };
+}
 
 function retour() {
   let cible = '#/tableau-de-bord';
@@ -40,7 +60,7 @@ async function demarrer() {
     if (!peut('documents.imprimer')) return erreur('Vous n’avez pas accès aux documents de cette boutique.');
     const essai = params.get('essai') === '1';
     await chargerModules(etat.boutique.id, { annoncer: false });
-    if (s.type === 'bon_livraison' && !aModule('bons_livraison')) s.type = 'facture';
+    if (s.type === 'bon_livraison' && !aModule('bons_livraison') && !aModule('livraisons')) s.type = 'facture';
     s.reglages = essai ? lireBrouillon() : await chargerReglages(etat.boutique.id);
     s.signatures = await imagesSignature(s.reglages);
     if (params.get('proforma')) {
@@ -48,6 +68,7 @@ async function demarrer() {
       s.donnees = await chargerProforma(params.get('proforma'));
     } else if (params.get('vente')) {
       s.donnees = await chargerVente(params.get('vente'));
+      s.transport = await chargerTransport(params.get('vente')).catch(() => null);
       if (!['facture', 'recu', 'bon_livraison'].includes(s.type)) s.type = typeVente(s.reglages);
     } else {
       // Essai : dernière vente réelle de la boutique, sinon un exemple.
@@ -99,8 +120,9 @@ function render() {
       <div class="barre-doc-actions">
         ${venteDoc && !essai ? `<div class="segments" role="group" aria-label="Type de document">
           <button type="button" class="segment ${s.type === typePrincipal ? 'actif' : ''}" data-type="${typePrincipal}">${typePrincipal === 'recu' ? 'Reçu A4' : 'Facture A4'}</button>
-          ${aModule('bons_livraison') ? `<button type="button" class="segment ${s.type === 'bon_livraison' ? 'actif' : ''}" data-type="bon_livraison">Bon de livraison</button>` : ''}</div>` : ''}
+          ${aModule('bons_livraison') || aModule('livraisons') ? `<button type="button" class="segment ${s.type === 'bon_livraison' ? 'actif' : ''}" data-type="bon_livraison">Bon de livraison</button>` : ''}</div>` : ''}
         ${s.type === 'bon_livraison' ? `<label class="doc-option"><input type="checkbox" data-action="prix" ${s.avecPrix ? 'checked' : ''}> Avec les prix</label>` : ''}
+        ${s.type === 'bon_livraison' && s.transport?.photoUrl ? `<a class="btn btn-secondaire" href="${esc(s.transport.photoUrl)}" target="_blank" rel="noopener">${icone('photo', 18, 2)} Voir la photo du bon</a>` : ''}
         <button type="button" class="btn btn-primaire" data-action="imprimer">${icone('imprimante', 18, 2)} Imprimer / PDF</button>
         ${!essai && doc?.code ? `<button type="button" class="btn btn-whatsapp" data-action="whatsapp">${icone('whatsapp', 18, 2)} WhatsApp</button>` : ''}
       </div>
@@ -111,6 +133,7 @@ function render() {
       type: s.type, reglages: s.reglages, boutique: etat.boutique, document: doc,
       vente: d.vente, proforma: d.proforma, lignes: d.lignes, client: d.client, chantier: d.chantier, recuperePar: d.recuperePar,
       livraison: d.livraison, vendeur: d.vendeur, cachetUrl: s.signatures?.cachetUrl, signatureUrl: s.signatures?.signatureUrl,
+      transport: s.type === 'bon_livraison' ? s.transport : null,
       essai, avecPrix: s.avecPrix
     })}</div></div>`;
   document.title = `${LIBELLES_DOCUMENTS[s.type]}${doc?.numero ? ' ' + doc.numero : ''} · ${etat.boutique.nom}`;

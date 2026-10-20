@@ -6,6 +6,7 @@
 import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
 import { REGLAGES_DEFAUT, OPTIONS_DEFAUT } from './rendu.js';
+import { completerLignesBase } from '../unites.js';
 
 /** Où apparaît le logo (Paramètres → Logo & images) : tout est activé par défaut. */
 export const USAGES_LOGO_DEFAUT = { factures: true, ticket: true, vitrine: true, affiches: true, devis: true, apercu: true };
@@ -77,10 +78,11 @@ export async function chargerVente(idVente, idBoutique = etat.boutique?.id) {
     sb.from('ventes')
       .select('id, numero, created_at, client_id, vendeur_id, type_prix, sous_total, remise, total, mode_paiement, echeance, statut, chantier_id, frais_livraison, commande_web_id')
       .eq('boutique_id', idBoutique).eq('id', idVente).maybeSingle(),
-    sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente)
+    sb.from('ventes_lignes').select('produit_id, nom_produit, unite, quantite, prix_unitaire, total, facteur, quantite_base').eq('vente_id', idVente)
   ]);
   if (venteRes.error) throw venteRes.error;
   if (lignesRes.error) throw lignesRes.error;
+  await completerLignesBase(lignesRes.data);
   const vente = venteRes.data;
   if (!vente) throw new Error('VENTE_INTROUVABLE');
   const [client, chantier, mouvement, commande, vendeur] = await Promise.all([
@@ -93,7 +95,7 @@ export async function chargerVente(idVente, idBoutique = etat.boutique?.id) {
   ]);
   return {
     vente,
-    lignes: (lignesRes.data || []).map((l) => ({ nom: l.nom_produit, unite: l.unite, quantite: l.quantite, prix: l.prix_unitaire, total: l.total })),
+    lignes: (lignesRes.data || []).map((l) => ({ nom: l.nom_produit, unite: l.unite, quantite: l.quantite, prix: l.prix_unitaire, total: l.total, base: l.base || null })),
     client: client || (commande ? { nom: commande.nom, telephone: commande.telephone } : null),
     chantier,
     recuperePar: mouvement?.personne || null,

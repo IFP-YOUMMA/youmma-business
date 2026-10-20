@@ -23,6 +23,7 @@ import { afficherAide } from './aide.js';
 import { afficherLicence } from './licence.js';
 import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion, afficherMaintenance } from './plateforme.js';
 import { afficherCommandes } from './commandes.js';
+import { afficherLivraisons } from './livraisons.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
 import { afficherAfficheJour } from './affiche-jour.js';
 import { afficherProformas } from './proformas.js';
@@ -79,7 +80,9 @@ const ROUTES = {
   // Paramètres → Logo & images (logo, couverture, paiements, partenaires, miniatures)
   identite: { vue: afficherIdentite, droit: 'documents.reglages' },
   // Paramètres → Mes modules (gérant et propriétaire)
-  modules: { vue: afficherMesModules, droit: 'parametres_boutique' }
+  modules: { vue: afficherMesModules, droit: 'parametres_boutique' },
+  // Livraisons & camions (module « livraisons »).
+  livraisons: { vue: afficherLivraisons }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };

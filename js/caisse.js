@@ -14,6 +14,7 @@ import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aModule, vocab, unArticle } from './modules.js';
+import { chargerUnitesArticles, ouvrirChoixUnite, prixUnite, quantiteEnUnite, completerLignesBase } from './unites.js';
 import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVariantes, oublierVariantes, nomAvecVariante, libelleVariante } from './variantes.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
@@ -62,6 +63,8 @@ export function afficherCaisse(conteneur, params) {
     panierOuvert: false,
     /** Devis en cours de transformation en vente (relu en base) : { id, numero, total, lignes, libres, client_nom }. */
     devis: null,
+    /** Unités de vente actives (module « unites ») : produit_id → [{ id, nom, facteur, prix, prix_gros }]. */
+    unites: new Map(),
     /** Codes-barres des cases des modèles chargés (code → case) : scan possible sans réseau. */
     codesCases: new Map(),
     /** Réglages des documents (facture A4 / reçu A4, format par défaut). */
@@ -86,18 +89,27 @@ export function afficherCaisse(conteneur, params) {
   }
 
   const cleLigne = (idProduit, idVariante) => (idVariante ? `${idProduit}|${idVariante}` : idProduit);
-  /** Prix d'une ligne : prix spécial de la case s'il existe, sinon celui du modèle (détail / gros, promo). */
+  const cleUnite = (idProduit, idUnite) => (idUnite ? `${idProduit}#${idUnite}` : idProduit);
+  /** Article vendu dans plusieurs unités (tonne, botte…) : choix de l'unité avant la quantité. */
+  const avecUnites = (p) => Boolean(s.unites.get(p.id)?.length) && !aVariantes(p);
+  /** Prix d'une ligne : prix de l'unité, prix spécial de la case, sinon celui de l'article (détail / gros, promo). */
   function prixLigne(l) {
+    if (l.unite) return prixUnite(l.produit, l.unite, s.typePrix);
     return l.variante?.prix ?? prixArticle(l.produit);
   }
-  function maxLigne(l) {
+  /** Quantité de l'article déjà dans le panier, en unité de base (sauf la ligne « sauf »). */
+  function baseUtilisee(idProduit, sauf = null) {
+    let n = 0;
+    s.panier.forEach((l, cle) => { if (l.produit.id === idProduit && cle !== sauf) n += l.quantite * (l.unite?.facteur || 1); });
+    return n;
+  }
+  function maxLigne(l, cle = null) {
+    if (l.unite && !l.produit.sur_commande) return Math.max(0, (Number(l.produit.stock) - baseUtilisee(l.produit.id, cle)) / l.unite.facteur);
     return l.variante && !l.produit.sur_commande ? Math.max(0, Number(l.variante.stock) || 0) : quantiteMax(l.produit);
   }
-  /** Quantité d'un article dans le panier, toutes tailles confondues. */
+  /** Quantité d'un article dans le panier, toutes tailles et unités confondues (unité de base). */
   function quantiteProduit(id) {
-    let n = 0;
-    s.panier.forEach((l) => { if (l.produit.id === id) n += l.quantite; });
-    return n;
+    return baseUtilisee(id);
   }
 
   function totaux() {
@@ -214,7 +226,7 @@ export function afficherCaisse(conteneur, params) {
     const stock = etatStock(p);
     const vignette = vignetteProduit(p, 120, icone(iconeArticle(p), 28, 1.7));
     let actionsMobile = '';
-    if (quantite > 0 && !aVariantes(p)) {
+    if (quantite > 0 && !aVariantes(p) && !avecUnites(p)) {
       actionsMobile = stepperHTML(p, quantite, 'article');
     } else if (!epuise) {
       actionsMobile = `<button type="button" class="btn-ajout" data-ajouter="${esc(p.id)}" aria-label="Ajouter ${esc(p.nom)} au panier">${icone('plus', 18, 2.4)}</button>`;
@@ -345,14 +357,14 @@ export function afficherCaisse(conteneur, params) {
   }
 
   function lignePanierHTML(ligne, cle) {
-    const { produit, quantite, variante } = ligne;
+    const { produit, quantite, variante, unite } = ligne;
     const prix = prixLigne(ligne);
-    const nom = nomAvecVariante(produit.nom, variante?.libelle);
+    const nom = unite ? `${produit.nom} — ${quantiteEnUnite(quantite, unite.nom)}` : nomAvecVariante(produit.nom, variante?.libelle);
     return `
       <div class="ligne-panier">
         <div class="ligne-panier-infos">
           <span class="gras">${esc(nom)}</span>
-          <span class="discret">${formatNombre(prix)} GNF / ${esc(produit.unite || 'unité')}</span>
+          <span class="discret">${formatNombre(prix)} GNF / ${esc(unite ? unite.nom.toLowerCase() : produit.unite || 'unité')}${unite ? ` · ${esc(formatQuantite(Math.round(quantite * unite.facteur * 1000) / 1000, produit.unite))}` : ''}</span>
         </div>
         ${stepperHTML(produit, quantite, 'panier', cle, nom)}
         <span class="ligne-panier-total">${formatNombre(Math.round(prix * quantite))}</span>
@@ -455,10 +467,12 @@ export function afficherCaisse(conteneur, params) {
     let quantite = uniteDivisible(produit.unite)
       ? Math.round(quantiteSaisie * 1000) / 1000
       : Math.max(1, Math.round(quantiteSaisie));
-    const max = ligne ? maxLigne(ligne) : quantiteMax(produit);
+    if (ligne?.unite) quantite = Math.round(quantiteSaisie * 1000) / 1000;
+    const max = ligne ? maxLigne(ligne, id) : quantiteMax(produit) - baseUtilisee(produit.id, id);
     if (quantite > max) {
-      quantite = max;
-      toast(`Stock insuffisant : il reste ${formatQuantite(max, produit.unite)} de « ${nomAvecVariante(produit.nom, ligne?.variante?.libelle)} ».`, 'erreur');
+      quantite = ligne?.unite ? Math.floor(max * 1000) / 1000 : max;
+      // Stock et messages en unité de base.
+      toast(`Stock insuffisant : il reste ${formatQuantite(Number(produit.stock) - baseUtilisee(produit.id, id), produit.unite)} de « ${nomAvecVariante(produit.nom, ligne?.variante?.libelle)} ».`, 'erreur');
     }
     if (quantite <= 0) s.panier.delete(id);
     else s.panier.set(id, { ...ligne, produit, quantite });
@@ -492,9 +506,30 @@ export function afficherCaisse(conteneur, params) {
     });
   }
 
+  /** Choix de l'unité (Barre · Tonne · Botte de 10…), puis quantité ; une ligne par unité. */
+  function choisirUnite(produit, { quantite = 1, unite = null, apres = null } = {}) {
+    ouvrirChoixUnite({
+      produit,
+      unites: s.unites.get(produit.id) || [],
+      typePrix: s.typePrix,
+      stockLibre: Math.max(0, Number(produit.stock) - baseUtilisee(produit.id)),
+      quantiteInitiale: quantite,
+      uniteInitiale: unite,
+      onAjout: (u, q) => { if (u) ajouterUnite(produit, u, q); else ajouter(produit.id, q); apres?.(); },
+      onFermer: apres
+    });
+  }
+  function ajouterUnite(produit, unite, quantite) {
+    const cle = cleUnite(produit.id, unite.id);
+    const ligne = s.panier.get(cle) || { produit, quantite: 0, unite };
+    s.panier.set(cle, { ...ligne, produit, unite });
+    definirQuantite(cle, ligne.quantite + quantite);
+  }
+
   function clicArticle(id) {
     const produit = s.produits.find((p) => p.id === id);
     if (produit && aVariantes(produit)) return choisirVariante(produit);
+    if (produit && avecUnites(produit)) return choisirUnite(produit);
     return ajouter(id, 1);
   }
 
@@ -554,7 +589,7 @@ export function afficherCaisse(conteneur, params) {
 
   /** Ouvre l'écran d'enlèvement du chantier avec les articles du panier déjà saisis. */
   function versEnlevementChantier() {
-    const lignes = [...s.panier.values()].map(({ produit, quantite, variante }) => `${produit.id}${variante ? `~${variante.id}` : ''}:${quantite}`).join(',');
+    const lignes = [...s.panier.values()].map(({ produit, quantite, variante, unite }) => `${produit.id}${variante ? `~${variante.id}` : ''}${unite ? `@${unite.id}` : ''}:${quantite}`).join(',');
     const params = new URLSearchParams({ prix: s.typePrix });
     if (lignes) params.set('lignes', lignes);
     naviguer(`chantiers/${s.chantierClient.id}/enlevement?${params}`);
@@ -599,6 +634,7 @@ export function afficherCaisse(conteneur, params) {
       return;
     }
     if (aVariantes(p)) { effacer(); choisirVariante(p); return; }
+    if (avecUnites(p)) { effacer(); choisirUnite(p); return; }
     ajouter(p.id, 1);
     effacer();
   }
@@ -627,7 +663,7 @@ export function afficherCaisse(conteneur, params) {
       client: s.client,
       typePrix: s.typePrix,
       remise: s.remise,
-      lignes: [...s.panier.values()].map(({ produit, quantite, variante }) => ({ produit_id: produit.id, nom: nomAvecVariante(produit.nom, variante?.libelle), quantite, variante: variante || null }))
+      lignes: [...s.panier.values()].map(({ produit, quantite, variante, unite }) => ({ produit_id: produit.id, nom: unite ? `${produit.nom} — ${quantiteEnUnite(quantite, unite.nom)}` : nomAvecVariante(produit.nom, variante?.libelle), quantite, variante: variante || null, unite: unite || null }))
     });
     if (!ecrireAttente(liste)) return;
     viderPanier();
@@ -641,7 +677,7 @@ export function afficherCaisse(conteneur, params) {
     return vente.lignes.reduce((somme, l) => {
       const p = s.produits.find((x) => x.id === l.produit_id);
       if (!p) return somme;
-      const prix = l.variante?.prix ?? prixApplique(p, vente.typePrix);
+      const prix = l.unite ? prixUnite(p, l.unite, vente.typePrix) : l.variante?.prix ?? prixApplique(p, vente.typePrix);
       return somme + prix * l.quantite;
     }, 0) - (Number(vente.remise) || 0);
   }
@@ -697,10 +733,13 @@ export function afficherCaisse(conteneur, params) {
     vente.lignes.forEach((l) => {
       const produit = s.produits.find((p) => p.id === l.produit_id);
       if (!produit) { ignores++; return; }
-      const ligne = { produit, quantite: 0, variante: l.variante || undefined };
+      const unite = l.unite ? (s.unites.get(produit.id) || []).find((u) => u.id === l.unite.id) : null;
+      if (l.unite && !unite) { ignores++; return; }
+      const ligne = { produit, quantite: 0, variante: l.variante || undefined, unite: unite || undefined };
       if (aVariantes(produit) && !l.variante) { ignores++; return; }
-      const quantite = Math.min(Number(l.quantite) || 0, ligne.variante ? maxLigne(ligne) : quantiteMax(produit));
-      if (quantite > 0) s.panier.set(cleLigne(produit.id, ligne.variante?.id), { ...ligne, quantite });
+      const cle = unite ? cleUnite(produit.id, unite.id) : cleLigne(produit.id, ligne.variante?.id);
+      const quantite = Math.min(Number(l.quantite) || 0, ligne.variante || unite ? maxLigne(ligne, cle) : quantiteMax(produit));
+      if (quantite > 0) s.panier.set(cle, { ...ligne, quantite });
       else ignores++;
     });
     ecrireAttente(liste.filter((v) => String(v.id) !== String(id)));
@@ -812,8 +851,9 @@ export function afficherCaisse(conteneur, params) {
       sousTotal,
       remise,
       lignes: [...s.panier.values()].map((l) => ({
-        nom_produit: nomAvecVariante(l.produit.nom, l.variante?.libelle), unite: l.produit.unite, quantite: l.quantite,
-        prix_unitaire: prixLigne(l), total: Math.round(prixLigne(l) * l.quantite)
+        nom_produit: nomAvecVariante(l.produit.nom, l.variante?.libelle), unite: l.unite ? l.unite.nom : l.produit.unite, quantite: l.quantite,
+        prix_unitaire: prixLigne(l), total: Math.round(prixLigne(l) * l.quantite),
+        base: l.unite ? formatQuantite(Math.round(l.quantite * l.unite.facteur * 1000) / 1000, l.produit.unite) : null
       }))
     };
 
@@ -823,7 +863,10 @@ export function afficherCaisse(conteneur, params) {
       const { data, error } = await sb.rpc('valider_vente', {
         p_boutique: boutique.id,
         p_client: s.client?.id || null,
-        p_lignes: [...s.panier.values()].map(({ produit, quantite, variante }) => (variante ? { produit_id: produit.id, variante_id: variante.id, quantite } : { produit_id: produit.id, quantite })),
+        p_lignes: [...s.panier.values()].map(({ produit, quantite, variante, unite }) => {
+          if (variante) return { produit_id: produit.id, variante_id: variante.id, quantite };
+          return unite ? { produit_id: produit.id, unite_id: unite.id, quantite } : { produit_id: produit.id, quantite };
+        }),
         p_remise: remise,
         p_mode: s.mode,
         p_type_prix: s.typePrix,
@@ -932,6 +975,16 @@ export function afficherCaisse(conteneur, params) {
       const produit = s.produits.find((p) => p.id === l.produit_id);
       if (!produit) { manquants.push(l.nom); continue; }
       let variante;
+      if (l.unite_id) {
+        const unite = (s.unites.get(produit.id) || []).find((u) => u.id === l.unite_id);
+        if (!unite) { manquants.push(`${l.nom} (unité retirée)`); continue; }
+        const cle = cleUnite(produit.id, unite.id);
+        const ligne = { produit, quantite: 0, unite };
+        const quantite = Math.min(Number(l.quantite) || 0, maxLigne(ligne, cle));
+        if (quantite < Number(l.quantite)) manquants.push(`${l.nom} (stock insuffisant)`);
+        if (quantite > 0) s.panier.set(cle, { ...ligne, quantite });
+        continue;
+      }
       if (aVariantes(produit)) {
         if (!l.variante_id) { aChoisir.push({ produit, quantite: Number(l.quantite) || 1 }); continue; }
         try {
@@ -995,7 +1048,7 @@ export function afficherCaisse(conteneur, params) {
     const lignes = pf.lignes || [];
     return {
       id: pf.id, numero, total: Number(pf.total) || 0, client: pf.client_id ? { id: pf.client_id } : null, client_nom: clientNom,
-      lignes: lignes.filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, variante_id: l.variante_id || null, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
+      lignes: lignes.filter((l) => l.produit_id).map((l) => ({ produit_id: l.produit_id, variante_id: l.variante_id || null, unite_id: l.unite_id || null, nom: l.nom, quantite: Number(l.quantite), prix: Number(l.prix) })),
       libres: lignes.filter((l) => !l.produit_id).map((l) => ({ nom: l.nom, total: Number(l.total) || 0 }))
     };
   }
@@ -1032,10 +1085,11 @@ export function afficherCaisse(conteneur, params) {
     try {
       const [venteRes, lignesRes] = await Promise.all([
         sb.from('ventes').select('numero, created_at, sous_total, remise, total, mode_paiement, echeance').eq('id', idVente).single(),
-        sb.from('ventes_lignes').select('nom_produit, unite, quantite, prix_unitaire, total').eq('vente_id', idVente)
+        sb.from('ventes_lignes').select('produit_id, nom_produit, unite, quantite, prix_unitaire, total, facteur, quantite_base').eq('vente_id', idVente)
       ]);
       if (venteRes.error || lignesRes.error) return recuLocal;
       const v = venteRes.data;
+      await completerLignesBase(lignesRes.data);
       return {
         ...recuLocal,
         numero: v.numero,
@@ -1070,6 +1124,7 @@ export function afficherCaisse(conteneur, params) {
     }
     s.produits = produitsRes.data;
     s.categories = categoriesRes.data;
+    s.unites = await chargerUnitesArticles(s.produits.filter((p) => !aVariantes(p)).map((p) => p.id));
     s.charge = true;
     chargerCodesCases();
     if (s.categorie !== 'tous' && !s.categories.some((c) => c.id === s.categorie)) s.categorie = 'tous';

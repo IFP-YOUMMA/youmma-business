@@ -133,6 +133,7 @@ export function donneesExemple(boutique) {
 
 /**
  * HTML A4 autonome d'un document.
+ * transport (bon de livraison, module « livraisons ») : { numero, vehicule, chauffeur, chauffeur_tel, adresse, repere, recu_par, livree_le, signature }.
  * p = { type, modele, reglages, boutique, document, vente, proforma, lignes, client, chantier, recuperePar,
  *       livraison: { zone, adresse, commande }, vendeur, cachetUrl, signatureUrl, essai, avecPrix (bon de livraison) }
  * lignes : [{ nom, unite, quantite, prix, total }].
@@ -150,7 +151,7 @@ export function rendreDocument(p) {
   const pu = o.prix_unitaire && avecPrix;
   const lignes = (p.lignes || []).map((l) => ({
     nom: l.nom ?? l.nom_produit ?? '', unite: l.unite || '', quantite: Number(l.quantite) || 0,
-    prix: Number(l.prix ?? l.prix_unitaire) || 0, total: Number(l.total) || Math.round((Number(l.prix ?? l.prix_unitaire) || 0) * (Number(l.quantite) || 0))
+    prix: Number(l.prix ?? l.prix_unitaire) || 0, total: Number(l.total) || Math.round((Number(l.prix ?? l.prix_unitaire) || 0) * (Number(l.quantite) || 0)), base: l.base || null
   }));
 
   // Couleurs : principale, accent ; le modèle Sobre est entièrement noir et blanc.
@@ -213,6 +214,11 @@ export function rendreDocument(p) {
     blocDroite = `<div class="ybd-bloc"><span class="ybd-etiquette">${bl ? 'LIVRAISON / CHANTIER' : 'CHANTIER'}</span>
       <span class="ybd-bloc-titre">${esc(p.chantier.nom || '')}${p.chantier.numero ? ` — ${esc(p.chantier.numero)}` : ''}</span>
       <span class="ybd-bloc-texte">${[p.chantier.adresse ? esc(p.chantier.adresse) : '', p.recuperePar ? `Récupéré par : ${esc(p.recuperePar)}` : ''].filter(Boolean).join('<br>')}</span></div>`;
+  } else if (bl && p.transport) {
+    const t = p.transport;
+    blocDroite = `<div class="ybd-bloc"><span class="ybd-etiquette">LIVRAISON ${esc(t.numero || '')}</span>
+      <span class="ybd-bloc-titre">${esc([t.adresse, t.repere].filter(Boolean).join(' · ') || 'Livraison')}</span>
+      <span class="ybd-bloc-texte">${[t.vehicule ? `Véhicule : ${esc(t.vehicule)}` : '', t.chauffeur ? `Chauffeur : ${esc(t.chauffeur)}${t.chauffeur_tel ? ` · ${esc(formatTelephone(t.chauffeur_tel))}` : ''}` : ''].filter(Boolean).join('<br>')}</span></div>`;
   } else if ((o.chantier || bl) && p.livraison) {
     const lv = p.livraison;
     blocDroite = `<div class="ybd-bloc"><span class="ybd-etiquette">${lv.zone || lv.adresse ? 'LIVRAISON' : 'RETRAIT EN BOUTIQUE'}</span>
@@ -233,15 +239,15 @@ export function rendreDocument(p) {
   if (bl) {
     tete = `<th class="ybd-n">N°</th><th>Désignation</th><th>Unité</th><th class="ybd-d">Qté commandée</th><th class="ybd-d">Qté livrée</th>${avecPrix ? '<th class="ybd-d">Montant (GNF)</th>' : ''}`;
     colonnes = [34, null, 80, 120, 110, ...(avecPrix ? [130] : [])];
-    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td>${esc(l.unite)}</td><td class="ybd-d">${qte(l)}</td><td class="ybd-d ybd-a-remplir"></td>${avecPrix ? `<td class="ybd-d ybd-g">${nb(l.total)}</td>` : ''}</tr>`);
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}${l.base ? `<span class="ybd-base">(${esc(l.base)})</span>` : ''}</td><td>${esc(l.unite)}</td><td class="ybd-d">${qte(l)}</td><td class="ybd-d ybd-a-remplir"></td>${avecPrix ? `<td class="ybd-d ybd-g">${nb(l.total)}</td>` : ''}</tr>`);
   } else if (modele === 'moderne') {
     tete = `<th>Article</th><th class="ybd-d">Qté</th>${pu ? '<th class="ybd-d">Prix</th>' : ''}<th class="ybd-d">Montant</th>`;
     colonnes = [null, pu ? 80 : 130, ...(pu ? [110] : []), 130];
-    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-des">${esc(l.nom)}${l.base ? `<span class="ybd-base">(${esc(l.base)})</span>` : ''}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
   } else {
     tete = `<th class="ybd-n">N°</th><th>Désignation</th><th class="ybd-d">Qté</th>${pu ? '<th>Unité</th><th class="ybd-d">P.U. (GNF)</th>' : ''}<th class="ybd-d">Montant (GNF)</th>`;
     colonnes = [34, null, pu ? 60 : 130, ...(pu ? [76, 110] : []), 130];
-    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td>${esc(l.unite)}</td><td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
+    rangs = lignes.map((l, i) => `<tr${pair(i)}><td class="ybd-n">${i + 1}</td><td class="ybd-des">${esc(l.nom)}${l.base ? `<span class="ybd-base">(${esc(l.base)})</span>` : ''}</td><td class="ybd-d">${pu ? qte(l) : esc(formatQuantite(l.quantite, l.unite))}</td>${pu ? `<td>${esc(l.unite)}</td><td class="ybd-d">${nb(l.prix)}</td>` : ''}<td class="ybd-d ybd-g">${nb(l.total)}</td></tr>`);
   }
   if (!rangs.length) rangs = [`<tr><td colspan="${colonnes.length}" class="ybd-vide">Aucun article</td></tr>`];
   const colgroup = `<colgroup>${colonnes.map((l) => (l ? `<col style="width:${l}px">` : '<col>')).join('')}</colgroup>`;
@@ -288,8 +294,11 @@ export function rendreDocument(p) {
   const images = `${p.signatureUrl ? `<img class="ybd-signature" src="${esc(p.signatureUrl)}" alt="">` : ''}${p.cachetUrl ? `<img class="ybd-cachet" src="${esc(p.cachetUrl)}" alt="">` : ''}`;
   let signatures = '';
   if (bl) {
-    signatures = `<div class="ybd-signatures"><div class="ybd-sig">Cachet &amp; signature de la boutique${images}</div>
-      <div class="ybd-sig ybd-recu-par">Reçu par : <span class="ybd-pointilles"></span><br>Date : <span class="ybd-pointilles"></span><br>Signature :</div></div>`;
+    const t = p.transport;
+    const recu = t?.recu_par
+      ? `<div class="ybd-sig ybd-recu-par">Reçu par : <strong>${esc(t.recu_par)}</strong><br>Le : ${esc(t.livree_le ? formatDate(t.livree_le, 'complet') : '—')}<br>Signature :${t.signature ? `<img class="ybd-signature-client" src="${esc(t.signature)}" alt="Signature du client">` : ''}</div>`
+      : '<div class="ybd-sig ybd-recu-par">Reçu par : <span class="ybd-pointilles"></span><br>Date : <span class="ybd-pointilles"></span><br>Signature :</div>';
+    signatures = `<div class="ybd-signatures"><div class="ybd-sig">Cachet &amp; signature de la boutique${images}</div>${recu}</div>`;
   } else if (o.signatures) {
     signatures = `<div class="ybd-signatures"><div class="ybd-sig">Cachet &amp; signature de la boutique${images}</div>
       <div class="ybd-sig">${type === 'proforma' ? 'Bon pour accord — signature du client' : 'Signature du client'}<br><small>(précédée de « Lu et approuvé »)</small></div></div>`;
@@ -389,6 +398,8 @@ export const CSS_DOCUMENT = `
 .ybd-table .ybd-n{width:28px;color:var(--gris-clair)}
 .ybd-table th.ybd-n{color:inherit}
 .ybd-des{font-weight:600;overflow-wrap:anywhere}
+.ybd-base{display:block;font-weight:500;font-size:.86em;color:#666666}
+.ybd-signature-client{position:absolute;right:12px;bottom:6px;max-width:170px;max-height:58px;object-fit:contain}
 .ybd-g{font-weight:700}
 .ybd-vide{text-align:center;color:var(--gris-clair)}
 .ybd-a-remplir{min-width:90px;border-bottom:1px dotted #9CA3AF}

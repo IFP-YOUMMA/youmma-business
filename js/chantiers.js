@@ -22,6 +22,7 @@ import { ouvrirOutilImage } from './images/outil.js';
 import { ouvrirDocument } from './documents/donnees.js';
 import { aModule } from './modules.js';
 import { aVariantes, ouvrirChoixVariante, chargerVariantes, nomAvecVariante } from './variantes.js';
+import { chargerUnitesArticles, ouvrirChoixUnite, prixUnite, quantiteEnUnite } from './unites.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
@@ -604,7 +605,8 @@ function afficherEnlevement(conteneur, id, params) {
   const cleSuggestions = `yb_recupere_${id}`;
   const s = {
     // panier : clé → quantité ; clé = produit_id, ou « produit_id~variante_id » (case taille × couleur, décrite dans cases).
-    chantier: null, client: null, produits: [], habituels: [], panier: new Map(), cases: new Map(),
+    // Unités (module « unites ») : clé « produit_id@unite_id » ; unitesChoisies : clé → unité ; unites : produit_id → unités.
+    chantier: null, client: null, produits: [], habituels: [], panier: new Map(), cases: new Map(), unites: new Map(), unitesChoisies: new Map(),
     typePrix: params.get('prix') === 'gros' ? 'gros' : 'detail',
     recherche: '', autresOuverts: false, photo: null, enCours: false
   };
@@ -614,10 +616,15 @@ function afficherEnlevement(conteneur, id, params) {
 
   const prixArticle = (p) => (s.typePrix === 'gros' && p.prix_gros !== null && p.prix_gros !== undefined ? Number(p.prix_gros) : Number(p.prix_detail) || 0);
   const quantiteMax = (p) => (p.sur_commande ? Infinity : Math.max(0, Number(p.stock) || 0));
-  const produitDe = (cle) => s.produits.find((x) => x.id === String(cle).split('~')[0]);
+  const produitDe = (cle) => s.produits.find((x) => x.id === String(cle).split(/[~@]/)[0]);
+  const avecUnites = (p) => Boolean(s.unites.get(p.id)?.length) && !aVariantes(p);
+  const prixCle = (p, cle) => (s.unitesChoisies.has(cle) ? prixUnite(p, s.unitesChoisies.get(cle), s.typePrix) : s.cases.get(cle)?.prix ?? prixArticle(p));
+  /** Quantité de l'article déjà choisie, en unité de base (sauf la clé « sauf »). */
+  const baseUtilisee = (idProduit, sauf = null) => [...s.panier.entries()].reduce((t, [cle, q]) => (
+    String(cle).split(/[~@]/)[0] === idProduit && cle !== sauf ? t + q * (s.unitesChoisies.get(cle)?.facteur || 1) : t), 0);
   const total = () => Math.round([...s.panier.entries()].reduce((t, [cle, q]) => {
     const p = produitDe(cle);
-    return t + (p ? (s.cases.get(cle)?.prix ?? prixArticle(p)) * q : 0);
+    return t + (p ? prixCle(p, cle) * q : 0);
   }, 0));
 
   function definirQuantite(cle, saisie) {
@@ -627,10 +634,12 @@ function afficherEnlevement(conteneur, id, params) {
     // Modèle à tailles / couleurs : choix de la case dans le panneau.
     if (!cas && aVariantes(p)) { choisirVariante(p); return; }
     if (saisie === null || saisie <= 0) { s.panier.delete(cle); renderListes(); renderPied(); return; }
-    let q = uniteDivisible(p.unite) ? Math.round(saisie * 1000) / 1000 : Math.max(1, Math.round(saisie));
-    const max = cas && !p.sur_commande ? cas.stock : quantiteMax(p);
+    const unite = s.unitesChoisies.get(cle);
+    let q = unite || uniteDivisible(p.unite) ? Math.round(saisie * 1000) / 1000 : Math.max(1, Math.round(saisie));
+    let max = cas && !p.sur_commande ? cas.stock : quantiteMax(p);
+    if (!p.sur_commande && !cas) max = (Number(p.stock) - baseUtilisee(p.id, cle)) / (unite?.facteur || 1);
     if (q > max) {
-      q = max;
+      q = unite ? Math.floor(max * 1000) / 1000 : max;
       toast(`Stock insuffisant : il reste ${formatQuantite(q, p.unite)} de « ${nomAvecVariante(p.nom, cas?.libelle)} ».`, 'erreur');
     }
     if (q <= 0) s.panier.delete(cle);
@@ -650,6 +659,38 @@ function afficherEnlevement(conteneur, id, params) {
         definirQuantite(cle, (s.panier.get(cle) || 0) + q);
       }
     });
+  }
+
+  /** Choix d'une unité (tonne, botte…) pour l'enlèvement. */
+  function choisirUnite(p) {
+    ouvrirChoixUnite({
+      produit: p, unites: s.unites.get(p.id) || [], typePrix: s.typePrix,
+      stockLibre: Math.max(0, Number(p.stock) - baseUtilisee(p.id)),
+      onAjout: (u, q) => {
+        const cle = u ? `${p.id}@${u.id}` : p.id;
+        if (u) s.unitesChoisies.set(cle, u);
+        definirQuantite(cle, (s.panier.get(cle) || 0) + q);
+      }
+    });
+  }
+
+  /** Lignes d'un article vendues dans une autre unité (une par unité). */
+  function lignesUnitesHTML(p) {
+    return [...s.panier.entries()].filter(([cle]) => cle.startsWith(`${p.id}@`)).map(([cle, q]) => {
+      const u = s.unitesChoisies.get(cle);
+      const idChamp = `enl-${cle.replace('@', '-')}`;
+      return `
+        <li class="article-enlevement choisi article-variante">
+          <span class="ae-textes"><span class="gras">${esc(`${p.nom} — ${quantiteEnUnite(q, u?.nom)}`)}</span>
+            <span class="discret">${formatNombre(prixCle(p, cle))} GNF / ${esc(String(u?.nom || '').toLowerCase())} · ${esc(formatQuantite(Math.round(q * (u?.facteur || 1) * 1000) / 1000, p.unite))}</span></span>
+          <span class="stepper stepper-actif">
+            <button type="button" data-moins="${esc(cle)}" aria-label="Diminuer">−</button>
+            <label class="sr-only" for="${esc(idChamp)}">Quantité</label>
+            <input id="${esc(idChamp)}" class="stepper-qte" type="text" inputmode="decimal" autocomplete="off" value="${String(q).replace('.', ',')}" data-qte="${esc(cle)}">
+            <button type="button" data-plus="${esc(cle)}" aria-label="Augmenter">+</button>
+          </span>
+        </li>`;
+    }).join('');
   }
 
   /** Lignes déjà choisies d'un modèle à tailles (une par case). */
@@ -694,7 +735,7 @@ function afficherEnlevement(conteneur, id, params) {
     }
     const q = s.panier.get(p.id) || 0;
     const idChamp = `enl-${p.id}`;
-    return `
+    const html = `
       <li class="article-enlevement ${q ? 'choisi' : ''} ${epuise ? 'epuise' : ''}">
         <span class="ae-textes">
           <span class="gras">${esc(p.nom)}</span>
@@ -707,12 +748,15 @@ function afficherEnlevement(conteneur, id, params) {
           <button type="button" data-plus="${esc(p.id)}" aria-label="Augmenter ${esc(p.nom)}" ${epuise ? 'disabled' : ''}>+</button>
         </span>
       </li>`;
+    // Article vendu dans plusieurs unités : bouton « Autre unité » et une ligne par unité choisie.
+    if (!avecUnites(p)) return html;
+    return `${html.replace('</li>', `<button type="button" class="btn btn-secondaire btn-petit btn-autre-unite" data-choisir-unite="${esc(p.id)}" ${epuise ? 'disabled' : ''}>${icone('plus', 16, 2.4)} Autre unité</button></li>`)}${lignesUnitesHTML(p)}`;
   }
 
   function renderListes() {
     const habituels = s.habituels.map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
     // Les articles ajoutés depuis le stock restent visibles en haut, avec les habituels.
-    const ajoutes = [...new Set([...s.panier.keys()].map((cle) => cle.split('~')[0]))].filter((pid) => !s.habituels.includes(pid)).map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
+    const ajoutes = [...new Set([...s.panier.keys()].map((cle) => cle.split(/[~@]/)[0]))].filter((pid) => !s.habituels.includes(pid)).map((pid) => s.produits.find((p) => p.id === pid)).filter(Boolean);
     conteneur.querySelector('[data-zone="habituels"]').innerHTML = [...habituels, ...ajoutes].length
       ? [...habituels, ...ajoutes].map(ligneArticleHTML).join('')
       : '<li class="discret">Premier enlèvement sur ce chantier : choisissez les articles dans le stock.</li>';
@@ -844,6 +888,7 @@ function afficherEnlevement(conteneur, id, params) {
     const { data, error } = await sb.rpc('enregistrer_enlevement', {
       p_chantier: id,
       p_lignes: [...s.panier.entries()].map(([cle, quantite]) => {
+        if (cle.includes('@')) { const [produit_id, unite_id] = cle.split('@'); return { produit_id, unite_id, quantite }; }
         const [produit_id, variante_id] = cle.split('~');
         return variante_id ? { produit_id, variante_id, quantite } : { produit_id, quantite };
       }),
@@ -885,12 +930,23 @@ function afficherEnlevement(conteneur, id, params) {
       s.chantier = { ...base.chantier, solde: Number(base.chantier.solde) || 0 };
       s.client = base.client;
       s.produits = produitsRes.data;
+      s.unites = await chargerUnitesArticles(s.produits.filter((p) => !aVariantes(p)).map((p) => p.id));
       s.habituels = [...cumul.entries()].sort((a, b) => b[1] - a[1]).map(([pid]) => pid)
         .filter((pid) => s.produits.some((p) => p.id === pid)).slice(0, NB_HABITUELS);
       s.autresOuverts = !s.habituels.length;
       // Articles venant de la caisse : ?lignes=<produit>[~<case>]:<quantité>,…
       for (const paire of String(params.get('lignes') || '').split(',').filter(Boolean)) {
         const [cle, q] = paire.split(':');
+        if (cle.includes('@')) {
+          const [pid, uid] = cle.split('@');
+          const p = s.produits.find((x) => x.id === pid);
+          const u = (s.unites.get(pid) || []).find((x) => x.id === uid);
+          if (!p || !u) continue;
+          s.unitesChoisies.set(cle, u);
+          const quantite = Math.min(Number(q) || 0, p.sur_commande ? Infinity : (Number(p.stock) - baseUtilisee(pid)) / u.facteur);
+          if (quantite > 0) s.panier.set(cle, Math.round(quantite * 1000) / 1000);
+          continue;
+        }
         const [pid, vid] = cle.split('~');
         const p = s.produits.find((x) => x.id === pid);
         if (!p) continue;
@@ -912,6 +968,8 @@ function afficherEnlevement(conteneur, id, params) {
   }
 
   conteneur.addEventListener('click', (e) => {
+    const autreUnite = e.target.closest('[data-choisir-unite]');
+    if (autreUnite) { const p = s.produits.find((x) => x.id === autreUnite.dataset.choisirUnite); if (p) choisirUnite(p); return; }
     const taille = e.target.closest('[data-choisir-taille]');
     if (taille) { const p = s.produits.find((x) => x.id === taille.dataset.choisirTaille); if (p) choisirVariante(p); return; }
     const plus = e.target.closest('[data-plus]');

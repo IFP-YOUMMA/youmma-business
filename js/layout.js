@@ -24,6 +24,7 @@ export const SECTIONS = [
   { route: 'stock', libelle: 'Stock', icone: 'stock', active: true },
   { route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
   { route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true, module: 'chantiers' },
+  { route: 'livraisons', libelle: 'Livraisons', icone: 'camion', active: true, module: 'livraisons' },
   { route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
   { route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
   { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },

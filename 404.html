@@ -9,6 +9,7 @@
     // GitHub Pages sert cette page pour toute adresse inconnue.
     // …/youmma-business/b/<adresse> → …/youmma-business/b/?s=<adresse> (lien court des boutiques en ligne) ;
     // …/youmma-business/v/<code> → …/youmma-business/v/?c=<code> (vérification d'un document) ;
+    // …/youmma-business/d/<jeton> → …/youmma-business/d/?j=<jeton> (page du chauffeur, livraison à signer) ;
     // toute autre adresse → l'appli.
     (function () {
       var chemin = location.pathname;
@@ -16,6 +17,8 @@
       if (m) { location.replace(m[1] + 'b/?s=' + encodeURIComponent(m[2].toLowerCase()) + location.hash); return; }
       var v = chemin.match(/^(.*?\/)v\/([A-Za-z0-9]{4,20})\/?$/);
       if (v) { location.replace(v[1] + 'v/?c=' + encodeURIComponent(v[2])); return; }
+      var d = chemin.match(/^(.*?\/)d\/([A-Za-z0-9_-]{8,120})\/?$/);
+      if (d) { location.replace(d[1] + 'd/?j=' + encodeURIComponent(d[2])); return; }
       var racine = chemin.match(/^(\/youmma-business\/)/);
       location.replace((racine ? racine[1] : '/') + location.hash);
     })();
