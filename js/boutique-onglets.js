@@ -70,7 +70,7 @@ export function afficherBoutiqueOnglets(conteneur, params) {
   // Écran de l'onglet (écrans existants, inchangés).
   let nettoyer;
   if (onglet === 'commandes') nettoyer = afficherCommandes(contenu, params);
-  else if (onglet === 'affiche') nettoyer = afficherAfficheJour(contenu);
+  else if (onglet === 'affiche') nettoyer = afficherAfficheJour(contenu, params);
   else {
     nettoyer = afficherBoutiqueEnLigne(contenu);
     contenu.dataset.section = onglet;

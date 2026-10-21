@@ -1,588 +1,506 @@
 /**
- * affiche-jour.js — Écran « Affiche du jour » (maquettes AfficheJour.dc.html et AffichesPro.dc.html), onglet « Affiche du jour » de #/boutique-en-ligne.
+ * affiche-jour.js — « Affiche du jour » (étape 15, maquettes AfficheJourV2 et AfficheCalendrier), onglet de
+ * #/boutique-en-ligne. Deux vues : Aujourd'hui (écran du matin) et Mois (calendrier, affiche-calendrier.js).
  *
- * Le serveur choisit l'article chaque matin à 6 h (affiche_du_jour) ; le gérant peut changer le modèle,
- * l'article, les 2 articles de plus de « Sélection », la phrase, la couleur et la photo (avec « Retirer
- * le fond »). L'image est dessinée dans le navigateur (affiche.js) en 3 formats ; le texte de
- * publication est copié avant le partage (Facebook ou statut WhatsApp) ou le téléchargement.
+ * Écran du matin : affiche_du_jour → dessin des 3 formats sur le téléphone (affiche.js), texte et hashtags,
+ * quatre boutons de publication (Facebook, Instagram, statut WhatsApp, TikTok), changer d'affiche
+ * (autre suggestion, thème, article), publication automatique, dernières publications.
+ * Images et vidéo déposées puis enregistrées (enregistrer_images_affiche) dès qu'elles changent.
  */
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
+import { genererAffiche, versJpeg, genererVideo, videoPossible, FORMATS_AFFICHE } from './affiche.js';
 import {
-  genererAffiche, versImage, nomFichierAffiche, extensionAffiche, familleArticle, lireCouleurAffiche, ecrireCouleurAffiche,
-  FORMATS_AFFICHE, LIBELLES_MODELES_AFFICHE, COULEURS_AFFICHE
-} from './affiche.js';
-import { modifierPhotoArticle } from './images/actions.js';
-import { chargerReglages, reglagesEnCache } from './documents/donnees.js';
-import { vignetteProduit } from './images/affichage.js';
+  RESEAUX, enregistrerImages, publierManuellement, publierAutomatiquement, telechargerImage, nomFichier, iconeReseau, heureLisible
+} from './affiche-publier.js';
+import { monterCalendrier, bandeauExpiration, TONS, lireReglages } from './affiche-calendrier.js';
 import {
-  esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatDate,
-  formatTelephone, capitaliser, dateISO, decalerDate, promoActive, prixApplique, lienBoutique, lienCourtBoutique,
-  iconeUnite, TYPES_ACTIVITE
+  esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, copierTexte, formatNombre, formatDate, dateISO, capitaliser, prixApplique
 } from './utils.js';
 
-const MAX_PHRASE = 80;
-const premiere = (r) => (Array.isArray(r) ? r[0] : r) || null;
-const telLocal = (t) => (t ? formatTelephone(t).replace(/^\+224\s*/, '') : null);
+const premiere = (d) => (Array.isArray(d) ? d[0] : d) || null;
+const LIBELLES_FORMATS = { '4:5': 'Facebook · Instagram 4:5', '9:16': 'Statut · Story · TikTok 9:16', '1:1': 'Carré 1:1' };
 
-/* =========================================================================
-   Données
-   ========================================================================= */
-
-/**
- * Affiche du jour (ou d'un jour passé) + tout ce qu'il faut pour la dessiner :
- * réglages de la boutique en ligne (lien, WhatsApp), zones de livraison, et pour chaque article
- * (principal + autres) : prix de gros, catégorie, fin de promo, « sur commande ».
- */
-export async function chargerAfficheDuJour(jour = null) {
-  const idB = etat.boutique.id;
-  const [afficheRes, enLigne, zones] = await Promise.all([
-    sb.rpc('affiche_du_jour', jour ? { p_boutique: idB, p_jour: jour } : { p_boutique: idB }),
-    sb.from('boutiques_en_ligne').select('slug, actif, whatsapp').eq('boutique_id', idB).maybeSingle(),
-    sb.from('zones_livraison').select('nom, ordre').eq('boutique_id', idB).eq('actif', true).order('ordre'),
-    // Réglages des documents : « logo sur les affiches » (logo_usages.affiches), lus par donneesAffiche.
-    chargerReglages(idB).catch(() => null)
+/** Complément de dessin : horaires (boutiques_en_ligne) et vrai chiffre de l'année (ventes). */
+async function chargerComplements(boutique) {
+  const debutAnnee = `${dateISO().slice(0, 4)}-01-01T00:00:00Z`;
+  const [enLigne, ventes] = await Promise.all([
+    sb.from('boutiques_en_ligne').select('ouverture, fermeture, jours').eq('boutique_id', boutique.id).maybeSingle(),
+    sb.from('ventes').select('id', { count: 'exact', head: true }).eq('boutique_id', boutique.id).eq('statut', 'validee').gte('created_at', debutAnnee)
   ]);
-  if (afficheRes.error) throw afficheRes.error;
-  const affiche = premiere(afficheRes.data);
-  const contexte = { affiche, enLigne: enLigne.data || null, zones: (zones.data || []).map((z) => z.nom), infos: new Map() };
-  await completerInfos(contexte, [affiche?.produit?.id, ...(affiche?.autres || []).map((a) => a.id)]);
-  return contexte;
+  const h = (x) => (x ? String(x).slice(0, 5).replace(':00', ' h').replace(':', ' h ') : null);
+  const r = enLigne.data || {};
+  const jours = (Array.isArray(r.jours) && r.jours.length ? r.jours : [1, 2, 3, 4, 5, 6]).map(Number);
+  const plage = r.ouverture && r.fermeture ? `${h(r.ouverture)} – ${h(r.fermeture)}` : 'Aux heures d’ouverture';
+  const semaine = [1, 2, 3, 4, 5].every((j) => jours.includes(j));
+  const horaires = [
+    [semaine ? 'Lundi – vendredi' : 'En semaine', semaine ? plage : 'Selon les jours'],
+    ['Samedi', jours.includes(6) ? plage : 'Fermé'],
+    ['Dimanche', jours.includes(7) || jours.includes(0) ? plage : 'Fermé']
+  ];
+  const n = Number(ventes.count) || 0;
+  const arrondi = n >= 20 ? Math.floor(n / 10) * 10 : n;
+  const lieu = boutique.ville ? ` à ${boutique.ville}` : '';
+  const phraseMerci = n >= 20 ? `Plus de ${formatNombre(arrondi)} clients servis cette année${lieu}.` : n > 0 ? `${formatNombre(n)} clients servis cette année${lieu}. Merci !` : `Merci de faire confiance à ${boutique.nom}.`;
+  return { horaires, phraseMerci };
 }
 
-/** Lit dans produits (et categories) ce que la RPC ne renvoie pas. */
-async function completerInfos(contexte, ids) {
-  const manquants = [...new Set(ids.filter(Boolean))].filter((id) => !contexte.infos.has(id));
-  if (!manquants.length) return;
-  const { data } = await sb.from('produits').select('id, prix_gros, promo_fin, prix_promo, prix_detail, sur_commande, categorie_id').in('id', manquants);
-  const cats = [...new Set((data || []).map((p) => p.categorie_id).filter(Boolean))];
-  const { data: categories } = cats.length ? await sb.from('categories').select('id, nom').in('id', cats) : { data: [] };
-  (data || []).forEach((p) => contexte.infos.set(p.id, {
-    prix_gros: p.prix_gros,
-    promo_fin: promoActive(p) ? p.promo_fin : null,
-    sur_commande: p.sur_commande,
-    categorie: (categories || []).find((c) => c.id === p.categorie_id)?.nom || null
-  }));
-}
-
-/** Données attendues par genererAffiche. contexte : résultat de chargerAfficheDuJour (ou { enLigne }). */
-export function donneesAffiche(affiche, contexte = {}) {
-  const ctx = contexte?.slug !== undefined ? { enLigne: contexte } : (contexte || {});
-  const b = etat.boutique;
-  const slug = ctx.enLigne?.slug;
-  const infos = (id) => ctx.infos?.get?.(id) || {};
-  const p = affiche?.produit || {};
-  const ip = infos(p.id);
-  return {
-    boutique: { nom: b.nom, ville: b.ville, commune: b.commune, type: TYPES_ACTIVITE[b.type_activite] || '', type_activite: b.type_activite, logo_url: reglagesEnCache(b.id)?.logo_usages?.affiches === false ? null : b.logo_url },
-    produit: { ...p, prix_gros: ip.prix_gros ?? p.prix_gros, categorie: ip.categorie ?? p.categorie, promo_fin: ip.promo_fin ?? p.promo_fin, dispo: ip.sur_commande ? 'sur_commande' : p.dispo },
-    autres: (affiche?.autres || []).slice(0, 2),
-    modele: affiche?.modele || 'jour',
-    phrase: affiche?.phrase || '',
-    raison: affiche?.raison || '',
-    jour: affiche?.jour || dateISO(),
-    couleur: affiche?.couleur || lireCouleurAffiche(b.id),
-    zones: ctx.zones || [],
-    lien: slug ? lienBoutique(slug) : null,
-    lienCourt: slug ? lienCourtBoutique(slug) : null,
-    whatsapp: telLocal(ctx.enLigne?.whatsapp || b.telephone)
-  };
-}
-
-/* =========================================================================
-   Texte de publication
-   ========================================================================= */
-
-const HASHTAGS_TYPE = {
-  materiaux: ['#Construction', '#MatériauxDeConstruction', '#BTP'],
-  habillement: ['#Mode', '#Pagne', '#Wax'],
-  alimentation: ['#Alimentation', '#Épicerie', '#Courses'],
-  services: ['#Services', '#Pro'],
-  general: ['#Boutique', '#BonPlan']
-};
-const HASHTAGS_FAMILLE = {
-  sac: '#Ciment', tole: '#Toiture', barre: '#FerÀBéton', seau: '#Peinture', carreau: '#Carrelage', bois: '#Bois',
-  tuyau: '#Plomberie', cable: '#Électricité', vetement: '#Mode', chaussure: '#Chaussures', carton: '#Alimentation'
-};
-const hashtag = (texte) => `#${String(texte || '').replace(/[^\p{L}\p{N}]+/gu, '')}`;
-
-/**
- * Texte prêt à coller sous l'image (Facebook, statut WhatsApp) : 4 à 6 lignes, émojis sobres,
- * prix, fin de promo, livraison, lien de la boutique, WhatsApp, puis 4 à 6 hashtags sans doublon.
- * options : { lien, whatsapp }.
- */
-export function texteDePublication(affiche, boutique, zones = [], options = {}) {
-  const p = affiche?.produit || {};
-  const nomB = boutique?.nom || 'notre boutique';
-  const prix = (x) => `${formatNombre(x).replace(/ /g, ' ')} GNF`;
-  const unite = p.unite ? ` / ${p.unite}` : '';
-  const lignes = [];
-  if (affiche?.modele === 'promo') {
-    lignes.push(`🔥 PROMO chez ${nomB} : ${p.nom} à ${prix(p.prix)}${unite}${p.prix_barre ? ` au lieu de ${prix(p.prix_barre)}` : ''} !`);
-    if (p.promo_fin) lignes.push(`⏳ Jusqu’au ${formatDate(`${String(p.promo_fin).slice(0, 10)}T12:00:00Z`, 'long').replace(/ \d{4}$/, '')} seulement.`);
-  } else if (affiche?.modele === 'arrivage') {
-    lignes.push(`🆕 Nouvel arrivage chez ${nomB} !`);
-    [p, ...(affiche.autres || [])].slice(0, 3).forEach((a) => lignes.push(`• ${a.nom} : ${prix(a.prix)}${a.unite ? ` / ${a.unite}` : ''}`));
-  } else {
-    lignes.push(`⭐ Le choix du jour chez ${nomB} : ${p.nom}`);
-    lignes.push(`👉 ${prix(p.prix)}${unite}${p.prix_barre ? ` au lieu de ${prix(p.prix_barre)}` : ''}`);
-  }
-  if (affiche?.phrase) lignes.push(affiche.phrase);
-  lignes.push(zones.length ? `🚚 Livraison : ${zones.join(', ')} · paiement à la livraison` : '🚚 Retrait en boutique · paiement au retrait');
-  if (options.lien) lignes.push(`🛒 Commandez en ligne : ${options.lien}`);
-  if (options.whatsapp) lignes.push(`📲 WhatsApp : ${options.whatsapp}`);
-
-  const tags = [];
-  const ajouter = (t) => { if (t && t.length > 2 && !tags.some((x) => x.toLowerCase() === t.toLowerCase())) tags.push(t); };
-  if (boutique?.ville) ajouter(hashtag(boutique.ville));
-  if (boutique?.commune) ajouter(hashtag(boutique.commune));
-  // Hashtag de famille : seulement s'il colle au métier (un sac de riz n'est pas du #Ciment).
-  const famille = familleArticle(p);
-  if (famille !== 'sac' || /ciment/i.test(p.nom || '')) ajouter(HASHTAGS_FAMILLE[famille]);
-  (HASHTAGS_TYPE[boutique?.type_activite] || HASHTAGS_TYPE.general).forEach(ajouter);
-  if (affiche?.modele === 'promo') ajouter('#Promo');
-  if (affiche?.modele === 'arrivage') ajouter('#Nouveauté');
-  ajouter('#Guinée');
-  ajouter('#Conakry');
-  return `${lignes.join('\n')}\n\n${tags.slice(0, 6).join(' ')}`;
-}
-
-/* =========================================================================
-   Partage et téléchargement
-   ========================================================================= */
-
-function telecharger(blob, nom) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nom;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-const MARCHES = {
-  facebook: ['Ouvrez votre <strong>page Facebook</strong>.', 'Touchez <strong>Créer une publication</strong>, puis <strong>Photo</strong>.', 'Choisissez l’image de l’affiche dans votre galerie.', '<strong>Collez le texte</strong> (appui long → Coller), puis publiez.'],
-  statut: ['Ouvrez <strong>WhatsApp</strong>.', 'Allez dans <strong>Actualités</strong> (ou « Statut »).', 'Touchez <strong>Mon statut</strong>, puis choisissez l’image de l’affiche.', 'Collez le texte en légende si vous le souhaitez, puis envoyez.']
-};
-
-function marcheASuivre(cible) {
-  ouvrirModale({
-    titre: 'Image téléchargée',
-    contenu: `
-      <p class="texte-modale">Le partage direct n’est pas possible sur cet appareil : l’affiche est dans vos téléchargements et le texte est copié.</p>
-      <ol class="etapes-statut">${(MARCHES[cible] || MARCHES.statut).map((l) => `<li>${l}</li>`).join('')}</ol>
-      <div class="modale-actions"><button type="button" class="btn btn-primaire" data-fermer>Compris</button></div>`
-  });
-}
-
-/** Génère l'image du format demandé : { blob, nom, fichier }. */
-async function imageAffiche(donnees, format) {
-  const canvas = await genererAffiche(donnees, format);
-  const blob = await versImage(canvas, format);
-  const nom = nomFichierAffiche(donnees.boutique.nom, donnees.jour, format, extensionAffiche(format));
-  const fichier = typeof File === 'function' ? new File([blob], nom, { type: blob.type }) : null;
-  return { blob, nom, fichier };
-}
-
-/**
- * Publie l'affiche : copie d'abord le texte de publication, puis partage de fichier (le boutiquier
- * choisit Facebook ou WhatsApp) si possible, sinon téléchargement + marche à suivre.
- * cible : 'facebook' | 'statut'. Renvoie 'partage' | 'annule' | 'telechargement'.
- */
-export async function publierAffiche(donnees, format = 'facebook', { texte = null, cible = format === 'statut' ? 'statut' : 'facebook' } = {}) {
-  const legende = texte ?? texteDePublication(donnees, donnees.boutique, donnees.zones, { lien: donnees.lien, whatsapp: donnees.whatsapp });
-  if (await copierTexte(legende)) toast('Texte copié — collez-le dans la publication.', 'succes', 5000);
-  const { blob, nom, fichier } = await imageAffiche(donnees, format);
-  if (fichier && navigator.canShare?.({ files: [fichier] })) {
-    try {
-      await navigator.share({ files: [fichier], text: legende });
-      return 'partage';
-    } catch (err) {
-      if (err?.name === 'AbortError') return 'annule';
-      console.warn('[YOUMMA] Partage impossible, téléchargement :', err);
-    }
-  }
-  telecharger(blob, nom);
-  marcheASuivre(cible);
-  return 'telechargement';
-}
-
-export async function telechargerAffiche(donnees, format = 'facebook') {
-  const { blob, nom } = await imageAffiche(donnees, format);
-  telecharger(blob, nom);
-}
-
-/* =========================================================================
-   Écran
-   ========================================================================= */
-
-export function afficherAfficheJour(conteneur) {
+export function afficherAfficheJour(conteneur, params = new URLSearchParams()) {
   const boutique = etat.boutique;
+  const vue = params.get('vue') === 'mois' ? 'mois' : 'jour';
   const modifier = peut('affiche.modifier');
-  const s = {
-    ctx: null, format: 'facebook', produits: null, jeton: 0, urlApercu: null, brouillon: null,
-    couleur: lireCouleurAffiche(boutique.id), texteModifie: false
-  };
-
   conteneur.innerHTML = `
-    <div class="page page-affiche">
-      <header class="page-entete">
-        <div class="page-titres">
-          <a class="lien-retour" href="#/aujourdhui">← Aujourd’hui</a>
-          <h1>Affiche du jour</h1>
-          <span data-ref="sous-titre">${esc(capitaliser(formatDate(new Date(), 'long')))}</span>
-        </div>
-      </header>
-      <div class="affiche-corps">
-        <div class="affiche-principal">
-          <div class="segments segments-cadre formats-affiche" role="tablist" aria-label="Format">
-            ${Object.entries(FORMATS_AFFICHE).map(([code, f]) => `<button type="button" role="tab" class="segment ${code === s.format ? 'actif' : ''}" data-format="${code}" aria-selected="${code === s.format}">${esc(f.libelle)}</button>`).join('')}
-          </div>
-          <section class="carte affiche-apercu-bloc">
-            <div class="affiche-apercu" data-zone="apercu"><span class="squelette affiche-squelette"></span></div>
-            <div class="affiche-pourquoi">
-              <span class="discret gras">Pourquoi ce produit ?</span>
-              <span data-ref="raison">…</span>
-              <span class="affiche-en-ligne" data-ref="en-ligne" hidden>${icone('valide', 16, 2.4)} Déjà affichée sur votre boutique en ligne</span>
-            </div>
-          </section>
-          <section class="carte ben-section texte-publication">
-            <div class="bloc-entete"><h2>Texte de la publication</h2>
-              <button type="button" class="btn btn-secondaire btn-petit" data-action="copier">${icone('copier', 16, 2)} Copier</button></div>
-            <label class="sr-only" for="texte-publication">Texte de la publication</label>
-            <textarea id="texte-publication" class="input" rows="8"></textarea>
-            <span class="discret">Modifiable. Il est copié automatiquement quand vous partagez : collez-le sous l’image.</span>
-          </section>
-          ${peut('affiche.partager') ? `
-            <div class="affiche-partage">
-              <button type="button" class="btn btn-facebook btn-grand" data-action="facebook">${icone('partager', 20, 2)} Partager sur Facebook</button>
-              <button type="button" class="btn btn-whatsapp btn-grand" data-action="statut">${icone('whatsapp', 20, 2)} Publier sur mon statut WhatsApp</button>
-            </div>
-            <button type="button" class="btn btn-secondaire btn-bloc" data-action="telecharger">${icone('telecharger', 18, 2)} <span>Télécharger (<span data-ref="libelle-format">${esc(FORMATS_AFFICHE[s.format].libelle)}</span>)</span></button>` : ''}
-        </div>
-        <div class="affiche-cote">
-          ${modifier ? `
-            <section class="carte ben-section" data-zone="modifier">
-              <h2>Modifier l’affiche</h2>
-              <div class="champ"><span class="etiquette">Modèle</span>
-                <div class="choix-modele-affiche" role="group" aria-label="Modèle">
-                  ${Object.entries(LIBELLES_MODELES_AFFICHE).map(([code, libelle]) => `<button type="button" class="modele-affiche ${code}" data-modele="${code}" aria-pressed="false">${esc(libelle)}</button>`).join('')}
-                </div></div>
-              <div class="champ"><span class="etiquette">Produit</span>
-                <button type="button" class="choix-produit-affiche" data-action="changer-produit" data-rang="0"><span data-ref="nom-produit">…</span><span class="lien-changer">Changer</span></button></div>
-              <div class="champ" data-zone="autres" hidden><span class="etiquette">2 articles de plus (Sélection)</span>
-                ${[1, 2].map((r) => `
-                  <div class="autre-article">
-                    <button type="button" class="choix-produit-affiche" data-action="changer-produit" data-rang="${r}"><span data-ref="autre-${r}">Ajouter un article</span><span class="lien-changer">Choisir</span></button>
-                    <button type="button" class="btn-retirer-autre" data-action="retirer-autre" data-rang="${r}" aria-label="Retirer l’article ${r}" hidden>${icone('fermer', 16, 2.4)}</button>
-                  </div>`).join('')}
-              </div>
-              <div class="champ"><label for="phrase-affiche">Phrase</label>
-                <input id="phrase-affiche" class="input" type="text" maxlength="${MAX_PHRASE}" placeholder="Ex. Jusqu’à samedi · livraison possible">
-                <span class="discret compteur-phrase" data-ref="compteur-phrase"></span></div>
-              <div class="champ"><span class="etiquette">Couleur de la boutique</span>
-                <div class="couleurs-affiche" role="radiogroup" aria-label="Couleur">
-                  ${Object.entries(COULEURS_AFFICHE).map(([code, c]) => `<button type="button" role="radio" class="pastille-couleur" data-couleur="${code}" aria-checked="${code === s.couleur}" title="${esc(c.libelle)}" aria-label="${esc(c.libelle)}" style="--c1:${c.vif[0]};--c2:${c.nuit[1]}"></button>`).join('')}
-                </div></div>
-              <div class="champ"><span class="etiquette">Photo du produit</span>
-                <div class="photo-affiche-actions">
-                  <button type="button" class="btn-ajout-pointille" data-action="photo">${icone('photo', 18, 2)} <span data-ref="libelle-photo">Prendre ou choisir une photo</span></button>
-                  <button type="button" class="btn-ajout-pointille" data-action="detourer" hidden>${icone('image', 18, 2)} Recadrer / retirer le fond</button>
-                </div></div>
-              <p class="erreur-form" role="alert" hidden></p>
-              <div class="affiche-actions-modifier">
-                <button type="button" class="btn btn-secondaire" data-action="suggestion">Autre suggestion</button>
-                <button type="button" class="btn btn-primaire" data-action="enregistrer" disabled>Enregistrer</button>
-              </div>
-            </section>` : ''}
-          <section class="carte ben-section">
-            <div class="bloc-entete"><h2>Choix automatique chaque matin</h2><span class="pastille-auto">Activé</span></div>
-            <p class="discret">Ordre de priorité : 1. une promo en cours · 2. un arrivage récent · 3. un article qui se vend bien · 4. un article qui dort en stock. Jamais un article épuisé, jamais deux fois dans la semaine.</p>
-            <p class="discret">L’affiche est prête chaque matin à 6 h 00${modifier ? ' ; vous pouvez la modifier à tout moment' : ''}.</p>
-          </section>
-          <section class="affiche-historique">
-            <h2>Les jours précédents</h2>
-            <div class="affiche-jours" data-zone="historique"></div>
-          </section>
-        </div>
+    <div class="page page-aff">
+      <div class="aff-barre">
+        <nav class="onglets-pastilles" aria-label="Vue">
+          <a class="onglet-pastille ${vue === 'jour' ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=affiche" ${vue === 'jour' ? 'aria-current="page"' : ''}>Aujourd’hui</a>
+          <a class="onglet-pastille ${vue === 'mois' ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=affiche&vue=mois" ${vue === 'mois' ? 'aria-current="page"' : ''}>${icone('horloge', 15, 2)} Mois</a>
+        </nav>
+        <span class="aff-date">${esc(capitaliser(formatDate(new Date(), 'long')))}</span>
       </div>
+      <div data-zone="bandeau"></div>
+      <div data-zone="vue"><div class="squelette" style="height:420px"></div></div>
     </div>`;
-  const q = (sel) => conteneur.querySelector(sel);
-  const ref = (nom) => q(`[data-ref="${nom}"]`);
+  const zoneVue = conteneur.querySelector('[data-zone="vue"]');
+  bandeauExpiration(conteneur.querySelector('[data-zone="bandeau"]'));
+  if (params.get('reseau') === 'ok') toast('Réseau connecté.', 'succes');
+  if (params.get('reseau') === 'erreur') toast('La connexion du réseau n’a pas abouti.', 'erreur', 7000);
+  if (vue === 'mois') return monterCalendrier(zoneVue, { modifier });
+  return monterJour(zoneVue, { boutique, modifier });
+}
 
-  /** Affiche affichée = enregistrée + modifications en cours (brouillon). */
-  const afficheCourante = () => {
-    const a = s.ctx?.affiche || {};
-    const b = s.brouillon || {};
-    return { ...a, ...b, couleur: s.couleur, produit: { ...(a.produit || {}), ...(b.produit || {}) }, autres: b.autres ?? a.autres ?? [] };
+/* =========================================================================
+   Écran du matin
+   ========================================================================= */
+
+function monterJour(zone, { boutique, modifier }) {
+  const s = {
+    a: null, format: '4:5', fichiers: {}, urls: {}, video: null, reseaux: [], reglages: null, complements: null,
+    jeton: 0, enCours: new Set(), produits: null, themes: null
   };
-  const donnees = () => donneesAffiche(afficheCourante(), s.ctx);
+  const jour = dateISO();
 
-  async function majApercu() {
+  /* ---------------- Chargement */
+
+  async function charger({ apresModification = false } = {}) {
     const jeton = ++s.jeton;
-    const d = donnees();
-    let canvas;
-    try { canvas = await genererAffiche(d, s.format); } catch (err) { console.error(err); return; }
-    if (jeton !== s.jeton || !conteneur.isConnected) return;
-    const blob = await versImage(canvas, s.format).catch(() => null);
-    if (!blob || jeton !== s.jeton) return;
-    if (s.urlApercu) URL.revokeObjectURL(s.urlApercu);
-    s.urlApercu = URL.createObjectURL(blob);
-    q('[data-zone="apercu"]').innerHTML = `<img class="affiche-image ${s.format}" src="${s.urlApercu}" alt="${esc(`Affiche : ${d.produit.nom || ''}, ${formatNombre(d.produit.prix)} GNF`)}" width="${canvas.width}" height="${canvas.height}">`;
-  }
-  const majApercuDiffere = differer(majApercu, 300);
-
-  function majTexte() {
-    if (s.texteModifie) return;
-    const d = donnees();
-    q('#texte-publication').value = texteDePublication(d, d.boutique, d.zones, { lien: d.lien, whatsapp: d.whatsapp });
-  }
-
-  function renderInfos() {
-    const a = afficheCourante();
-    ref('raison').textContent = a.raison || (a.auto === false ? 'Choisi par vous.' : 'Choisi automatiquement ce matin.');
-    ref('en-ligne').hidden = !s.ctx?.enLigne?.actif;
-    ref('sous-titre').textContent = `${capitaliser(formatDate(new Date(), 'long'))} · ${a.auto === false ? 'modifiée par vous' : 'prête depuis 6 h 00'}`;
-    majTexte();
-    if (!modifier) return;
-    conteneur.querySelectorAll('[data-modele]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modele === a.modele)));
-    conteneur.querySelectorAll('[data-couleur]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.couleur === s.couleur)));
-    ref('nom-produit').textContent = a.produit?.nom || 'Choisir un article';
-    q('[data-zone="autres"]').hidden = a.modele !== 'arrivage';
-    [1, 2].forEach((r) => {
-      const autre = a.autres[r - 1];
-      ref(`autre-${r}`).textContent = autre ? `${autre.nom} · ${formatNombre(autre.prix)} GNF` : 'Ajouter un article';
-      q(`[data-action="retirer-autre"][data-rang="${r}"]`).hidden = !autre;
-    });
-    const phrase = q('#phrase-affiche');
-    if (document.activeElement !== phrase) phrase.value = a.phrase || '';
-    ref('compteur-phrase').textContent = `${phrase.value.length} / ${MAX_PHRASE}`;
-    ref('libelle-photo').textContent = a.produit?.photo_url ? 'Changer la photo' : 'Prendre ou choisir une photo';
-    const detourer = q('[data-action="detourer"]');
-    if (detourer) detourer.hidden = !a.produit?.photo_url;
-    q('[data-action="enregistrer"]').disabled = !s.brouillon;
+    const [res, reseaux, reglages, complements] = await Promise.all([
+      sb.rpc('affiche_du_jour', { p_boutique: boutique.id, p_jour: jour }),
+      s.reseaux.length ? Promise.resolve(null) : sb.rpc('mes_reseaux', { p_boutique: boutique.id }),
+      s.reglages ? Promise.resolve(null) : lireReglages(),
+      s.complements ? Promise.resolve(s.complements) : chargerComplements(boutique).catch(() => ({}))
+    ]);
+    if (jeton !== s.jeton || !zone.isConnected) return;
+    if (reseaux && !reseaux.error) s.reseaux = premiere(reseaux.data)?.reseaux || [];
+    if (reglages) s.reglages = reglages;
+    s.complements = complements;
+    if (res.error) {
+      zone.innerHTML = `<div class="carte aff-vide">${icone('alerte', 22, 2)}<p>${esc(messageErreur(res.error))}</p></div>`;
+      return;
+    }
+    s.a = premiere(res.data);
+    if (!s.a || !s.a.theme) { renderVide(); return; }
+    render();
+    await dessiner();
+    const images = s.a.images || {};
+    if (apresModification || !images['4:5'] || !images['9:16'] || !images['1:1']) envoyerImages();
+    chargerDernieres();
   }
 
-  async function charger() {
+  /** Les 3 formats dessinés sur le téléphone, prêts à partager (le partage doit suivre le toucher sans attente). */
+  async function dessiner() {
+    const donnees = { ...s.a, ...(s.complements || {}) };
+    for (const format of Object.keys(FORMATS_AFFICHE)) {
+      const canvas = await genererAffiche(donnees, format);
+      const { blob } = await versJpeg(canvas);
+      if (!zone.isConnected) return;
+      if (s.urls[format]) URL.revokeObjectURL(s.urls[format]);
+      s.urls[format] = URL.createObjectURL(blob);
+      s.fichiers[format] = { blob, nom: nomFichier(s.a, format), canvas };
+      if (format === s.format) montrerApercu();
+    }
+    zone.querySelectorAll('[data-publier]').forEach((b) => { b.disabled = false; });
+  }
+
+  async function envoyerImages() {
     try {
-      const r = await chargerAfficheDuJour();
-      if (!conteneur.isConnected) return;
-      s.ctx = r;
+      s.a.images = await enregistrerImages(s.a, s.fichiers);
     } catch (err) {
-      q('[data-zone="apercu"]').innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(err))}</p>`;
+      console.warn('[YOUMMA] Images non enregistrées :', err?.message || err);
       return;
     }
-    if (!s.ctx.affiche?.produit) {
-      q('[data-zone="apercu"]').innerHTML = `<div class="fiche-vide"><p>Pas encore d’affiche : ajoutez des articles en stock${modifier ? ' ou choisissez un produit ci-contre' : ''}.</p></div>`;
-      ref('raison').textContent = '—';
-      if (modifier) renderInfos();
-      chargerHistorique();
-      return;
-    }
-    renderInfos();
-    majApercu();
-    chargerHistorique();
-  }
-
-  async function chargerHistorique() {
-    const jours = Array.from({ length: 7 }, (_, i) => decalerDate(dateISO(), -(i + 1)));
-    const resultats = await Promise.all(jours.map((j) => sb.rpc('affiche_du_jour', { p_boutique: boutique.id, p_jour: j }).then((r) => premiere(r.data)).catch(() => null)));
-    if (!conteneur.isConnected) return;
-    const zone = q('[data-zone="historique"]');
-    const tuiles = resultats.map((a, i) => ({ a, jour: jours[i] })).filter(({ a }) => a?.produit);
-    zone.innerHTML = tuiles.length ? tuiles.map(({ a, jour }) => `
-      <button type="button" class="tuile-affiche ${esc(a.modele || 'jour')}" data-jour="${esc(jour)}" aria-label="Télécharger l’affiche du ${esc(formatDate(`${jour}T12:00:00Z`, 'long'))}">
-        <span class="tuile-jour">${esc(new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${jour}T12:00:00Z`)))}</span>
-        <span class="tuile-icone">${vignetteProduit(a.produit, 56, icone(iconeUnite(a.produit.unite), 26, 1.6))}</span>
-        <span class="tuile-nom">${esc(a.produit.nom)}</span>
-      </button>`).join('') : '<p class="discret">Les affiches des 7 derniers jours apparaîtront ici.</p>';
-    zone.onclick = async (e) => {
-      const tuile = e.target.closest('[data-jour]');
-      if (!tuile) return;
-      const r = resultats[jours.indexOf(tuile.dataset.jour)];
-      tuile.disabled = true;
-      try { await telechargerAffiche({ ...donneesAffiche({ ...r, couleur: s.couleur }, s.ctx), jour: tuile.dataset.jour }, s.format); toast('Affiche téléchargée.', 'succes'); }
-      catch (err) { toast(messageErreur(err), 'erreur'); }
-      tuile.disabled = false;
-    };
-  }
-
-  /* ---------- Modification (gérant) */
-
-  function brouillon(champs) {
-    s.brouillon = { ...(s.brouillon || {}), ...champs, produit: { ...(s.brouillon?.produit || {}), ...(champs.produit || {}) } };
-    renderInfos();
-    majApercuDiffere();
-  }
-
-  async function chargerProduits() {
-    if (s.produits) return s.produits;
-    const { data, error } = await sb.from('produits').select('id, nom, unite, photo_url, photo_mini_url, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, categorie_id')
-      .eq('boutique_id', boutique.id).eq('actif', true).order('nom');
-    if (error) throw error;
-    s.produits = data;
-    return data;
-  }
-
-  const versProduitAffiche = (p) => ({
-    id: p.id, nom: p.nom, unite: p.unite, photo_url: p.photo_url, photo_mini_url: p.photo_mini_url, prix: prixApplique(p),
-    prix_barre: promoActive(p) ? Number(p.prix_detail) : null,
-    dispo: p.sur_commande ? 'sur_commande' : (Number(p.stock) || 0) > 0 ? 'disponible' : 'epuise'
-  });
-
-  async function choisirProduit(rang) {
-    let produits;
-    try { produits = await chargerProduits(); } catch (err) { toast(messageErreur(err), 'erreur'); return; }
-    const { el, fermer } = ouvrirModale({
-      titre: rang ? 'Choisir un article de plus' : 'Choisir le produit de l’affiche',
-      contenu: `
-        <label class="recherche-entete">${icone('recherche', 18, 2)}<span class="sr-only">Rechercher un article</span>
-          <input type="search" id="recherche-affiche" placeholder="Nom de l’article" autocomplete="off"></label>
-        <div class="liste-clients liste-produits-affiche" data-zone="resultats"></div>`
-    });
-    const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const render = (filtre) => {
-      const f = norm(filtre);
-      const liste = produits.filter((p) => !f || norm(p.nom).includes(f)).slice(0, 60);
-      el.querySelector('[data-zone="resultats"]').innerHTML = liste.length ? liste.map((p) => {
-        const pa = versProduitAffiche(p);
-        return `
-          <button type="button" class="item-client" data-produit="${esc(p.id)}" ${pa.dispo === 'epuise' ? 'disabled' : ''}>
-            <span class="avatar">${vignetteProduit(p, 40, icone(iconeUnite(p.unite), 18, 2))}</span>
-            <span class="client-textes"><span class="gras">${esc(p.nom)}</span><span class="discret">${formatNombre(pa.prix)} GNF / ${esc(p.unite || 'unité')}${pa.prix_barre ? ' · promo' : ''}${pa.dispo === 'epuise' ? ' · épuisé' : ''}</span></span>
-          </button>`;
-      }).join('') : '<p class="discret">Aucun article.</p>';
-    };
-    render('');
-    const champ = el.querySelector('#recherche-affiche');
-    champ.focus();
-    champ.addEventListener('input', () => render(champ.value));
-    el.addEventListener('click', async (e) => {
-      const b = e.target.closest('[data-produit]');
-      if (!b) return;
-      const p = produits.find((x) => x.id === b.dataset.produit);
-      fermer();
-      const pa = versProduitAffiche(p);
-      await completerInfos(s.ctx, [p.id]);
-      if (rang) {
-        const autres = [...afficheCourante().autres];
-        autres[rang - 1] = pa;
-        brouillon({ autres: autres.filter(Boolean).slice(0, 2) });
-      } else {
-        brouillon({ produit: { ...pa, photo_url: p.photo_url || null }, produit_id: p.id, modele: s.brouillon?.modele || (pa.prix_barre ? 'promo' : afficheCourante().modele) });
+    // Vidéo TikTok : seulement si le navigateur sait faire ; jamais bloquante.
+    if (videoPossible() && s.fichiers['9:16']?.canvas) {
+      s.video = await genererVideo(s.fichiers['9:16'].canvas);
+      if (s.video && zone.isConnected) {
+        try { s.a.images = await enregistrerImages(s.a, {}, s.video).then((v) => ({ ...s.a.images, ...v })); } catch { /* vidéo facultative */ }
+        majSousTitre('tiktok');
       }
-    });
+    }
   }
 
-  function photoMiseAJour(url, mini = null) {
-    const a = afficheCourante();
-    if (s.ctx?.affiche?.produit?.id === a.produit.id) Object.assign(s.ctx.affiche.produit, { photo_url: url, photo_mini_url: mini });
-    if (s.brouillon?.produit) Object.assign(s.brouillon.produit, { photo_url: url, photo_mini_url: mini });
-    const p = s.produits?.find((x) => x.id === a.produit.id);
-    if (p) Object.assign(p, { photo_url: url, photo_mini_url: mini });
-    renderInfos();
-    majApercu();
+  /* ---------------- Rendu */
+
+  function renderVide() {
+    zone.innerHTML = `
+      <div class="carte aff-vide">
+        ${icone('image', 26, 1.8)}
+        <p><strong>Pas d’affiche prévue aujourd’hui.</strong> C’est un jour de repos dans votre rythme de publication.</p>
+        <div class="aff-vide-actions">
+          ${modifier ? '<button type="button" class="btn btn-primaire" data-action="suggestion">Préparer une affiche</button>' : ''}
+          <a class="btn btn-secondaire" href="#/boutique-en-ligne?onglet=affiche&vue=mois">Voir le mois</a>
+        </div>
+      </div>`;
   }
 
-  /** Outil d'image (photo d'article : grande photo pour l'affiche + miniature pour les listes). */
-  function ajouterPhoto(retoucher = false) {
-    const a = afficheCourante();
-    if (!a.produit?.id) { toast('Choisissez d’abord le produit.', 'erreur'); return; }
-    const p = s.produits?.find((x) => x.id === a.produit.id);
-    const produit = { id: a.produit.id, nom: a.produit.nom, prix: a.produit.prix, photo_url: a.produit.photo_url, photo_mini_url: p?.photo_mini_url || a.produit.photo_mini_url || null };
-    modifierPhotoArticle(produit, { source: retoucher ? a.produit.photo_url : null, apres: ({ url, mini }) => photoMiseAJour(url, mini) });
+  const compte = (reseau) => s.reseaux.find((r) => r.reseau === reseau) || null;
+  const connecte = (reseau) => Boolean(compte(reseau)?.actif) && RESEAUX[reseau].auto;
+  function sousTitre(reseau) {
+    const c = compte(reseau);
+    if (reseau === 'facebook') return c?.actif ? `${c.nom || 'Ma page'} · connectée` : 'Image et texte prêts · Connecter ma page';
+    if (reseau === 'instagram') return c?.actif ? `${c.nom || 'Mon compte'} · compte pro` : 'Image et texte prêts · Connecter mon compte pro';
+    if (reseau === 'whatsapp') return 'Format 9:16 · prêt';
+    return s.video ? 'Petite vidéo de 5 s créée toute seule' : videoPossible() ? 'Petite vidéo de 5 s créée toute seule' : 'Image 9:16 (publication photo)';
+  }
+  const majSousTitre = (reseau) => { const el = zone.querySelector(`[data-sous="${reseau}"]`); if (el) el.textContent = sousTitre(reseau); };
+
+  function texteHTML() {
+    const tags = (s.a.hashtags || []).map((h) => `<span class="aff-hashtag">${esc(h)}</span>`).join(' ');
+    return `${esc(s.a.texte || '')}${tags ? `\n\n${tags}` : ''}`;
+  }
+  const texteComplet = () => s.a.complet || [s.a.texte, (s.a.hashtags || []).join(' ')].filter(Boolean).join('\n\n');
+
+  function render() {
+    const a = s.a;
+    const reglages = s.reglages || {};
+    const autoPossible = s.reseaux.some((r) => r.actif && RESEAUX[r.reseau]?.auto);
+    const reseauxAuto = (reglages.reseaux || []).map((r) => RESEAUX[r]?.nom).filter(Boolean);
+    zone.innerHTML = `
+      <div class="aff-jour">
+        <div class="aff-gauche">
+          <div class="aff-formats" role="group" aria-label="Format">
+            ${Object.keys(FORMATS_AFFICHE).map((f) => `<button type="button" class="aff-format ${f === s.format ? 'actif' : ''}" data-format="${f}" aria-pressed="${f === s.format}">${esc(LIBELLES_FORMATS[f])}</button>`).join('')}
+          </div>
+          <div class="aff-apercu" data-zone="apercu" style="aspect-ratio:${FORMATS_AFFICHE[s.format].largeur} / ${FORMATS_AFFICHE[s.format].hauteur}"><span class="squelette"></span></div>
+          <p class="aff-raison">${esc([a.theme_nom, a.raison].filter(Boolean).join(' · '))}${a.fete?.approximatif ? ' · date de la fête à confirmer' : ''}</p>
+          ${modifier ? `<div class="aff-changer">
+            <button type="button" class="btn btn-secondaire btn-petit" data-action="suggestion">${icone('retour', 15, 2)} Autre suggestion</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-action="theme">Changer de thème</button>
+            <button type="button" class="btn btn-secondaire btn-petit" data-action="article">Choisir un autre article</button>
+          </div>` : ''}
+        </div>
+        <div class="aff-droite">
+          <section class="carte aff-texte">
+            <div class="aff-carte-entete"><h2>Le texte de la publication</h2>${modifier ? '<button type="button" class="btn-lien" data-action="modifier">Modifier</button>' : ''}</div>
+            <div class="aff-texte-corps" data-zone="texte">${texteHTML()}</div>
+            <div class="aff-texte-actions">
+              <button type="button" class="btn btn-secondaire btn-petit" data-action="copier">${icone('copier', 15, 2)} Copier</button>
+              ${modifier ? '<button type="button" class="btn btn-secondaire btn-petit" data-action="autre-texte">Autre texte</button>' : ''}
+              ${modifier ? '<button type="button" class="btn btn-secondaire btn-petit" data-action="hashtags">+ Hashtags</button>' : ''}
+            </div>
+          </section>
+          <div class="aff-publier">
+            ${['facebook', 'instagram', 'whatsapp', 'tiktok'].map((r) => `
+              <button type="button" class="aff-bouton-reseau ${r}" data-publier="${r}" disabled>
+                <span class="aff-reseau-icone">${iconeReseau(r, 20)}</span>
+                <span class="aff-reseau-textes"><strong>${esc({ facebook: 'Publier sur ma page Facebook', instagram: 'Publier sur Instagram', whatsapp: 'Mettre en statut WhatsApp', tiktok: 'Publier sur TikTok' }[r])}</strong>
+                  <span data-sous="${r}">${esc(sousTitre(r))}</span></span>
+                <span class="aff-reseau-etat" data-etat="${r}">${icone('chevronDroite', 18, 2.4)}</span>
+              </button>`).join('')}
+            <button type="button" class="aff-bouton-reseau telecharger" data-action="telecharger">
+              <span class="aff-reseau-icone">${icone('telecharger', 20, 2)}</span>
+              <span class="aff-reseau-textes"><strong>Télécharger l’image</strong><span>Pour publier ailleurs</span></span>
+              <span class="aff-reseau-etat">${icone('chevronDroite', 18, 2.4)}</span>
+            </button>
+            <a class="aff-lien-reseaux" href="#/boutique-en-ligne?onglet=affiche&vue=mois">Publier en un seul clic : connecter mes réseaux ›</a>
+          </div>
+          <section class="carte aff-auto ${autoPossible ? '' : 'grise'}">
+            <div class="aff-auto-textes"><strong>Publier tout seul chaque matin</strong>
+              <span>${autoPossible ? `À ${esc(heureLisible(reglages.heure_auto))} sur ${esc(reseauxAuto.join(', ') || 'vos réseaux connectés')}.` : 'Connectez d’abord Facebook, Instagram ou TikTok.'}</span></div>
+            <input type="checkbox" class="bascule-doc" role="switch" data-action="auto" ${reglages.auto && autoPossible ? 'checked' : ''} ${autoPossible && modifier ? '' : 'disabled'} aria-label="Publier tout seul chaque matin">
+          </section>
+          <section class="carte aff-dernieres">
+            <h2>Vos dernières publications</h2>
+            <div data-zone="dernieres"><span class="squelette" style="height:60px"></span></div>
+          </section>
+        </div>
+      </div>`;
+    if (s.urls[s.format]) { montrerApercu(); zone.querySelectorAll('[data-publier]').forEach((b) => { b.disabled = false; }); }
   }
 
-  async function enregistrer(bouton) {
-    const a = afficheCourante();
-    const zoneErreur = q('[data-zone="modifier"] .erreur-form');
-    if (!a.produit?.id) { zoneErreur.textContent = 'Choisissez le produit.'; zoneErreur.hidden = false; return; }
-    zoneErreur.hidden = true;
-    boutonOccupe(bouton, true, 'Enregistrement…');
-    const autres = a.modele === 'arrivage' ? a.autres.map((x) => x.id).filter((id) => id && id !== a.produit.id).slice(0, 2) : [];
-    const { error } = await sb.rpc('modifier_affiche', {
-      p_boutique: boutique.id, p_produit: a.produit.id, p_modele: a.modele, p_phrase: (a.phrase || '').trim() || null, p_autres: autres
-    });
-    boutonOccupe(bouton, false);
-    if (error) { zoneErreur.textContent = messageErreur(error); zoneErreur.hidden = false; return; }
-    s.brouillon = null;
-    toast('Affiche enregistrée : elle est aussi visible sur votre boutique en ligne.', 'succes');
-    charger();
+  function montrerApercu() {
+    const z = zone.querySelector('[data-zone="apercu"]');
+    if (!z || !s.urls[s.format]) return;
+    z.style.aspectRatio = `${FORMATS_AFFICHE[s.format].largeur} / ${FORMATS_AFFICHE[s.format].hauteur}`;
+    z.innerHTML = `<img src="${s.urls[s.format]}" alt="Affiche du jour, format ${esc(s.format)}">`;
   }
 
-  async function autreSuggestion(bouton) {
-    boutonOccupe(bouton, true, 'Recherche…');
-    const { data, error } = await sb.rpc('nouvelle_suggestion_affiche', { p_boutique: boutique.id });
-    boutonOccupe(bouton, false);
-    if (error) { toast(messageErreur(error), 'erreur'); return; }
-    s.brouillon = null;
-    const nouvelle = premiere(data);
-    if (nouvelle?.produit) {
-      s.ctx.affiche = nouvelle;
-      await completerInfos(s.ctx, [nouvelle.produit.id, ...(nouvelle.autres || []).map((x) => x.id)]);
-      renderInfos(); majApercu(); toast(`Nouvelle suggestion : ${nouvelle.produit.nom}.`, 'succes');
-    } else charger();
+  /* ---------------- Dernières publications (jours publiés du mois, puis du mois précédent) */
+
+  async function chargerDernieres() {
+    const z = zone.querySelector('[data-zone="dernieres"]');
+    if (!z) return;
+    const mois = (d) => `${d.slice(0, 7)}-01`;
+    const precedent = (() => { const d = new Date(`${jour.slice(0, 7)}-01T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); })();
+    const plans = await Promise.all([mois(jour), precedent].map((m) => sb.rpc('mon_plan', { p_boutique: boutique.id, p_mois: m }).then((r) => premiere(r.data)?.jours || []).catch(() => [])));
+    const publies = plans.flat().filter((j) => j.publiee && String(j.jour).slice(0, 10) <= jour).sort((x, y) => String(y.jour).localeCompare(String(x.jour))).slice(0, 3);
+    if (!z.isConnected) return;
+    if (!publies.length) { z.innerHTML = '<p class="discret">Aucune publication pour l’instant. La première, c’est aujourd’hui !</p>'; return; }
+    const details = await Promise.all(publies.map((j) => sb.rpc('affiche_du_jour', { p_boutique: boutique.id, p_jour: String(j.jour).slice(0, 10) }).then((r) => premiere(r.data)).catch(() => null)));
+    if (!z.isConnected) return;
+    z.innerHTML = details.filter(Boolean).map((d) => {
+      const pubs = (d.publications || []).filter((p) => p.statut === 'publiee' || p.statut === 'manuelle' || !p.statut);
+      const vues = pubs.reduce((t, p) => t + (Number(p.vues) || 0), 0);
+      const reseaux = [...new Set(pubs.map((p) => RESEAUX[p.reseau]?.nom || p.reseau))].join(' + ');
+      const mini = d.images?.['1:1'] || d.images?.['4:5'];
+      return `
+        <div class="aff-derniere">
+          ${mini ? `<img src="${esc(mini)}" alt="" loading="lazy">` : `<span class="aff-derniere-vide">${icone('image', 18, 1.8)}</span>`}
+          <span class="aff-derniere-textes"><strong>${esc(d.theme_nom || d.titre || 'Affiche')}</strong>
+            <span>${esc(capitaliser(formatDate(`${String(d.jour).slice(0, 10)}T12:00:00Z`, 'jourCourt')))} ${esc(formatDate(`${String(d.jour).slice(0, 10)}T12:00:00Z`, 'jourMois'))}${reseaux ? ` · ${esc(reseaux)}` : ''}</span></span>
+          ${vues ? `<span class="aff-vues">${formatNombre(vues)} vues</span>` : ''}
+        </div>`;
+    }).join('') || '<p class="discret">Aucune publication pour l’instant.</p>';
   }
 
-  async function partager(cible, bouton) {
-    if (!afficheCourante().produit?.id) { toast('Pas encore d’affiche à publier.', 'erreur'); return; }
-    const format = cible === 'statut' ? 'statut' : (s.format === 'carre' ? 'carre' : 'facebook');
-    boutonOccupe(bouton, true, 'Préparation…');
+  /* ---------------- Publication */
+
+  async function publier(reseau, bouton) {
+    if (s.enCours.has(reseau)) return;
+    const format = RESEAUX[reseau].format;
+    const fichierImage = s.fichiers[format];
+    if (!fichierImage) { toast('L’affiche se prépare encore…', 'info'); return; }
+    const texte = texteComplet();
+    const etatEl = zone.querySelector(`[data-etat="${reseau}"]`);
+    // Chemin B : réseau connecté → un seul clic.
+    if (connecte(reseau)) {
+      s.enCours.add(reseau);
+      bouton.classList.add('occupe');
+      etatEl.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
+      zone.querySelector(`[data-sous="${reseau}"]`).textContent = 'Publication en cours…';
+      const imageUrl = reseau === 'tiktok' ? (s.a.images?.video || s.a.images?.['9:16']) : s.a.images?.[format];
+      const r = await publierAutomatiquement({ affiche: s.a, reseau, imageUrl, texte });
+      s.enCours.delete(reseau);
+      bouton.classList.remove('occupe');
+      if (!zone.isConnected) return;
+      const sous = zone.querySelector(`[data-sous="${reseau}"]`);
+      if (r.statut === 'publiee') {
+        etatEl.innerHTML = icone('valide', 18, 2.6);
+        sous.innerHTML = r.url ? `Publiée · <a href="${esc(r.url)}" target="_blank" rel="noopener">voir la publication</a>` : 'Publiée';
+        toast(`Publiée sur ${RESEAUX[reseau].nom}.`, 'succes');
+      } else if (r.statut === 'erreur') {
+        etatEl.innerHTML = icone('alerte', 18, 2.4);
+        sous.textContent = r.erreur;
+        toast(r.erreur, 'erreur', 7000);
+      } else {
+        etatEl.innerHTML = icone('horloge', 18, 2.2);
+        sous.textContent = 'Toujours en cours — le résultat s’affichera dans vos publications.';
+      }
+      return;
+    }
+    // Chemin A : en trois secondes.
+    const fichier = reseau === 'tiktok' && s.video ? { blob: s.video, nom: nomFichier(s.a, '9:16', 'mp4') } : fichierImage;
+    const r = await publierManuellement({ affiche: s.a, reseau, format: reseau === 'tiktok' && s.video ? 'video' : format, fichier, texte, compte: compte(reseau) });
+    if (r !== 'annule' && zone.isConnected) {
+      etatEl.innerHTML = icone('valide', 18, 2.6);
+      chargerDernieres();
+    }
+  }
+
+  /* ---------------- Changer d'affiche */
+
+  async function enregistrerChangement({ theme = s.a.theme, produit = s.a.produit?.id || null, titre, texte, hashtags }, bouton) {
+    if (bouton) boutonOccupe(bouton, true);
     try {
-      const r = await publierAffiche(donnees(), format, { texte: q('#texte-publication').value, cible });
-      if (r === 'partage') toast('Affiche partagée.', 'succes');
-    } catch (err) { toast(messageErreur(err), 'erreur'); }
-    boutonOccupe(bouton, false);
+      let t = { titre, texte, hashtags };
+      if (titre === undefined) {
+        const { data, error } = await sb.rpc('texte_affiche', { p_boutique: boutique.id, p_theme: theme, p_produit: produit, p_jour: jour });
+        if (error) throw error;
+        t = premiere(data) || {};
+      }
+      const { error } = await sb.rpc('modifier_affiche', {
+        p_boutique: boutique.id, p_jour: jour, p_theme: theme, p_produit: produit,
+        p_titre: t.titre ?? null, p_texte: t.texte ?? null, p_hashtags: t.hashtags ?? null
+      });
+      if (error) throw error;
+      await charger({ apresModification: true });
+      return true;
+    } catch (err) {
+      if (bouton) boutonOccupe(bouton, false);
+      toast(messageErreur(err), 'erreur', 6000);
+      return false;
+    }
   }
 
-  /* ---------- Évènements */
+  async function chargerThemes() {
+    if (!s.themes) {
+      const { data } = await sb.from('affiche_themes').select('*');
+      s.themes = (data || []).sort((x, y) => (x.ordre ?? 0) - (y.ordre ?? 0));
+    }
+    return s.themes;
+  }
+  async function chargerProduits() {
+    if (!s.produits) {
+      const { data } = await sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, photo_mini_url, stock, sur_commande')
+        .eq('boutique_id', boutique.id).eq('actif', true).order('nom');
+      s.produits = data || [];
+    }
+    return s.produits;
+  }
 
-  conteneur.addEventListener('click', async (e) => {
+  /** Liste d'articles avec recherche ; renvoie l'id choisi (ou null). */
+  async function choisirArticle(titre = 'Choisir un article') {
+    const produits = await chargerProduits();
+    return new Promise((resoudre) => {
+      let choisi = null;
+      const { el, fermer } = ouvrirModale({
+        titre,
+        contenu: `
+          <label class="recherche-entete recherche-large">${icone('recherche', 18, 2)}<span class="sr-only">Rechercher</span><input type="search" data-ref="q" placeholder="Nom de l’article…" autocomplete="off"></label>
+          <ul class="aff-liste-articles" data-ref="liste"></ul>`,
+        onFermer: () => resoudre(choisi)
+      });
+      const liste = el.querySelector('[data-ref="liste"]');
+      const rendre = (q = '') => {
+        const f = produits.filter((p) => p.nom.toLowerCase().includes(q.toLowerCase())).slice(0, 60);
+        liste.innerHTML = f.map((p) => `<li><button type="button" class="aff-article" data-id="${esc(p.id)}">
+          ${p.photo_mini_url ? `<img src="${esc(p.photo_mini_url)}" alt="" loading="lazy">` : `<span class="aff-derniere-vide">${icone('stock', 16, 1.8)}</span>`}
+          <span><strong>${esc(p.nom)}</strong><span class="discret">${formatNombre(prixApplique(p))} GNF${p.unite ? ` / ${esc(p.unite)}` : ''}</span></span></button></li>`).join('') || '<li class="discret">Aucun article.</li>';
+      };
+      rendre();
+      el.querySelector('[data-ref="q"]').addEventListener('input', (e) => rendre(e.target.value));
+      liste.addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) { choisi = b.dataset.id; fermer(); } });
+    });
+  }
+
+  async function changerTheme() {
+    const themes = await chargerThemes();
+    const { el, fermer } = ouvrirModale({
+      titre: 'Changer de thème',
+      contenu: `<div class="aff-themes">${themes.map((t) => `
+        <button type="button" class="aff-theme ${t.code === s.a.theme ? 'actif' : ''}" data-theme="${esc(t.code)}">
+          <span class="aff-theme-pastille theme-${esc(t.code)}"></span>
+          <span><strong>${esc(t.nom)}</strong><span class="discret">${esc(t.description || '')}</span></span>
+        </button>`).join('')}</div>`
+    });
+    el.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-theme]');
+      if (!b) return;
+      const t = themes.find((x) => x.code === b.dataset.theme);
+      fermer();
+      let produit = t.besoin === 'produit' ? (s.a.produit?.id || null) : null;
+      if (t.besoin === 'produit' && !produit) produit = await choisirArticle(`Article pour « ${t.nom} »`);
+      if (t.besoin === 'produit' && !produit) return;
+      enregistrerChangement({ theme: t.code, produit });
+    });
+  }
+
+  function modifierTexte() {
+    const a = s.a;
+    const { el, fermer } = ouvrirModale({
+      titre: 'Modifier le texte',
+      variante: 'large',
+      contenu: `<form class="form-modale" novalidate>
+        <div class="champ"><label for="aff-titre">Titre sur l’affiche</label><input id="aff-titre" class="input" maxlength="80" value="${esc(a.titre || '')}"></div>
+        <div class="champ"><label for="aff-texte">Texte de la publication</label><textarea id="aff-texte" class="input" rows="9" maxlength="2000">${esc(a.texte || '')}</textarea></div>
+        <div class="champ"><label for="aff-tags">Hashtags (séparés par des espaces)</label><input id="aff-tags" class="input" value="${esc((a.hashtags || []).join(' '))}"></div>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
+      </form>`
+    });
+    el.querySelector('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ok = await enregistrerChangement({
+        titre: el.querySelector('#aff-titre').value.trim() || a.titre,
+        texte: el.querySelector('#aff-texte').value.trim(),
+        hashtags: normaliserTags(el.querySelector('#aff-tags').value)
+      }, el.querySelector('[type=submit]'));
+      if (ok) fermer();
+    });
+  }
+
+  const normaliserTags = (brut) => [...new Set(String(brut || '').split(/[\s,;]+/).filter(Boolean).map((t) => `#${t.replace(/^#+/, '').replace(/[^\p{L}\p{N}_]/gu, '')}`).filter((t) => t.length > 2))].slice(0, 20);
+
+  function ajouterHashtags() {
+    const { el, fermer } = ouvrirModale({
+      titre: 'Ajouter des hashtags',
+      contenu: `<form class="form-modale" novalidate>
+        <div class="champ"><label for="aff-nouveaux">Hashtags</label><input id="aff-nouveaux" class="input" placeholder="#Kagbelen #Livraison" autocomplete="off"></div>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Ajouter</button></div>
+      </form>`
+    });
+    el.querySelector('#aff-nouveaux').focus();
+    el.querySelector('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nouveaux = normaliserTags(el.querySelector('#aff-nouveaux').value);
+      if (!nouveaux.length) { fermer(); return; }
+      const ok = await enregistrerChangement({ titre: s.a.titre, texte: s.a.texte, hashtags: normaliserTags([...(s.a.hashtags || []), ...nouveaux].join(' ')) }, el.querySelector('[type=submit]'));
+      if (ok) fermer();
+    });
+  }
+
+  /** « Autre texte » : ton suivant (réglage de publication), puis texte régénéré par texte_affiche. */
+  async function autreTexte(bouton) {
+    const r = s.reglages || {};
+    const tons = TONS.map(([c]) => c);
+    const suivant = tons[(tons.indexOf(r.ton) + 1) % tons.length] || tons[0];
+    boutonOccupe(bouton, true);
+    const { error } = await sb.rpc('modifier_publication', {
+      p_boutique: boutique.id, p_jours: r.jours ?? null, p_auto: r.auto ?? false, p_heure_auto: r.heure_auto ?? null,
+      p_reseaux: r.reseaux ?? [], p_ton: suivant, p_signature: r.signature ?? null
+    });
+    if (error) { boutonOccupe(bouton, false); toast(messageErreur(error), 'erreur'); return; }
+    s.reglages = { ...r, ton: suivant };
+    const ok = await enregistrerChangement({});
+    if (ok) toast(`Nouveau texte (ton « ${TONS.find(([c]) => c === suivant)?.[1] || suivant} »).`, 'succes');
+  }
+
+  async function basculerAuto(entree) {
+    const r = s.reglages || {};
+    entree.disabled = true;
+    const reseaux = (r.reseaux && r.reseaux.length ? r.reseaux : s.reseaux.filter((x) => x.actif && RESEAUX[x.reseau]?.auto).map((x) => x.reseau));
+    const { error } = await sb.rpc('modifier_publication', {
+      p_boutique: boutique.id, p_jours: r.jours ?? null, p_auto: entree.checked, p_heure_auto: r.heure_auto ?? '08:00',
+      p_reseaux: reseaux, p_ton: r.ton ?? null, p_signature: r.signature ?? null
+    });
+    entree.disabled = false;
+    if (error) { entree.checked = !entree.checked; toast(messageErreur(error), 'erreur'); return; }
+    s.reglages = { ...r, auto: entree.checked, reseaux };
+    toast(entree.checked ? 'Publication automatique activée.' : 'Publication automatique arrêtée.', 'succes');
+  }
+
+  /* ---------------- Évènements */
+
+  zone.addEventListener('click', async (e) => {
     const format = e.target.closest('[data-format]');
     if (format) {
       s.format = format.dataset.format;
-      conteneur.querySelectorAll('[data-format]').forEach((b) => { b.classList.toggle('actif', b === format); b.setAttribute('aria-selected', String(b === format)); });
-      const libelle = ref('libelle-format');
-      if (libelle) libelle.textContent = FORMATS_AFFICHE[s.format].libelle;
-      majApercu();
+      zone.querySelectorAll('[data-format]').forEach((b) => { b.classList.toggle('actif', b === format); b.setAttribute('aria-pressed', String(b === format)); });
+      montrerApercu();
       return;
     }
-    const modele = e.target.closest('[data-modele]');
-    if (modele) { brouillon({ modele: modele.dataset.modele }); return; }
-    const couleur = e.target.closest('[data-couleur]');
-    if (couleur) { s.couleur = couleur.dataset.couleur; ecrireCouleurAffiche(boutique.id, s.couleur); renderInfos(); majApercu(); return; }
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    const bouton = e.target.closest('button');
+    const pub = e.target.closest('[data-publier]');
+    if (pub && !pub.disabled) { publier(pub.dataset.publier, pub); return; }
+    const action = e.target.closest('[data-action]');
     if (!action) return;
-    if (action === 'facebook' || action === 'statut') partager(action, bouton);
-    if (action === 'telecharger') {
-      if (!afficheCourante().produit?.id) { toast('Pas encore d’affiche.', 'erreur'); return; }
-      boutonOccupe(bouton, true, 'Téléchargement…');
-      try { await telechargerAffiche(donnees(), s.format); toast('Affiche téléchargée.', 'succes'); } catch (err) { toast(messageErreur(err), 'erreur'); }
-      boutonOccupe(bouton, false);
+    const a = action.dataset.action;
+    if (a === 'copier') { toast(await copierTexte(texteComplet()) ? 'Texte copié.' : 'Copie impossible : sélectionnez le texte à la main.', 'succes'); return; }
+    if (a === 'telecharger') { if (s.fichiers[s.format]) telechargerImage(s.fichiers[s.format]); return; }
+    if (a === 'suggestion') {
+      boutonOccupe(action, true);
+      const { error } = await sb.rpc('nouvelle_suggestion_affiche', { p_boutique: boutique.id, p_jour: jour });
+      if (error) { boutonOccupe(action, false); toast(messageErreur(error), 'erreur'); return; }
+      charger({ apresModification: true });
+      return;
     }
-    if (action === 'copier') {
-      const ok = await copierTexte(q('#texte-publication').value);
-      toast(ok ? 'Texte copié — collez-le dans la publication.' : 'Copie impossible : sélectionnez le texte à la main.', ok ? 'succes' : 'erreur');
-    }
-    if (action === 'changer-produit') choisirProduit(Number(bouton.dataset.rang) || 0);
-    if (action === 'retirer-autre') {
-      const autres = [...afficheCourante().autres];
-      autres.splice(Number(bouton.dataset.rang) - 1, 1);
-      brouillon({ autres });
-    }
-    if (action === 'photo') ajouterPhoto(false);
-    if (action === 'detourer') ajouterPhoto(true);
-    if (action === 'enregistrer') enregistrer(bouton);
-    if (action === 'suggestion') autreSuggestion(bouton);
+    if (a === 'theme') { changerTheme(); return; }
+    if (a === 'article') { const id = await choisirArticle(); if (id) enregistrerChangement({ produit: id, theme: ['produit', 'promo', 'arrivage', 'saison'].includes(s.a.theme) ? s.a.theme : 'produit' }); return; }
+    if (a === 'modifier') { modifierTexte(); return; }
+    if (a === 'hashtags') { ajouterHashtags(); return; }
+    if (a === 'autre-texte') autreTexte(action);
   });
-  conteneur.addEventListener('input', (e) => {
-    if (e.target.id === 'phrase-affiche') { brouillon({ phrase: e.target.value.slice(0, MAX_PHRASE) }); }
-    if (e.target.id === 'texte-publication') s.texteModifie = true;
-  });
+  zone.addEventListener('change', (e) => { if (e.target.matches('[data-action="auto"]')) basculerAuto(e.target); });
 
   charger();
-  return () => { if (s.urlApercu) URL.revokeObjectURL(s.urlApercu); };
+  return () => { Object.values(s.urls).forEach((u) => URL.revokeObjectURL(u)); };
 }
+

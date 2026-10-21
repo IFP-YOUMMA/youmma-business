@@ -98,6 +98,9 @@ export function afficherAccueil(conteneur) {
       ['Boutiques en ligne actives', opt ? nombre(opt.nb_payantes || 0) : '—',
         opt ? `+ ${nombre(opt.nb_incluses || 0)} en Premium · ${nombre(opt.nb_essai || 0)} en essai` : 'option boutique en ligne', 'vert', ''],
       ['Ventes enregistrées (mois)', nombre(champ(s, 'ventes_mois')), `${formatMillions(champ(s, 'ventes_mois_montant', 'montant_ventes_mois') || 0)} GNF traités`, '', ''],
+      // Étape 15 : affiches publiées ce mois (toutes boutiques) et boutiques qui ont connecté au moins un réseau.
+      ['Affiches publiées (mois)', champ(s, 'affiches_publiees_mois', 'publications_mois') !== undefined ? nombre(champ(s, 'affiches_publiees_mois', 'publications_mois')) : '—',
+        champ(s, 'boutiques_reseaux', 'boutiques_reseau_connecte') !== undefined ? `${nombre(champ(s, 'boutiques_reseaux', 'boutiques_reseau_connecte'))} boutique(s) avec un réseau connecté` : 'toutes boutiques confondues', 'vert', ''],
       ['SMS envoyés (mois)', nombre(sms), `${sms ? (Math.round((echecs / sms) * 1000) / 10).toString().replace('.', ',') : 0} % d’échecs`, '', '']
     ];
     zone('kpis').innerHTML = kpis.map(([l, v, sous, encre, encreSous]) => `

@@ -1,45 +1,26 @@
 /**
- * affiche.js — Affiches « pro » dessinées dans un <canvas> (maquette AffichesPro.dc.html).
+ * affiche.js — Les 9 affiches du jour dessinées dans un <canvas> (étape 15, maquette AfficheModeles.dc.html).
  *
- * Formats (chacun recomposé, jamais étiré) :
- *   facebook 1080 × 1350 (4:5, par défaut) · statut 1080 × 1920 (9:16) · carre 1080 × 1080.
- * Modèles :
- *   promo    → « Impact »    : fond nuit, bande diagonale orange, PROMO + nom court, prix géant sur la bande ;
- *   jour     → « Catalogue » : fond crème, disque bleu pâle, nom très grand, prix bleu nuit, badges ;
- *   arrivage → « Sélection » : dégradé de la couleur, NOUVEL ARRIVAGE, 1 ou 3 cartes articles.
- * Photo détourée (PNG transparent) posée sur le décor avec une ombre au sol ; photo avec fond posée
- * dans une carte blanche ; sans photo : illustration vectorielle selon la famille de l'article.
+ * Thèmes : produit · promo · lundi · vendredi · fete · arrivage · horaires · merci · saison.
+ * Toujours aux couleurs de la boutique (boutique.couleur, boutique.accent), logo en haut à gauche
+ * (jamais déformé), pied « téléphone · commune, ville ». Jamais de texte blanc sur l'or : sur l'accent,
+ * le texte est foncé.
+ * Trois formats du même dessin (recomposé, jamais étiré) : 4:5 (1080 × 1350), 9:16 (1080 × 1920),
+ * 1:1 (1080 × 1080). Mise en page par blocs : la taille des textes se réduit jusqu'à ce que tout tienne.
+ * Export JPEG qualité 0,82 (≤ 200 Ko visé) ; vidéo MP4 de 5 s (zoom lent) si le navigateur sait l'enregistrer.
+ * Rien n'est envoyé à un serveur pour fabriquer l'image.
  * Polices Manrope et Bebas Neue (fonts/, licence OFL) chargées par FontFace.
  */
-import { formatNombre, FUSEAU } from './utils.js';
-import { dessinerQr } from './qr.js';
+import { formatNombre, formatTelephone, FUSEAU } from './utils.js';
 
 export const FORMATS_AFFICHE = {
-  facebook: { largeur: 1080, hauteur: 1350, libelle: 'Facebook 4:5' },
-  statut: { largeur: 1080, hauteur: 1920, libelle: 'Statut 9:16' },
-  carre: { largeur: 1080, hauteur: 1080, libelle: 'Carré' }
+  '4:5': { largeur: 1080, hauteur: 1350, libelle: 'Facebook · Instagram 4:5', fichier: '4x5' },
+  '9:16': { largeur: 1080, hauteur: 1920, libelle: 'Statut · Story · TikTok 9:16', fichier: '9x16' },
+  '1:1': { largeur: 1080, hauteur: 1080, libelle: 'Carré 1:1', fichier: '1x1' }
 };
-export const LIBELLES_MODELES_AFFICHE = { promo: 'Impact', jour: 'Catalogue', arrivage: 'Sélection' };
-
-/** Couleur principale de la boutique (fonds Impact et Sélection). Par défaut : vert YOUMMA Business.
- * Les anciens codes « bleu » (ancien défaut) et « vert » ne sont plus listés : ils retombent sur le vert YOUMMA. */
-export const COULEUR_AFFICHE_DEFAUT = 'youmma';
-export const COULEURS_AFFICHE = {
-  youmma: { libelle: 'Vert YOUMMA', nuit: ['#0E5443', '#0A3D33', '#08332A'], vif: ['#0F7B5F', '#0A5E48', '#0A3D33'], pastel: '#F2B33D', texte: '#A9D4C6', clair: '#CFE6DD' },
-  ocean: { libelle: 'Bleu', nuit: ['#1D4E7A', '#123556', '#0A1F36'], vif: ['#1F6FB2', '#155089', '#0D2F52'], pastel: '#9FD0F5', texte: '#A9C6E0', clair: '#D2E4F4' },
-  rouge: { libelle: 'Rouge', nuit: ['#6E2020', '#3F0D0D', '#220505'], vif: ['#C62828', '#8E1B1B', '#3F0D0D'], pastel: '#FFB4A8', texte: '#E3AAAA', clair: '#F5D3D3' },
-  violet: { libelle: 'Violet', nuit: ['#4B2D70', '#2A1745', '#160A27'], vif: ['#6A1B9A', '#4A148C', '#21093F'], pastel: '#D7B8F3', texte: '#C2ACDB', clair: '#E6D9F3' },
-  marron: { libelle: 'Marron', nuit: ['#5E3B1F', '#3A2210', '#1E1108'], vif: ['#8D5524', '#6D3F18', '#3A2210'], pastel: '#F2C894', texte: '#D9BC9C', clair: '#F0E0CC' },
-  noir: { libelle: 'Noir', nuit: ['#30353F', '#16181D', '#08090B'], vif: ['#37474F', '#1F2A30', '#0B0F12'], pastel: '#B0BEC5', texte: '#A7B0B8', clair: '#DDE3E7' }
-};
-
-const CLE_COULEUR = (idBoutique) => `yb_couleur_affiche_${idBoutique}`;
-export function lireCouleurAffiche(idBoutique) {
-  try { const c = localStorage.getItem(CLE_COULEUR(idBoutique)); return COULEURS_AFFICHE[c] ? c : COULEUR_AFFICHE_DEFAUT; } catch { return COULEUR_AFFICHE_DEFAUT; }
-}
-export function ecrireCouleurAffiche(idBoutique, couleur) {
-  try { localStorage.setItem(CLE_COULEUR(idBoutique), couleur); } catch { /* préférence non mémorisée */ }
-}
+export const THEMES_AFFICHE = ['produit', 'promo', 'lundi', 'vendredi', 'fete', 'arrivage', 'horaires', 'merci', 'saison'];
+export const COULEUR_DEFAUT = '#0F7B5F';
+export const ACCENT_DEFAUT = '#F2B33D';
 
 /* ------------------------------------------------------------ Polices */
 
@@ -167,8 +148,6 @@ function initiales(nom) {
 }
 
 const prixTexte = (n) => formatNombre(Math.round(Number(n) || 0)).replace(/ /g, ' ');
-const dateJour = (jour) => (jour ? new Date(`${jour}T12:00:00Z`) : new Date());
-const fmt = (d, opts) => new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, ...opts }).format(d);
 
 /** Ombre portée douce au sol (ellipse floutée). */
 function ombreSol(ctx, cx, cy, rx, ry, opacite = 0.4) {
@@ -406,454 +385,453 @@ function dessinerVisuel(ctx, produit, photo, x, y, l, h, options = {}) {
   ctx.restore();
 }
 
-/** Logo (image) ou initiales dans un carré arrondi. */
-function dessinerLogo(ctx, logo, nom, x, y, cote, fond, encre) {
+/* ------------------------------------------------------------ Couleurs */
+
+function rgb(hex) {
+  let h = String(hex || '').replace('#', '').trim();
+  if (h.length === 3) h = h.split('').map((x) => x + x).join('');
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+const versHex = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')}`;
+/** Mélange deux couleurs (t = 0 → a, t = 1 → b). */
+function melange(a, b, t) {
+  const x = rgb(a) || [0, 0, 0];
+  const y = rgb(b) || [0, 0, 0];
+  return versHex(x.map((v, i) => v + (y[i] - v) * t));
+}
+const fonce = (c, t) => melange(c, '#000000', t);
+const eclaire = (c, t) => melange(c, '#FFFFFF', t);
+const alpha = (c, a) => { const x = rgb(c) || [0, 0, 0]; return `rgba(${x[0]},${x[1]},${x[2]},${a})`; };
+/** Luminance relative (0 = noir, 1 = blanc). */
+function luminance(c) {
+  const x = (rgb(c) || [0, 0, 0]).map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * x[0] + 0.7152 * x[1] + 0.0722 * x[2];
+}
+/** Encre lisible sur un fond : blanc sur fond foncé, sinon une version très foncée du fond (jamais blanc sur l'or). */
+const encreSur = (fond) => (luminance(fond) < 0.32 ? '#FFFFFF' : fonce(fond, 0.82));
+
+/* ------------------------------------------------------------ Mise en page par blocs */
+
+/**
+ * Pose des blocs verticalement dans la zone. Chaque bloc : { h(k, l) → hauteur, dessiner(ctx, x, y, l, k, h), ecart, flex }.
+ * k (échelle des textes) part de 1 et descend jusqu'à ce que tout tienne ; les blocs « flex » prennent la place qui reste.
+ */
+function poser(ctx, blocs, zone, { align = 'centre' } = {}) {
+  const liste = blocs.filter(Boolean);
+  let k = 1;
+  let hauteurs = [];
+  let total = 0;
+  for (; k >= 0.5; k -= 0.04) {
+    hauteurs = liste.map((b) => (b.flex ? (b.min || 0) * k : b.h(k, zone.l)));
+    total = hauteurs.reduce((t, h) => t + h, 0) + liste.slice(1).reduce((t, b) => t + (b.ecart ?? 28) * k, 0);
+    if (total <= zone.h) break;
+  }
+  const reste = Math.max(0, zone.h - total);
+  const flex = liste.filter((b) => b.flex);
+  if (flex.length) {
+    const part = reste / flex.length;
+    liste.forEach((b, i) => { if (b.flex) hauteurs[i] = Math.min(hauteurs[i] + part, b.max || Infinity); });
+    total = hauteurs.reduce((t, h) => t + h, 0) + liste.slice(1).reduce((t, b) => t + (b.ecart ?? 28) * k, 0);
+  }
+  let y = zone.y + (align === 'haut' ? 0 : align === 'bas' ? zone.h - total : (zone.h - total) / 2);
+  liste.forEach((b, i) => {
+    if (i) y += (b.ecart ?? 28) * k;
+    b.dessiner(ctx, zone.x, y, zone.l, k, hauteurs[i]);
+    y += hauteurs[i];
+  });
+  return k;
+}
+
+/**
+ * Bloc de texte : taille réduite (k, puis ajustement) jusqu'à tenir en maxLignes sur la largeur.
+ * o : { taille, poids, couleur, maxLignes, police: 'm' | 'b', align: 'left' | 'center', interligne, espace, largeur (fraction) }
+ */
+function blocTexte(texte, o) {
+  const police = o.police === 'b' ? (t) => bf(t) : (t) => mf(o.poids || 800, t);
+  let mesure = null;
+  const calculer = (ctx, k, l) => {
+    const largeur = l * (o.largeur || 1);
+    const max = (o.taille || 60) * k;
+    const min = Math.max(18, max * (o.minRatio || 0.62));
+    const r = ajusterBloc(ctx, texte, largeur, o.maxLignes || 3, max, min, police);
+    mesure = { ...r, largeur };
+    return mesure;
+  };
+  return {
+    ecart: o.ecart,
+    h(k, l) {
+      if (!texte) return 0;
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (o.espace) espacement(ctx, o.espace * k);
+      const r = calculer(ctx, k, l);
+      return r.lignes.length * r.taille * (o.interligne || 1.15);
+    },
+    dessiner(ctx, x, y, l, k) {
+      if (!texte) return;
+      ctx.save();
+      if (o.espace) espacement(ctx, o.espace * k);
+      const r = calculer(ctx, k, l);
+      ctx.font = police(r.taille);
+      ctx.fillStyle = o.couleur || '#FFFFFF';
+      ctx.textAlign = o.align === 'center' ? 'center' : 'left';
+      const ax = o.align === 'center' ? x + l / 2 : x;
+      const pas = r.taille * (o.interligne || 1.15);
+      r.lignes.forEach((ligne, i) => ctx.fillText(ligne, ax, y + pas * i + r.taille * 0.86));
+      if (o.barre) {
+        r.lignes.forEach((ligne, i) => {
+          const lw = ctx.measureText(ligne).width;
+          const x0 = o.align === 'center' ? ax - lw / 2 : ax;
+          ctx.fillRect(x0, y + pas * i + r.taille * 0.55, lw, Math.max(3, r.taille * 0.07));
+        });
+      }
+      ctx.restore();
+    }
+  };
+}
+
+/** Bloc libre de hauteur fixe (multipliée par k). */
+const blocFixe = (hauteur, dessin, ecart) => ({ ecart, h: (k) => hauteur * k, dessiner: (ctx, x, y, l, k, h) => dessin(ctx, x, y, l, k, h) });
+/** Bloc qui prend la place restante (visuel). */
+const blocFlex = (min, dessin, { max, ecart } = {}) => ({ flex: true, min, max, ecart, h: () => min, dessiner: (ctx, x, y, l, k, h) => dessin(ctx, x, y, l, k, h) });
+
+/* ------------------------------------------------------------ Éléments communs */
+
+/** Émoji : encre blanche, pour rester visible si l'appareil n'a pas de police d'émojis en couleur. */
+function dessinerEmoji(ctx, texte, x, y, taille, align = 'center') {
   ctx.save();
-  rectArrondi(ctx, x, y, cote, cote, cote * 0.26);
-  ctx.fillStyle = fond;
+  ctx.font = EMOJI(taille);
+  ctx.textAlign = align;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(texte, x, y);
+  ctx.restore();
+}
+const EMOJI = (taille) => `${Math.round(taille)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+const prixGnf = (n) => `${prixTexte(n)} GNF`;
+const dateJour = (jour) => (jour ? new Date(`${String(jour).slice(0, 10)}T12:00:00Z`) : new Date());
+const fmt = (d, opts) => new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, ...opts }).format(d);
+const telLocal = (t) => (t ? formatTelephone(t).replace(/^\+224\s*/, '') : '');
+
+/** Logo (contenu, jamais étiré ni rogné) dans un carré blanc arrondi, ou initiales. */
+function dessinerLogo(ctx, logo, nom, x, y, cote, encre) {
+  ctx.save();
+  rectArrondi(ctx, x, y, cote, cote, cote * 0.24);
+  ctx.fillStyle = '#FFFFFF';
   ctx.fill();
   if (logo) {
     ctx.clip();
-    const e = Math.max(cote / logo.width, cote / logo.height);
+    const marge = cote * 0.1;
+    const e = Math.min((cote - 2 * marge) / logo.width, (cote - 2 * marge) / logo.height);
     ctx.drawImage(logo, x + (cote - logo.width * e) / 2, y + (cote - logo.height * e) / 2, logo.width * e, logo.height * e);
   } else {
     ctx.fillStyle = encre;
     ctx.textAlign = 'center';
-    ctx.font = mf(800, cote * 0.38);
-    ctx.fillText(initiales(nom), x + cote / 2, y + cote * 0.63);
+    ctx.font = mf(800, cote * 0.4);
+    ctx.fillText(initiales(nom), x + cote / 2, y + cote * 0.64);
   }
   ctx.restore();
 }
 
-function pastilleWhatsApp(ctx, x, y, h, texte, { alignDroite = false } = {}) {
-  ctx.font = mf(800, h * 0.46);
-  const l = ctx.measureText(texte).width + h * 1.2;
-  const x0 = alignDroite ? x - l : x;
-  ctx.fillStyle = '#25D366';
-  rectArrondi(ctx, x0, y, l, h, h / 2);
-  ctx.fill();
-  ctx.fillStyle = '#06371A';
-  ctx.fillText(texte, x0 + h * 0.6, y + h * 0.66);
-  return l;
-}
-
-function qr(ctx, lien, x, y, cote, fond = '#FFFFFF') {
-  if (!lien) return;
-  ctx.fillStyle = fond;
-  rectArrondi(ctx, x, y, cote, cote, cote * 0.1);
-  ctx.fill();
-  dessinerQr(ctx, lien, x + cote * 0.04, y + cote * 0.04, cote * 0.92);
-}
-
-function texteLivraison(d) {
-  const zones = (d.zones || []).filter(Boolean);
-  if (zones.length) {
-    const liste = zones.length > 2 ? `${zones.slice(0, 2).join(', ')}…` : zones.join(' & ');
-    return `Livraison ${liste} · paiement à la livraison`;
-  }
-  return 'Retrait en boutique · paiement au retrait';
-}
-
-/* ------------------------------------------------------------ Modèle « Impact » (promo) */
-
-function modeleImpact(ctx, W, H, f, d, img) {
-  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE[COULEUR_AFFICHE_DEFAUT];
-  const p = d.produit;
-  // Mises en page propres à chaque format (px réels).
-  const L = {
-    facebook: { tete: 52, logo: 88, titreY: 182, titre: 236, titreL: 600, visuel: [500, 236, 560, 740], bandeY: 890, bandeH: 236, prix: 150, pastille: 184, pied: 222 },
-    statut: { tete: 70, logo: 100, titreY: 250, titre: 260, titreL: 640, visuel: [170, 720, 740, 540], bandeY: 1400, bandeH: 250, prix: 158, pastille: 196, pied: 250 },
-    carre: { tete: 46, logo: 80, titreY: 158, titre: 196, titreL: 560, visuel: [560, 150, 480, 560], bandeY: 742, bandeH: 196, prix: 128, pastille: 156, pied: 186 }
-  }[f];
-  const M = 56;
-  // Fond : dégradé radial nuit.
-  const g = ctx.createRadialGradient(W * 0.7, H * 0.35, 0, W * 0.7, H * 0.35, Math.max(W, H) * 1.05);
-  g.addColorStop(0, c.nuit[0]); g.addColorStop(0.55, c.nuit[1]); g.addColorStop(1, c.nuit[2]);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
-  // Bande diagonale or (-12°), sous l'article : texte foncé dessus.
-  const angle = -12 * Math.PI / 180;
+/** En-tête (logo + nom) et pied (téléphone · commune, ville) ; renvoie la zone de contenu. */
+function cadre(ctx, W, H, d, img, { encre = '#FFFFFF', pied = 'rgba(0,0,0,0.24)', piedEncre = '#FFFFFF' } = {}) {
+  const M = 64;
+  const logo = 92;
+  dessinerLogo(ctx, img.logo, d.boutique.nom, M, M, logo, d.couleur);
   ctx.save();
-  ctx.translate(W * 0.47, L.bandeY);
-  ctx.rotate(angle);
-  ctx.globalAlpha = 0.96;
-  ctx.fillStyle = degrade(ctx, -W * 0.8, 0, W * 0.8, 0, [[0, '#E9A52B'], [1, '#F6C35A']]);
-  ctx.fillRect(-W * 0.85, -L.bandeH / 2, W * 1.7, L.bandeH);
-  ctx.restore();
-
-  // En-tête : logo, nom, type · ville, dates de la promo.
-  dessinerLogo(ctx, img.logo, d.boutique.nom, M, L.tete, L.logo, '#FFFFFF', c.nuit[1]);
-  const xt = M + L.logo + 26;
-  const dates = datesPromo(d);
-  ctx.font = mf(700, L.logo * 0.3);
-  const lDates = ctx.measureText(dates).width;
-  ctx.fillStyle = c.texte; ctx.textAlign = 'right'; ctx.fillText(dates, W - M, L.tete + L.logo * 0.58); ctx.textAlign = 'left';
-  ctx.fillStyle = '#FFFFFF'; espacement(ctx, 1);
-  ajusterTaille(ctx, d.boutique.nom.toUpperCase(), W - xt - M - lDates - 30, L.logo * 0.38, 22, (t) => mf(800, t));
-  ctx.fillText(couperLignes(ctx, d.boutique.nom.toUpperCase(), W - xt - M - lDates - 30, 1)[0], xt, L.tete + L.logo * 0.46);
-  espacement(ctx, 0);
-  ctx.font = mf(500, L.logo * 0.29); ctx.fillStyle = c.texte;
-  ctx.fillText(couperLignes(ctx, d.sousTitreBoutique, W - xt - M - lDates - 30, 1)[0], xt, L.tete + L.logo * 0.86);
-
-  // Titre : PROMO + nom court (or).
-  const [court, reste] = nomCourt(p.nom);
-  ctx.fillStyle = '#FFFFFF';
-  const tTitre = Math.min(L.titre, ajusterTaille(ctx, court, L.titreL, L.titre, 110, bf));
-  ctx.font = bf(tTitre);
-  ctx.fillText('PROMO', M - 4, L.titreY + tTitre * 0.78);
-  ctx.fillStyle = '#F2B33D';
-  ctx.fillText(couperLignes(ctx, court, L.titreL, 1)[0], M - 4, L.titreY + tTitre * 0.78 + tTitre * 0.86);
-  const ySous = L.titreY + tTitre * 0.78 + tTitre * 0.86 + 64;
-  ctx.font = mf(700, Math.round(tTitre * 0.15)); ctx.fillStyle = c.clair;
-  const sous = [reste, p.unite ? `prix au ${p.unite}` : ''].filter(Boolean).join(' · ');
-  couperLignes(ctx, sous, L.titreL - 20, 2).forEach((l, i) => ctx.fillText(l, M, ySous + i * tTitre * 0.2));
-
-  // Visuel (posé par-dessus le titre comme sur la maquette).
-  const [vx, vy, vl, vh] = L.visuel;
-  dessinerVisuel(ctx, p, img.photo, vx, vy, vl, vh, { couleur: c.vif[0] });
-
-  // Ancien et nouveau prix sur la bande.
-  ctx.save();
-  ctx.translate(W * 0.47, L.bandeY);
-  ctx.rotate(angle);
-  const xPrix = -W * 0.47 + M + 6;
-  const lPrixMax = W - L.pastille - M * 2 - 60;
-  if (p.prix_barre) {
-    ctx.font = mf(800, L.prix * 0.25); ctx.fillStyle = 'rgba(59,23,0,0.78)';
-    const ancien = `${prixTexte(p.prix_barre)} GNF`;
-    const yA = -L.bandeH / 2 + L.prix * 0.36;
-    ctx.fillText(ancien, xPrix, yA);
-    ctx.fillRect(xPrix, yA - L.prix * 0.09, ctx.measureText(ancien).width, Math.max(3, L.prix * 0.03));
-  }
-  const texteP = prixTexte(p.prix);
-  let tP = L.prix;
-  for (; tP > 70; tP -= 4) {
-    ctx.font = bf(tP); const a = ctx.measureText(`${texteP} `).width;
-    ctx.font = bf(tP * 0.42); if (a + ctx.measureText('GNF').width <= lPrixMax) break;
-  }
-  ctx.fillStyle = '#3A2600'; ctx.font = bf(tP);
-  const yP =L.bandeH / 2 - (L.bandeH - tP * 0.72) / 2 + (p.prix_barre ? tP * 0.06 : -tP * 0.02);
-  ctx.fillText(texteP, xPrix, yP);
-  const lp = ctx.measureText(`${texteP} `).width;
-  ctx.font = bf(tP * 0.42); ctx.fillText('GNF', xPrix + lp, yP);
-  ctx.restore();
-
-  // Pastille ronde « −X » (remise) ou « le sac ».
-  const rP = L.pastille / 2;
-  const pcx = W - M - rP;
-  const pcy = L.bandeY - Math.tan(-angle) * (pcx - W * 0.47) - L.bandeH * 0.05;
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
-  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(pcx, pcy, rP, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-  ctx.textAlign = 'center'; ctx.fillStyle = c.vif[1];
-  const remise = p.prix_barre ? `−${prixTexte(p.prix_barre - p.prix)}` : 'PROMO';
-  ctx.font = mf(800, rP * 0.3); ctx.fillText(p.unite ? `le ${p.unite}`.slice(0, 12) : 'remise', pcx, pcy - rP * 0.16);
-  ajusterTaille(ctx, remise, rP * 1.62, rP * 0.56, 20, (t) => mf(800, t));
-  ctx.fillText(remise, pcx, pcy + rP * 0.36);
+  ctx.fillStyle = encre;
   ctx.textAlign = 'left';
-
-  // Pied blanc.
-  piedBlanc(ctx, W, H, L.pied, d, c, 'Commandez maintenant');
-  marqueYoumma(ctx, W - 46, H - 14, img.symbole, '#67766F');
-}
-
-/** Petite mention « YOUMMA Business » (symbole + texte) alignée à droite sur xDroite, ligne de base y. */
-function marqueYoumma(ctx, xDroite, y, symbole, couleur) {
-  const t = 24;
-  ctx.save();
-  ctx.font = mf(700, 17); ctx.fillStyle = couleur; ctx.textAlign = 'right';
-  ctx.fillText('YOUMMA Business', xDroite, y);
-  const l = ctx.measureText('YOUMMA Business').width;
-  if (symbole) ctx.drawImage(symbole, xDroite - l - t - 6, y - t + 5, t, t);
+  const t = ajusterTaille(ctx, d.boutique.nom, W - M * 2 - logo - 28, 38, 24, (x) => mf(800, x));
+  ctx.font = mf(800, t);
+  ctx.fillText(d.boutique.nom, M + logo + 26, M + logo / 2 + t * 0.35);
   ctx.restore();
-}
-
-function piedBlanc(ctx, W, H, h, d, c, titre) {
-  const y = H - h;
-  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, y, W, h);
-  const M = 46;
-  const cq = h * 0.66;
-  qr(ctx, d.lien, M, y + (h - cq) / 2, cq);
-  const x = M + (d.lien ? cq + 30 : 0);
-  // Bloc WhatsApp à droite.
-  const hW = h * 0.25;
-  let lW = 0;
-  if (d.whatsapp) {
-    lW = pastilleWhatsApp(ctx, W - M, y + h * 0.2, hW, 'WhatsApp', { alignDroite: true });
-    ctx.font = mf(800, h * 0.16); ctx.fillStyle = c.nuit[1]; ctx.textAlign = 'right';
-    ctx.fillText(d.whatsapp, W - M, y + h * 0.75);
-    lW = Math.max(lW, ctx.measureText(d.whatsapp).width);
-    ctx.textAlign = 'left';
-  }
-  const lTexte = W - x - M - lW - 30;
-  ctx.fillStyle = '#0A3D33';
-  ajusterTaille(ctx, titre, lTexte, h * 0.18, 22, (t) => mf(800, t));
-  ctx.fillText(titre, x, y + h * 0.45);
-  ctx.font = mf(600, h * 0.12); ctx.fillStyle = '#55665F';
-  couperLignes(ctx, texteLivraison(d), lTexte, 2).forEach((l, i) => ctx.fillText(l, x, y + h * 0.66 + i * h * 0.15));
-}
-
-function nomCourt(nom) {
-  const mots = String(nom || 'Article').trim().split(/\s+/);
-  const court = mots[0].toUpperCase().replace(/[,;:]$/, '');
-  return [court, mots.slice(1).join(' ')];
-}
-
-function datesPromo(d) {
-  const debut = dateJour(d.jour);
-  if (d.produit.promo_fin) {
-    const fin = new Date(`${String(d.produit.promo_fin).slice(0, 10)}T12:00:00Z`);
-    if (fin >= debut) {
-      const memeMois = fmt(debut, { month: 'short' }) === fmt(fin, { month: 'short' });
-      return memeMois ? `du ${fmt(debut, { day: 'numeric' })} au ${fmt(fin, { day: 'numeric', month: 'short' })}`
-        : `du ${fmt(debut, { day: 'numeric', month: 'short' })} au ${fmt(fin, { day: 'numeric', month: 'short' })}`;
-    }
-  }
-  return `offre du ${fmt(debut, { day: 'numeric', month: 'short' })}`;
-}
-
-/* ------------------------------------------------------------ Modèle « Catalogue » (produit du jour) */
-
-function modeleCatalogue(ctx, W, H, f, d, img) {
-  const p = d.produit;
-  const L = {
-    facebook: { haut: 56, disque: [862, 578, 424], visuel: [500, 250, 540, 600], col: [62, 180, 520], nom: 98, prixY: 870, prix: 118, badgesY: 1010, pied: 200 },
-    statut: { haut: 70, disque: [860, 640, 470], visuel: [250, 200, 790, 880], col: [62, 1140, 960], nom: 108, prixY: 1510, prix: 140, badgesY: 1568, pied: 220 },
-    carre: { haut: 50, disque: [840, 470, 360], visuel: [560, 150, 470, 520], col: [56, 150, 480], nom: 86, prixY: 700, prix: 104, badgesY: 830, pied: 180 }
-  }[f];
-  const M = L.col[0];
-  ctx.fillStyle = '#F6F3EE'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#E3F2EC'; ctx.beginPath(); ctx.arc(L.disque[0], L.disque[1], L.disque[2], 0, Math.PI * 2); ctx.fill();
-
-  // Petites capitales + filet fin.
-  const jj = fmt(dateJour(d.jour), { day: '2-digit', month: '2-digit' }).replace('/', '.');
-  ctx.font = mf(800, 26); espacement(ctx, 3.6); ctx.fillStyle = '#55665F';
-  let xNom = M;
-  if (img.logo) { dessinerLogo(ctx, img.logo, d.boutique.nom, M, L.haut - 8, 48, '#FFFFFF', '#0A3D33'); xNom = M + 64; }
-  const droite = `LE CHOIX DU JOUR · ${jj}`;
-  const lDroite = ctx.measureText(droite).width;
-  ctx.textAlign = 'right'; ctx.fillText(droite, W - M, L.haut + 26); ctx.textAlign = 'left';
-  ctx.fillText(couperLignes(ctx, d.boutique.nom.toUpperCase(), W - M - lDroite - xNom - 30, 1)[0], xNom, L.haut + 26);
-  espacement(ctx, 0);
-  ctx.fillStyle = 'rgba(16, 35, 29,0.15)'; ctx.fillRect(M, L.haut + 58, W - 2 * M, 2);
-
-  // Visuel à droite.
-  const [vx, vy, vl, vh] = L.visuel;
-  dessinerVisuel(ctx, p, img.photo, vx, vy, vl, vh, { ombre: 0.16 });
-
-  // Colonne texte : catégorie, nom (2 lignes max), description.
-  const [cx, cy, cl] = L.col;
-  let y = cy;
-  if (p.categorie) {
-    ctx.font = mf(800, 31); espacement(ctx, 2.4); ctx.fillStyle = '#0F7B5F';
-    ctx.fillText(couperLignes(ctx, p.categorie.toUpperCase(), cl, 1)[0], cx, y + 30); espacement(ctx, 0);
-    y += 56;
-  }
-  espacement(ctx, -1.5);
-  const nom = ajusterBloc(ctx, p.nom, cl, 2, L.nom, 54, (t) => mf(800, t));
-  ctx.fillStyle = '#10231D'; ctx.font = mf(800, nom.taille);
-  nom.lignes.forEach((l, i) => ctx.fillText(l, cx, y + nom.taille * 0.9 + i * nom.taille * 1.04));
-  espacement(ctx, 0);
-  y += nom.taille * 1.04 * nom.lignes.length + 26;
-  if (d.phrase) {
-    ctx.font = mf(500, 33); ctx.fillStyle = '#3F5249';
-    couperLignes(ctx, d.phrase, cl, 3).forEach((l, i) => ctx.fillText(l, cx, y + 30 + i * 48));
-  }
-
-  // Prix bleu nuit très grand + unité.
-  const texteP = prixTexte(p.prix);
-  const unite = `GNF / ${p.unite || 'unité'}`;
-  let tP = L.prix;
-  for (; tP > 60; tP -= 4) {
-    ctx.font = mf(800, tP); const a = ctx.measureText(texteP).width;
-    ctx.font = mf(800, tP * 0.3); if (a + 24 + ctx.measureText(unite).width <= W - 2 * M) break;
-  }
-  espacement(ctx, -tP * 0.03);
-  ctx.font = mf(800, tP); ctx.fillStyle = '#0A3D33'; ctx.fillText(texteP, M, L.prixY);
-  const lp = ctx.measureText(texteP).width;
-  espacement(ctx, 0);
-  ctx.font = mf(800, tP * 0.3); ctx.fillStyle = '#55665F'; ctx.fillText(unite, M + lp + 24, L.prixY);
-  if (p.prix_barre) {
-    ctx.font = mf(700, 34); ctx.fillStyle = '#67766F';
-    const ancien = `au lieu de ${prixTexte(p.prix_barre)} GNF`;
-    ctx.fillText(ancien, M, L.prixY - tP * 0.86);
-  }
-
-  // Badges.
-  const badges = [];
-  badges.push(p.dispo === 'sur_commande' ? ['Sur commande', '#FDF3E1', '#7A4A00', null] : ['En stock', '#E8F5EA', '#1B6E2A', null]);
-  if (p.prix_gros && Number(p.prix_gros) < Number(p.prix)) badges.push([`Prix de gros : ${prixTexte(p.prix_gros)} GNF`, '#FFFFFF', '#10231D', '#D8E1DC']);
-  if (p.prix_barre) badges.push(['Promo', '#FFF4EA', '#C43E00', null]);
-  let bx = M;
-  ctx.font = mf(800, 28);
-  for (const [t, fond, encre, bord] of badges) {
-    const l = ctx.measureText(t).width + 52;
-    if (bx + l > W - M) break;
-    ctx.fillStyle = fond; rectArrondi(ctx, bx, L.badgesY, l, 58, 29); ctx.fill();
-    if (bord) { ctx.strokeStyle = bord; ctx.lineWidth = 2; ctx.stroke(); }
-    ctx.fillStyle = encre; ctx.fillText(t, bx + 26, L.badgesY + 39);
-    bx += l + 16;
-  }
-
-  // Pied : filet, QR, texte de commande, numéro.
-  const yP = H - L.pied;
-  ctx.fillStyle = 'rgba(16, 35, 29,0.15)'; ctx.fillRect(M, yP, W - 2 * M, 2);
-  const cq = L.pied * 0.62;
-  qr(ctx, d.lien, M, yP + (L.pied - cq) / 2, cq);
-  const x = M + (d.lien ? cq + 30 : 0);
-  ctx.font = mf(800, 36); ctx.fillStyle = '#10231D';
-  const lNum = d.whatsapp ? ctx.measureText(d.whatsapp).width : 0;
-  if (d.whatsapp) { ctx.textAlign = 'right'; ctx.fillText(d.whatsapp, W - M, yP + L.pied * 0.56); ctx.textAlign = 'left'; }
-  const lt = W - x - M - lNum - 30;
-  ajusterTaille(ctx, 'Commandez en ligne ou sur WhatsApp', lt, 34, 22, (t) => mf(800, t));
-  ctx.fillText('Commandez en ligne ou sur WhatsApp', x, yP + L.pied * 0.47);
-  ctx.font = mf(600, 28); ctx.fillStyle = '#3F5249';
-  ctx.fillText(couperLignes(ctx, [d.boutique.ville, texteLivraison(d).split(' · ')[0]].filter(Boolean).join(' · '), lt, 1)[0], x, yP + L.pied * 0.68);
-  marqueYoumma(ctx, W - M, H - 16, img.symbole, '#67766F');
-}
-
-/* ------------------------------------------------------------ Modèle « Sélection » (arrivage) */
-
-async function modeleSelection(ctx, W, H, f, d, img) {
-  const c = COULEURS_AFFICHE[d.couleur] || COULEURS_AFFICHE[COULEUR_AFFICHE_DEFAUT];
-  const articles = [d.produit, ...(d.autres || [])].slice(0, 3);
-  const L = {
-    facebook: { tete: 52, logo: 82, titreY: 170, titre: 166, cartesY: 504, cartesH: 470, phraseY: 1028, pied: 190 },
-    statut: { tete: 70, logo: 96, titreY: 250, titre: 210, cartesY: 720, cartesH: 760, phraseY: 1560, pied: 230 },
-    carre: { tete: 46, logo: 76, titreY: 150, titre: 128, cartesY: 410, cartesH: 400, phraseY: 860, pied: 170 }
-  }[f];
-  const M = 56;
-  const angle = 165 * Math.PI / 180;
-  const gx = Math.sin(angle) * W;
-  const g = ctx.createLinearGradient(W / 2 - gx / 2, H / 2 + Math.cos(angle) * H / 2, W / 2 + gx / 2, H / 2 - Math.cos(angle) * H / 2);
-  g.addColorStop(0, c.vif[0]); g.addColorStop(0.6, c.vif[1]); g.addColorStop(1, c.vif[2]);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
-  // En-tête : logo + nom + pastille.
-  dessinerLogo(ctx, img.logo, d.boutique.nom, M, L.tete, L.logo, '#FFFFFF', c.vif[1]);
-  const pastilleTexte = /semaine/i.test(`${d.phrase || ''} ${d.raison || ''}`) ? 'CETTE SEMAINE' : 'ARRIVÉ CE MATIN';
-  ctx.font = mf(800, L.logo * 0.3);
-  const lPast = ctx.measureText(pastilleTexte).width + 44;
-  ctx.fillStyle = c.pastel; rectArrondi(ctx, W - M - lPast, L.tete + L.logo * 0.22, lPast, L.logo * 0.56, L.logo * 0.28); ctx.fill();
-  ctx.fillStyle = '#0A3D33'; ctx.fillText(pastilleTexte, W - M - lPast + 22, L.tete + L.logo * 0.61);
-  ctx.fillStyle = '#FFFFFF';
-  ajusterTaille(ctx, d.boutique.nom, W - M * 2 - L.logo - lPast - 50, L.logo * 0.4, 22, (t) => mf(800, t));
-  ctx.fillText(couperLignes(ctx, d.boutique.nom, W - M * 2 - L.logo - lPast - 50, 1)[0], M + L.logo + 24, L.tete + L.logo * 0.62);
-
-  // Titre condensé sur 2 lignes.
-  ctx.font = bf(L.titre); ctx.fillStyle = '#FFFFFF';
-  ctx.fillText('NOUVEL', M - 3, L.titreY + L.titre * 0.8);
-  ctx.fillText('ARRIVAGE', M - 3, L.titreY + L.titre * 0.8 + L.titre * 0.9);
-
-  // Cartes.
-  const n = articles.length;
-  const gap = 26;
-  const lc = n === 1 ? W - 2 * M : (W - 2 * M - gap * (n - 1)) / n;
-  const hc = L.cartesH;
-  const teintes = ['#EDF5F1', '#FFF4EA', '#EFF3F0'];
-  for (let i = 0; i < n; i++) {
-    const a = articles[i];
-    const x = M + i * (lc + gap);
-    const y = L.cartesY;
+  const hp = 104;
+  ctx.fillStyle = pied;
+  ctx.fillRect(0, H - hp, W, hp);
+  const lieu = [d.boutique.commune, d.boutique.ville].filter(Boolean).join(', ');
+  const piedTexte = [telLocal(d.boutique.telephone), lieu].filter(Boolean).join('  ·  ');
+  if (piedTexte) {
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
-    ctx.fillStyle = '#FFFFFF'; rectArrondi(ctx, x, y, lc, hc, 30); ctx.fill();
+    ctx.fillStyle = piedEncre;
+    ctx.textAlign = 'center';
+    const tp = ajusterTaille(ctx, piedTexte, W - M * 2, 34, 22, (x) => mf(700, x));
+    ctx.font = mf(700, tp);
+    ctx.fillText(piedTexte, W / 2, H - hp / 2 + tp * 0.36);
     ctx.restore();
-    const photo = img.photos[i];
-    if (n === 1) {
-      // Grande carte : visuel à gauche, textes à droite.
-      const lv = lc * 0.52;
-      ctx.save(); rectArrondi(ctx, x, y, lc, hc, 30); ctx.clip();
-      ctx.fillStyle = teintes[0]; ctx.fillRect(x, y, lv, hc); ctx.restore();
-      dessinerVisuel(ctx, a, photo, x + 30, y + 30, lv - 60, hc - 60, { couleur: c.vif[0], ombre: 0.25 });
-      const tx = x + lv + 36;
-      const tl = lc - lv - 66;
-      const nom = ajusterBloc(ctx, a.nom, tl, 3, 52, 30, (t) => mf(800, t));
-      ctx.fillStyle = '#10231D'; ctx.font = mf(800, nom.taille);
-      nom.lignes.forEach((l, k) => ctx.fillText(l, tx, y + 70 + nom.taille + k * nom.taille * 1.15));
-      const yPrix = y + hc - 110;
-      if (a.prix_barre) { ctx.font = mf(700, 30); ctx.fillStyle = '#67766F'; ctx.fillText(`${prixTexte(a.prix_barre)} GNF`, tx, yPrix - 90); }
-      ajusterTaille(ctx, prixTexte(a.prix), tl, 92, 40, (t) => mf(800, t));
-      ctx.fillStyle = c.vif[1]; ctx.fillText(prixTexte(a.prix), tx, yPrix);
-      ctx.font = mf(700, 30); ctx.fillStyle = '#55665F'; ctx.fillText(`GNF / ${a.unite || 'unité'}`, tx, yPrix + 48);
-    } else {
-      const hv = hc * 0.56;
-      ctx.save(); rectArrondi(ctx, x, y, lc, hc, 30); ctx.clip();
-      ctx.fillStyle = teintes[i % 3]; ctx.fillRect(x, y, lc, hv); ctx.restore();
-      dessinerVisuel(ctx, a, photo, x + 20, y + 18, lc - 40, hv - 30, { couleur: c.vif[0], ombre: 0.25 });
-      const tx = x + 22;
-      const tl = lc - 44;
-      const tNom = Math.round(hc * 0.062);
-      ctx.font = mf(800, tNom); ctx.fillStyle = '#10231D';
-      couperLignes(ctx, a.nom, tl, 2).forEach((l, k) => ctx.fillText(l, tx, y + hv + tNom * 1.3 + k * tNom * 1.22));
-      const tUnite = Math.round(hc * 0.048);
-      const yUnite = y + hc - Math.max(22, hc * 0.06);
-      ctx.font = mf(700, tUnite); ctx.fillStyle = '#55665F';
-      ctx.fillText(couperLignes(ctx, `GNF / ${a.unite || 'unité'}`, tl, 1)[0], tx, yUnite);
-      ajusterTaille(ctx, prixTexte(a.prix), tl, Math.round(hc * 0.1), 26, (t) => mf(800, t));
-      ctx.fillStyle = c.vif[1]; ctx.fillText(prixTexte(a.prix), tx, yUnite - tUnite * 1.45);
-    }
   }
-
-  // Phrase.
-  if (d.phrase) {
-    ctx.font = mf(600, f === 'carre' ? 30 : 34); ctx.fillStyle = c.clair;
-    couperLignes(ctx, d.phrase, W - 2 * M, 2).forEach((l, i) => ctx.fillText(l, M, L.phraseY + i * 48));
-  }
-
-  // Pied sombre translucide.
-  const yP = H - L.pied;
-  ctx.fillStyle = 'rgba(6, 42, 35,0.55)'; ctx.fillRect(0, yP, W, L.pied);
-  const cq = L.pied * 0.66;
-  qr(ctx, d.lien, M, yP + (L.pied - cq) / 2, cq);
-  const x = M + (d.lien ? cq + 28 : 0);
-  let lW = 0;
-  if (d.whatsapp) {
-    const h = L.pied * 0.38;
-    ctx.font = mf(800, h * 0.48);
-    lW = ctx.measureText(d.whatsapp).width + h * 0.9;
-    ctx.fillStyle = '#25D366'; rectArrondi(ctx, W - M - lW, yP + (L.pied - h) / 2, lW, h, h * 0.28); ctx.fill();
-    ctx.fillStyle = '#06371A'; ctx.fillText(d.whatsapp, W - M - lW + h * 0.45, yP + L.pied / 2 + h * 0.17);
-  }
-  const lt = W - x - M - lW - 26;
-  ctx.fillStyle = '#FFFFFF';
-  ajusterTaille(ctx, 'Commandez sur WhatsApp', lt, 38, 22, (t) => mf(800, t));
-  ctx.fillText('Commandez sur WhatsApp', x, yP + L.pied * 0.47);
-  ctx.font = mf(600, 27); ctx.fillStyle = c.texte;
-  ctx.fillText(couperLignes(ctx, d.lienCourt || texteLivraison(d), lt, 1)[0], x, yP + L.pied * 0.7);
-  marqueYoumma(ctx, W - M, H - 14, img.symbole, c.texte);
+  const haut = M + logo + 48;
+  return { x: M, y: haut, l: W - M * 2, h: H - hp - 44 - haut };
 }
 
-/* ------------------------------------------------------------ Point d'entrée */
+function fondDegrade(ctx, W, H, haut, bas) {
+  ctx.fillStyle = degrade(ctx, 0, 0, W * 0.35, H, [[0, haut], [1, bas]]);
+  ctx.fillRect(0, 0, W, H);
+}
+function cercleDoux(ctx, cx, cy, r, couleur) {
+  ctx.fillStyle = couleur;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Phrase secondaire tirée du texte de publication (sans le titre, les liens, téléphones ni hashtags). */
+function phraseSecondaire(d, max = 2) {
+  const nettoyer = (s) => s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '').trim();
+  // La première ligne du texte est l'accroche (déjà en titre sur l'affiche) : on prend la suite.
+  const lignes = String(d.texte || '').split(/\n+/).map(nettoyer).filter(Boolean).slice(1)
+    .filter((l) => !/https?:|www\.|#\w|\/b\/|\d{3}\s?\d{2}\s?\d{2}\s?\d{2}/i.test(l))
+    .filter((l) => nettoyer(l).toLowerCase() !== nettoyer(d.titre || '').toLowerCase());
+  return lignes.slice(0, max).join(' ');
+}
+
+/** Pastille ronde d'accent : prix + unité (texte foncé). */
+function pastillePrix(ctx, cx, cy, r, d) {
+  const p = d.produit || {};
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.28)';
+  ctx.shadowBlur = r * 0.18;
+  ctx.shadowOffsetY = r * 0.06;
+  cercleDoux(ctx, cx, cy, r, d.accent);
+  ctx.restore();
+  const encre = encreSur(d.accent);
+  ctx.fillStyle = encre;
+  ctx.textAlign = 'center';
+  const prix = prixTexte(p.prix);
+  const t = ajusterTaille(ctx, prix, r * 1.6, r * 0.62, r * 0.3, (x) => mf(800, x));
+  ctx.font = mf(800, t);
+  ctx.fillText(prix, cx, cy + t * 0.22);
+  ctx.font = mf(700, r * 0.18);
+  ctx.fillText(`GNF${p.unite ? ` / ${p.unite}` : ''}`, cx, cy + t * 0.22 + r * 0.3);
+}
+
+/** Visuel de l'article (photo détourée, photo en carte, ou illustration) dans une boîte. */
+function visuel(ctx, d, img, x, y, l, h, ombre = 0.4) {
+  // Trop petit pour être lisible (format carré chargé) : pas de visuel plutôt qu'une vignette illisible.
+  if (h < 150 || l < 150) return;
+  dessinerVisuel(ctx, d.produit || {}, img.photo, x, y, l, h, { couleur: d.accent, ombre });
+}
+
+/* ------------------------------------------------------------ Les 9 thèmes */
+
+const THEMES = {
+  /** Article du jour : dégradé couleur → foncé, photo au centre, pastille ronde du prix, nom et unité en bas. */
+  produit(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.04), fonce(d.couleur, 0.55));
+    cercleDoux(ctx, W * 0.92, H * 0.2, W * 0.36, 'rgba(255,255,255,0.05)');
+    const z = cadre(ctx, W, H, d, img);
+    const p = d.produit || {};
+    const encre = '#FFFFFF';
+    poser(ctx, [
+      blocFlex(260, (c, x, y, l, k, h) => {
+        visuel(c, d, img, x + l * 0.04, y, l * 0.78, h);
+        const r = Math.min(150, h * 0.32) * Math.max(0.8, k);
+        pastillePrix(c, x + l - r * 0.92, y + r * 1.02, r, d);
+      }),
+      blocTexte(p.nom, { taille: 78, maxLignes: 2, couleur: encre, ecart: 36 }),
+      blocTexte(phraseSecondaire(d, 1) || (p.unite ? `Vendu au ${p.unite}` : ''), { taille: 36, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.86), ecart: 14 })
+    ], z, { align: 'bas' });
+  },
+
+  /** Promotion : fond foncé, bande diagonale accent « PROMO −x % », prix barré, date de fin. */
+  promo(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, fonce(d.couleur, 0.5), fonce(d.couleur, 0.78));
+    const z = cadre(ctx, W, H, d, img);
+    const p = d.produit || {};
+    const pct = Number(p.prix_barre) > Number(p.prix) ? Math.round(((p.prix_barre - p.prix) / p.prix_barre) * 100) : null;
+    const fin = p.promo_fin ? `Jusqu’au ${fmt(dateJour(p.promo_fin), { weekday: 'long', day: 'numeric', month: 'long' })} · dans la limite du stock` : 'Dans la limite du stock';
+    poser(ctx, [
+      blocFixe(170, (c, x, y, l, k) => {
+        c.save();
+        c.translate(W / 2, y + 85 * k);
+        c.rotate(-0.12);
+        c.fillStyle = d.accent;
+        c.fillRect(-W * 0.75, -64 * k, W * 1.5, 128 * k);
+        c.fillStyle = encreSur(d.accent);
+        c.textAlign = 'center';
+        const t = ajusterTaille(c, `PROMO ${pct ? `−${pct} %` : ''}`.trim(), W * 0.8, 96 * k, 48, (s) => mf(800, s));
+        c.font = mf(800, t);
+        c.fillText(`PROMO${pct ? ` −${pct} %` : ''}`, 0, t * 0.35);
+        c.restore();
+      }, 0),
+      img.photo ? blocFlex(120, (c, x, y, l, k, h) => visuel(c, d, img, x + l * 0.1, y, l * 0.8, h, 0.5)) : null,
+      blocTexte(p.nom, { taille: 70, maxLignes: 2, couleur: '#FFFFFF', ecart: 34 }),
+      blocTexte(prixGnf(p.prix), { police: 'b', taille: 150, maxLignes: 1, couleur: d.accent, ecart: 10, interligne: 1 }),
+      p.prix_barre ? blocTexte(prixGnf(p.prix_barre), { taille: 46, poids: 700, maxLignes: 1, couleur: alpha('#FFFFFF', 0.6), barre: true, ecart: 6 }) : null,
+      blocTexte(fin, { taille: 34, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.85), ecart: 22 })
+    ], z, { align: 'haut' });
+  },
+
+  /** Bon lundi : dégradé couleur, deux cercles doux, date en accent, titre très gros, horaires. */
+  lundi(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.06), fonce(d.couleur, 0.45));
+    cercleDoux(ctx, W * 0.95, H * 0.12, W * 0.42, 'rgba(255,255,255,0.07)');
+    cercleDoux(ctx, W * 0.02, H * 0.78, W * 0.3, 'rgba(255,255,255,0.06)');
+    const z = cadre(ctx, W, H, d, img);
+    const date = fmt(dateJour(d.jour), { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
+    poser(ctx, [
+      blocTexte(date, { taille: 38, maxLignes: 1, couleur: d.accent, espace: 4 }),
+      blocTexte(d.titre || 'Bonne semaine à tous !', { taille: 132, maxLignes: 4, couleur: '#FFFFFF', interligne: 1.06, ecart: 26 }),
+      blocTexte(d.sousTexte || phraseSecondaire(d), { taille: 42, poids: 600, maxLignes: 4, couleur: alpha('#FFFFFF', 0.9), ecart: 40, interligne: 1.3 })
+    ], z, { align: 'centre' });
+  },
+
+  /** Bon vendredi : fond accent (or), texte foncé, horaires de prière. */
+  vendredi(ctx, W, H, d, img) {
+    const encre = encreSur(d.accent);
+    fondDegrade(ctx, W, H, eclaire(d.accent, 0.08), fonce(d.accent, 0.12));
+    cercleDoux(ctx, W * 0.86, H * 0.86, W * 0.4, 'rgba(255,255,255,0.16)');
+    const z = cadre(ctx, W, H, d, img, { encre, pied: 'rgba(0,0,0,0.08)', piedEncre: encre });
+    poser(ctx, [
+      blocTexte('VENDREDI', { taille: 36, maxLignes: 1, couleur: alpha(encre, 0.8), espace: 5 }),
+      blocTexte(d.titre || 'Bon vendredi et bonne prière', { taille: 118, maxLignes: 4, couleur: encre, interligne: 1.06, ecart: 24 }),
+      blocTexte(d.sousTexte || phraseSecondaire(d), { taille: 40, poids: 600, maxLignes: 4, couleur: alpha(encre, 0.85), ecart: 38, interligne: 1.3 })
+    ], z, { align: 'centre' });
+  },
+
+  /** Fête : fond vert nuit, emoji (ou croissant) dans un cercle accent, message centré. */
+  fete(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, fonce(d.couleur, 0.55), fonce(d.couleur, 0.82));
+    for (let i = 0; i < 26; i++) cercleDoux(ctx, (i * 397) % W, (i * 613) % (H * 0.7), 2 + (i % 3), 'rgba(255,255,255,0.35)');
+    const z = cadre(ctx, W, H, d, img);
+    const fete = d.fete || {};
+    poser(ctx, [
+      blocFixe(250, (c, x, y, l, k) => {
+        const r = 112 * k;
+        const cx = x + l / 2;
+        const cy = y + 125 * k;
+        cercleDoux(c, cx, cy, r, alpha(d.accent, 0.14));
+        c.strokeStyle = d.accent;
+        c.lineWidth = 6 * k;
+        c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
+        const symbole = fete.emoji || '🌙';
+        if (symbole === '🌙') {
+          c.fillStyle = d.accent;
+          c.beginPath(); c.arc(cx, cy, r * 0.56, 0, Math.PI * 2); c.fill();
+          c.fillStyle = fonce(d.couleur, 0.62);
+          c.beginPath(); c.arc(cx + r * 0.26, cy - r * 0.16, r * 0.5, 0, Math.PI * 2); c.fill();
+        } else {
+          dessinerEmoji(c, symbole, cx, cy + 44 * k, 120 * k);
+        }
+      }),
+      blocTexte(d.titre || (fete.nom ? `Bonne fête de ${fete.nom}` : 'Bonne fête'), { taille: 92, maxLignes: 3, couleur: d.accent, align: 'center', interligne: 1.08, ecart: 40 }),
+      blocTexte(fete.message || `${d.boutique.nom} vous souhaite paix et prospérité`, { taille: 40, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), align: 'center', ecart: 26, interligne: 1.3 })
+    ], z, { align: 'centre' });
+  },
+
+  /** Nouvel arrivage : photo en fond assombri, tampon incliné « NOUVEL ARRIVAGE », nom et prix. */
+  arrivage(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, melange(d.couleur, '#7A4A1E', 0.6), fonce(melange(d.couleur, '#5A3412', 0.6), 0.55));
+    if (img.photo) {
+      const e = Math.max(W / img.photo.width, H / img.photo.height);
+      ctx.drawImage(img.photo, (W - img.photo.width * e) / 2, (H - img.photo.height * e) / 2, img.photo.width * e, img.photo.height * e);
+    } else {
+      ctx.save(); ctx.globalAlpha = 0.35;
+      dessinerIllustration(ctx, d.produit || {}, W * 0.15, H * 0.2, W * 0.7, H * 0.45, { couleur: d.accent, ombre: 0 });
+      ctx.restore();
+    }
+    ctx.fillStyle = degrade(ctx, 0, 0, 0, H, [[0, 'rgba(0,0,0,0.45)'], [0.45, 'rgba(0,0,0,0.25)'], [1, 'rgba(0,0,0,0.82)']]);
+    ctx.fillRect(0, 0, W, H);
+    const z = cadre(ctx, W, H, d, img);
+    const p = d.produit || {};
+    // Tampon en haut de la zone.
+    ctx.save();
+    ctx.translate(z.x + 20, z.y + 30);
+    ctx.rotate(-0.09);
+    const t = 54;
+    ctx.font = mf(800, t);
+    espacement(ctx, 5);
+    const lt = ctx.measureText('NOUVEL ARRIVAGE').width + 64;
+    ctx.strokeStyle = d.accent;
+    ctx.lineWidth = 7;
+    rectArrondi(ctx, 0, 0, lt, t + 46, 14);
+    ctx.stroke();
+    ctx.fillStyle = d.accent;
+    ctx.fillText('NOUVEL ARRIVAGE', 32, t + 12);
+    ctx.restore();
+    poser(ctx, [
+      blocTexte(p.nom, { taille: 84, maxLignes: 3, couleur: '#FFFFFF', interligne: 1.08 }),
+      blocTexte([phraseSecondaire(d, 1), p.prix ? `${prixGnf(p.prix)}${p.unite ? ` / ${p.unite}` : ''}` : ''].filter(Boolean).join(' · '), { taille: 38, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), ecart: 22, interligne: 1.3 })
+    ], { ...z, y: z.y + 190, h: z.h - 190 }, { align: 'bas' });
+  },
+
+  /** Horaires : fond bleu nuit, lundi–vendredi / samedi / dimanche, trait, boutique en ligne. */
+  horaires(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, '#1C3A5E', '#0B1A30');
+    const z = cadre(ctx, W, H, d, img);
+    const lignes = d.horaires || [['Lundi – vendredi', '8 h – 18 h'], ['Samedi', '8 h – 17 h'], ['Dimanche', 'Fermé']];
+    poser(ctx, [
+      blocTexte('Nos horaires', { taille: 88, maxLignes: 1, couleur: d.accent }),
+      ...lignes.map(([jour, h], i) => blocFixe(92, (c, x, y, l, k) => {
+        c.fillStyle = 'rgba(255,255,255,0.14)';
+        if (i) c.fillRect(x, y, l, 2);
+        c.font = mf(600, 42 * k); c.fillStyle = '#FFFFFF'; c.textAlign = 'left';
+        c.fillText(jour, x, y + 60 * k);
+        c.font = mf(800, 42 * k); c.textAlign = 'right';
+        c.fillText(h, x + l, y + 60 * k);
+      }, i ? 0 : 40)),
+      blocFixe(6, (c, x, y, l) => { c.fillStyle = d.accent; c.fillRect(x, y, l * 0.18, 6); }, 34),
+      blocTexte(d.sousTexte || phraseSecondaire(d) || 'Commandez aussi en ligne, nous vous répondons sur WhatsApp.', { taille: 38, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.86), ecart: 30, interligne: 1.3 })
+    ], z, { align: 'centre' });
+  },
+
+  /** Merci : dégradé couleur, 🤝, un vrai chiffre de l'année. */
+  merci(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.05), fonce(d.couleur, 0.4));
+    cercleDoux(ctx, W * 0.5, H * 0.42, W * 0.46, 'rgba(255,255,255,0.05)');
+    const z = cadre(ctx, W, H, d, img);
+    poser(ctx, [
+      blocFixe(170, (c, x, y, l, k) => dessinerEmoji(c, '🤝', x + l / 2, y + 140 * k, 140 * k)),
+      blocTexte(d.titre || 'Merci pour votre confiance', { taille: 96, maxLignes: 3, couleur: '#FFFFFF', align: 'center', interligne: 1.08, ecart: 30 }),
+      blocTexte(d.phraseMerci || phraseSecondaire(d), { taille: 42, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), align: 'center', ecart: 30, interligne: 1.3 })
+    ], z, { align: 'centre' });
+  },
+
+  /** Saison : fond bleu pluie, emoji météo, conseil, article et prix. */
+  saison(ctx, W, H, d, img) {
+    fondDegrade(ctx, W, H, '#2F6496', '#132E4C');
+    const z = cadre(ctx, W, H, d, img);
+    const p = d.produit || {};
+    const mois = dateJour(d.jour).getUTCMonth() + 1;
+    const meteo = mois >= 6 && mois <= 9 ? '🌧️' : mois === 12 || mois <= 2 ? '🌬️' : mois <= 5 ? '☀️' : '⛅';
+    poser(ctx, [
+      blocFixe(150, (c, x, y, l, k) => dessinerEmoji(c, meteo, x, y + 120 * k, 120 * k, 'left')),
+      blocTexte(d.titre || 'La saison change', { taille: 92, maxLignes: 3, couleur: '#FFFFFF', interligne: 1.08, ecart: 22 }),
+      p.nom ? blocTexte(`${p.nom}${p.prix ? ` · ${prixGnf(p.prix)}${p.unite ? ` le ${p.unite}` : ''}` : ''}`, { taille: 42, poids: 700, maxLignes: 2, couleur: d.accent, ecart: 26 }) : null,
+      img.photo ? blocFlex(0, (c, x, y, l, k, h) => visuel(c, d, img, x + l * 0.15, y, l * 0.7, h, 0.45), { ecart: 30 }) : null
+    ], z, { align: img.photo ? 'haut' : 'centre' });
+  }
+};
+
+/* ------------------------------------------------------------ Génération */
+
+const imagesEnCache = new Map();
+function image(url) {
+  if (!url) return Promise.resolve(null);
+  if (!imagesEnCache.has(url)) imagesEnCache.set(url, chargerImageDistante(url));
+  return imagesEnCache.get(url);
+}
 
 /**
- * Génère l'affiche et renvoie le canvas (taille réelle, aucun agrandissement).
- * donnees : {
- *   boutique: { nom, ville, commune, type_activite, logo_url },
- *   produit: { nom, unite, photo_url, prix, prix_barre, prix_gros, categorie, dispo, promo_fin },
- *   autres: [{ nom, unite, photo_url, prix, prix_barre }] (Sélection), modele, phrase, raison, jour,
- *   couleur, zones: [noms], lien (QR), lienCourt, whatsapp (texte)
- * }
- * format : 'facebook' (défaut) | 'statut' | 'carre'.
+ * Dessine l'affiche du jour et renvoie le canvas (taille réelle).
+ * a : réponse de affiche_du_jour ({ theme, titre, texte, jour, fete, boutique, produit… }) complétée par l'écran :
+ *   horaires ([[jour, heures]…]), sousTexte, phraseMerci.
+ * format : '4:5' (défaut) | '9:16' | '1:1'.
  */
-export async function genererAffiche(donnees, format = 'facebook') {
-  const f = FORMATS_AFFICHE[format] ? format : 'facebook';
+export async function genererAffiche(a, format = '4:5') {
+  const f = FORMATS_AFFICHE[format] ? format : '4:5';
   const { largeur: W, hauteur: H } = FORMATS_AFFICHE[f];
+  const b = a?.boutique || {};
   const d = {
-    ...donnees,
-    boutique: { nom: 'Ma boutique', ...(donnees.boutique || {}) },
-    produit: { nom: 'Article', prix: 0, ...(donnees.produit || {}) },
-    autres: (donnees.autres || []).filter((a) => a && a.nom).slice(0, 2)
+    ...a,
+    boutique: { nom: 'Ma boutique', ...b },
+    couleur: rgb(b.couleur) ? b.couleur : COULEUR_DEFAUT,
+    accent: rgb(b.accent) ? b.accent : ACCENT_DEFAUT,
+    produit: a?.produit ? { nom: 'Article', prix: 0, ...a.produit } : null
   };
-  d.sousTitreBoutique = [d.boutique.type, [d.boutique.commune, d.boutique.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
-  const modele = ['promo', 'jour', 'arrivage'].includes(d.modele) ? d.modele : 'jour';
-  const [, symbole, logo, ...photos] = await Promise.all([
+  const theme = THEMES[d.theme] ? d.theme : (d.produit ? 'produit' : 'merci');
+  const [, logo, photo] = await Promise.all([
     chargerPolices(),
-    chargerImageDistante(new URL('../img/logo/youmma-business-symbole.png', import.meta.url).href),
-    chargerImageDistante(d.boutique.logo_url),
-    chargerImageDistante(d.produit.photo_url),
-    ...(modele === 'arrivage' ? d.autres.map((a) => chargerImageDistante(a.photo_url)) : [])
+    image(b.logo_url),
+    image(d.produit?.photo_url)
   ]);
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -861,28 +839,76 @@ export async function genererAffiche(donnees, format = 'facebook') {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.textBaseline = 'alphabetic';
-  const img = { logo, symbole, photo: photos[0] || null, photos };
-  if (modele === 'promo') modeleImpact(ctx, W, H, f, d, img);
-  else if (modele === 'arrivage') await modeleSelection(ctx, W, H, f, d, img);
-  else modeleCatalogue(ctx, W, H, f, d, img);
+  THEMES[theme](ctx, W, H, d, { logo, photo });
   return canvas;
 }
 
-/** Export : JPEG qualité 0,92 (Facebook, carré) ; PNG pour le statut (aplats plus nets). */
-export function versImage(canvas, format = 'facebook') {
-  const png = format === 'statut';
-  return new Promise((resoudre, rejeter) => canvas.toBlob((b) => (b ? resoudre(b) : rejeter(new Error('Image impossible'))),
-    png ? 'image/png' : 'image/jpeg', png ? undefined : 0.92));
-}
-export const extensionAffiche = (format) => (format === 'statut' ? 'png' : 'jpg');
+const versBlob = (canvas, type, qualite) => new Promise((resoudre, rejeter) => canvas.toBlob((b) => (b ? resoudre(b) : rejeter(new Error('Image impossible'))), type, qualite));
 
-/** Compatibilité : PNG. */
-export function versPng(canvas) {
-  return new Promise((resoudre, rejeter) => canvas.toBlob((b) => (b ? resoudre(b) : rejeter(new Error('Image impossible'))), 'image/png'));
+/** JPEG qualité 0,82 ; si l'image dépasse 200 Ko, la qualité descend par paliers (jusqu'à 0,6). */
+export async function versJpeg(canvas, { maxOctets = 200 * 1024 } = {}) {
+  let qualite = 0.82;
+  let blob = await versBlob(canvas, 'image/jpeg', qualite);
+  while (blob.size > maxOctets && qualite > 0.6) {
+    qualite = Math.round((qualite - 0.06) * 100) / 100;
+    blob = await versBlob(canvas, 'image/jpeg', qualite);
+  }
+  return { blob, qualite };
+}
+
+/** Vrai si le navigateur sait enregistrer une vidéo MP4 depuis un canvas. */
+export function videoPossible() {
+  try { return typeof MediaRecorder === 'function' && MediaRecorder.isTypeSupported('video/mp4') && typeof HTMLCanvasElement.prototype.captureStream === 'function'; } catch { return false; }
+}
+
+/**
+ * Vidéo TikTok : 5 s, lent zoom avant (Ken Burns) à partir de l'affiche 9:16. Renvoie un Blob MP4, ou null
+ * si le navigateur ne sait pas faire (jamais d'exception : la vidéo ne doit rien bloquer).
+ */
+export async function genererVideo(source, { duree = 5000, ips = 30 } = {}) {
+  if (!videoPossible() || !source) return null;
+  try {
+    const W = 720;
+    const H = Math.round((W * source.height) / source.width);
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const flux = canvas.captureStream(ips);
+    const type = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ? 'video/mp4;codecs=avc1' : 'video/mp4';
+    const enregistreur = new MediaRecorder(flux, { mimeType: type, videoBitsPerSecond: 1_800_000 });
+    const morceaux = [];
+    enregistreur.ondataavailable = (e) => { if (e.data?.size) morceaux.push(e.data); };
+    const fin = new Promise((resoudre) => { enregistreur.onstop = resoudre; });
+    const debut = performance.now();
+    const image = (t) => {
+      const z = 1 + 0.08 * Math.min(1, t / duree);
+      const l = W * z;
+      const h = H * z;
+      ctx.drawImage(source, (W - l) / 2, (H - h) * 0.42, l, h);
+    };
+    image(0);
+    enregistreur.start(250);
+    await new Promise((resoudre) => {
+      const minuteur = setInterval(() => {
+        const t = performance.now() - debut;
+        image(t);
+        if (t >= duree) { clearInterval(minuteur); resoudre(); }
+      }, 1000 / ips);
+    });
+    enregistreur.stop();
+    flux.getTracks().forEach((p) => p.stop());
+    await fin;
+    const blob = new Blob(morceaux, { type: 'video/mp4' });
+    return blob.size ? blob : null;
+  } catch (err) {
+    console.warn('[YOUMMA] Vidéo impossible :', err?.message || err);
+    return null;
+  }
 }
 
 /** Nom de fichier lisible : affiche-<boutique>-<jour>-<format>.<ext> */
-export function nomFichierAffiche(nomBoutique, jour, format, extension = extensionAffiche(format)) {
+export function nomFichierAffiche(nomBoutique, jour, format, extension = 'jpg') {
   const base = String(nomBoutique || 'boutique').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `affiche-${base || 'boutique'}-${jour || 'jour'}-${format}.${extension}`;
+  return `affiche-${base || 'boutique'}-${jour || 'jour'}-${FORMATS_AFFICHE[format]?.fichier || format}.${extension}`;
 }

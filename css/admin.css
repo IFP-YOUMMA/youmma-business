@@ -302,3 +302,6 @@ a.adm-sante:hover .gras { color: var(--primary); }
 .adm-resultat-offre { padding: 10px 14px; border-radius: 10px; background: var(--surface-douce); font-size: 13px; }
 .adm-resultat-offre ul { margin: 6px 0 0; padding-left: 18px; }
 .adm-revenu-options { white-space: nowrap; }
+/* Étape 15 — Fêtes */
+.adm-fetes-alerte { padding: 10px 14px; border-radius: 10px; background: #FFF4DC; color: #7A4A00; font-size: 13px; font-weight: 700; margin: 0 0 12px; }
+.adm-fete-approx td:first-child strong { color: #B26A00; }

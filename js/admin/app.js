@@ -20,6 +20,7 @@ import { afficherSupport } from './support.js';
 import { afficherEquipe } from './equipe.js';
 import { afficherParametres } from './parametres.js';
 import { afficherStockage } from './stockage.js';
+import { afficherFetes } from './fetes.js';
 
 const racine = document.getElementById('admin');
 
@@ -34,6 +35,7 @@ const RUBRIQUES = [
   { route: 'annonces', libelle: 'Annonces', icone: 'M3 11v2l13 5V6zM16 8a4 4 0 0 1 0 8M7 13l1 6h3l-1-5', vue: afficherAnnonces },
   { route: 'support', libelle: 'Support', icone: 'M12 21a9 9 0 1 0-9-9c0 1.6.4 3 1.1 4.3L3 21l4.7-1.1A9 9 0 0 0 12 21zM9 10a3 3 0 1 1 4 2.8V14M12 17h.01', vue: afficherSupport, compteur: 'support_ouvertes' },
   { route: 'equipe', libelle: 'Équipe & journal', icone: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM17 11a3 3 0 1 0 0-6M3 20v-1a5 5 0 0 1 10 0v1M15 14a5 5 0 0 1 6 5v1', vue: afficherEquipe },
+  { route: 'fetes', libelle: 'Fêtes', icone: 'M4 7h16v13H4zM4 11h16M9 3v6M15 3v6M12 14.5l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L9 16.8l2-.3z', vue: afficherFetes },
   { route: 'stockage', libelle: 'Stockage', icone: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6', vue: afficherStockage },
   { route: 'parametres', libelle: 'Paramètres', icone: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z', vue: afficherParametres }
 ];

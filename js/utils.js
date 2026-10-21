@@ -393,6 +393,10 @@ const MESSAGES_METIER = {
   MODULE_INACTIF: 'Cette fonction n’est pas activée pour votre boutique — Paramètres › Mes modules.',
   MODULE_FORMULE: 'Disponible avec une formule supérieure.',
   MODULE_OPTION: 'La boutique en ligne est une option à activer.',
+  // Affiche du jour et réseaux sociaux (étape 15).
+  RESEAU_INCONNU: 'Ce réseau n’est pas pris en charge.',
+  JOUR_PASSE: 'Ce jour est passé : il ne peut plus être modifié.',
+  TYPE_INVALIDE: 'Ce choix n’est pas valable pour ce jour.',
   MODULE_BIENTOT: 'Ce module sera bientôt disponible.',
   MODULE_BLOQUE: 'Désactivé par YOUMMA — contactez le support.',
   MODULE_INCONNU: 'Ce module est inconnu.',
@@ -439,6 +443,12 @@ export function messageErreur(err) {
   // Module masqué : message clair, et les modules de la boutique sont relus (menu redessiné).
   const enCoursModule = brut.match(/MODULE_EN_COURS\s*:?\s*(.*)$/);
   if (enCoursModule) return `Impossible de masquer ce module${enCoursModule[1] ? ` : ${enCoursModule[1].trim().replace(/\.$/, '')}` : ''}. Terminez d’abord ces opérations.`;
+  const nonConnecte = brut.match(/RESEAU_NON_CONNECTE\s*:?\s*(\w*)/);
+  if (nonConnecte) {
+    const r = nonConnecte[1];
+    return r === 'instagram' ? 'Connectez d’abord votre compte Instagram professionnel.' : r === 'tiktok' ? 'Connectez d’abord votre compte TikTok.' : 'Connectez d’abord votre page Facebook.';
+  }
+  if (/MODULE_INACTIF\s*:?\s*affiche/.test(brut)) return 'L’affiche du jour fait partie de la boutique en ligne : activez d’abord cette option.';
   if ((brut.includes('MODULE_INACTIF') || brut.includes('MODULE_OPTION')) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('yb:module-inactif'));
   const quota = brut.match(/QUOTA_PHOTOS\s*:?\s*(\d+)/);
   if (quota || brut.includes('QUOTA_PHOTOS')) {

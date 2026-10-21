@@ -156,6 +156,8 @@ const ACTIONS = {
   option: 'Option boutique en ligne',
   admin_option: 'Option boutique en ligne',
   option_tarif: 'Tarif de l’option modifié',
+  fete_modifiee: 'Fête corrigée',
+  admin_fete: 'Fête corrigée',
   paiement_refuse: 'Paiement refusé',
   relance_licence: 'Relance de licence envoyée',
   relances_licence: 'Relances de licence envoyées',
