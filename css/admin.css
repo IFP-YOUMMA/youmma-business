@@ -294,3 +294,11 @@ a.adm-sante:hover .gras { color: var(--primary); }
 .adm-option .adm-ligne-textes { flex: 1 1 200px; }
 .adm-option-fin { font-size: 13px; }
 .adm-formules-option { display: flex; flex-wrap: wrap; gap: 8px 18px; border: none; padding: 0; margin: 0; }
+/* Étape 14c — listes de boutiques de l'option, offre groupée */
+.adm-options-listes { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-input); }
+.adm-options-listes h2 { font-size: 16px; margin: 0; }
+.adm-option-boutique { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0; border-bottom: 1px solid var(--border-doux); }
+.adm-option-boutique .adm-ligne-textes { flex: 1 1 220px; text-decoration: none; color: inherit; }
+.adm-resultat-offre { padding: 10px 14px; border-radius: 10px; background: var(--surface-douce); font-size: 13px; }
+.adm-resultat-offre ul { margin: 6px 0 0; padding-left: 18px; }
+.adm-revenu-options { white-space: nowrap; }

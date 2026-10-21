@@ -3495,3 +3495,10 @@ body { font-variant-numeric: tabular-nums; }
   .option-entete h1 { font-size: 21px; }
   .option-prix .btn { min-height: 52px; }
 }
+
+/* Étape 14c — page d'activation et messages de YOUMMA */
+.option-pourquoi { background: #FFF8E6; border: 1px solid #F2D9A0; border-radius: 12px; padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: #6B4E00; }
+.note-plateforme { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.note-plateforme svg { flex: none; margin-top: 2px; }
+.badge-youmma { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 6px; border-radius: 999px; background: var(--navy); color: #FFFFFF; vertical-align: 1px; }
+.ligne-histo-sms.plateforme { background: #F8FBFA; }

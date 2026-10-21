@@ -124,7 +124,10 @@ export function afficherLicences(conteneur, { majCompteurs }) {
       const somme = (f) => s.encaissements.filter(f).reduce((t, p) => t + (Number(p.montant) || 0), 0);
       const totalOptions = Number(champ(r, 'total_options')) || somme((p) => p.objet === 'option');
       const totalLicences = Number(champ(r, 'total_licences')) || somme((p) => !['option', 'sms'].includes(p.objet));
-      conteneur.querySelector('[data-ref="total"]').innerHTML = `Total <strong class="texte-succes">${gnf(total)}</strong> · ${nombre(s.encaissements.length)} paiement(s) · Licences <strong>${gnf(totalLicences)}</strong> · Options <strong>${gnf(totalOptions)}</strong>`;
+      const catalogue = await rpc('admin_options_catalogue').catch(() => null);
+      const revenuOptions = (Array.isArray(catalogue) ? catalogue : liste(premiere(catalogue), 'options')).reduce((t, o) => t + (Number(o.revenu_mois) || 0), 0);
+      if (!conteneur.isConnected) return;
+      conteneur.querySelector('[data-ref="total"]').innerHTML = `Total <strong class="texte-succes">${gnf(total)}</strong> · ${nombre(s.encaissements.length)} paiement(s) · Licences <strong>${gnf(totalLicences)}</strong> · Options <strong>${gnf(totalOptions)}</strong>${catalogue ? ` · <span class="adm-revenu-options">Recette mensuelle des options <strong>${gnf(revenuOptions)}</strong></span>` : ''}`;
       zone('encaissements').innerHTML = tableau([
         ['Date', (p) => esc(formatDate(champ(p, 'valide_at', 'created_at'), 'court'))],
         ['Boutique', (p) => `<strong>${esc(champ(p, 'boutique_nom', 'boutique') || '—')}</strong>`],

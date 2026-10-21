@@ -25,6 +25,8 @@ import {
 } from './utils.js';
 
 const ONGLETS = [['automatiques', 'Automatiques'], ['campagnes', 'Campagnes'], ['fournisseurs', 'Fournisseurs'], ['historique', 'Historique']];
+/** Messages envoyés par YOUMMA à la boutique (plateforme = true) : ne consomment pas le crédit SMS. */
+const LIBELLES_PLATEFORME = { relance_option: 'Fin de la boutique en ligne', relance_licence: 'Fin de licence', recu_paiement: 'Paiement reçu' };
 const MAX_DESTINATAIRES_PATRON = 3;
 const TAILLE_PAGE = 50;
 const DELAI_APERCU_MS = 400;
@@ -157,13 +159,13 @@ async function chargerCredit(zone) {
     const debut = `${decalerDate(dateISO(), -6)}T00:00:00Z`;
     const [solde, envoyes] = await Promise.all([
       chargerSoldeSms(),
-      chargerParLots((d, f) => sb.from('messages_envoyes').select('nb_sms')
+      chargerParLots((d, f) => sb.from('messages_envoyes').select('nb_sms, plateforme')
         .eq('boutique_id', etat.boutique.id).eq('statut', 'envoye').gte('envoye_at', debut).range(d, f))
     ]);
     if (!zone.isConnected) return;
     zone.querySelector('.ccs-solde').innerHTML = `${formatNombre(solde)} <span>SMS restant${solde > 1 ? 's' : ''}</span>`;
     zone.classList.toggle('bas', solde < 20);
-    const parJour = envoyes.reduce((t, m) => t + (Number(m.nb_sms) || 0), 0) / 7;
+    const parJour = envoyes.filter((m) => !m.plateforme).reduce((t, m) => t + (Number(m.nb_sms) || 0), 0) / 7;
     zone.querySelector('[data-ref="estimation"]').textContent = parJour > 0
       ? `≈ ${formatNombre(Math.floor(solde / parJour))} jour${Math.floor(solde / parJour) > 1 ? 's' : ''} au rythme actuel` : '';
   } catch (err) {
@@ -553,6 +555,7 @@ function monterHistorique(zone) {
             ${Object.entries(STATUTS_MESSAGE).map(([code, st]) => `<option value="${code}">${esc(st.libelle)}</option>`).join('')}</select></label>
       </div>
       <p class="total-sms" data-zone="total"></p>
+      <p class="note-plateforme">${icone('sms', 15, 2)} Les messages marqués <span class="badge-youmma">YOUMMA</span> sont envoyés par YOUMMA : fin de licence, et fin de la boutique en ligne (7 jours puis 2 jours avant). Ils ne consomment pas votre crédit SMS.</p>
       <div class="entete-historique-sms seul-ordi" aria-hidden="true"><span>Date</span><span>Type</span><span>Destinataire</span><span>Message</span><span class="droite">SMS</span><span>Statut</span></div>
       <ul class="liste-historique-sms" data-zone="liste"></ul>
       <div class="charger-plus" data-zone="plus"></div>
@@ -570,14 +573,14 @@ function monterHistorique(zone) {
   }
 
   function ligneHTML(m) {
-    const type = m.campagne_id ? 'Campagne' : (MODELES[m.cle]?.libelle || (m.cle || 'Message'));
+    const type = m.plateforme ? (LIBELLES_PLATEFORME[m.cle] || 'Message YOUMMA') : m.campagne_id ? 'Campagne' : (MODELES[m.cle]?.libelle || (m.cle || 'Message'));
     return `
-      <li class="ligne-histo-sms ${m.statut === 'annule' ? 'annule' : ''}">
+      <li class="ligne-histo-sms ${m.statut === 'annule' ? 'annule' : ''} ${m.plateforme ? 'plateforme' : ''}">
         <span class="lsms-date">${esc(formatDate(m.created_at, 'complet'))}</span>
-        <span class="lsms-type">${esc(type)}</span>
+        <span class="lsms-type">${m.plateforme ? '<span class="badge-youmma">YOUMMA</span> ' : ''}${esc(type)}</span>
         <span class="lsms-dest"><span class="gras">${esc(m.nom || '—')}</span><span class="discret">${esc(formatTelephone(m.destinataire))}</span></span>
         <span class="lsms-texte" title="${esc(m.texte)}">${esc(m.texte)}</span>
-        <span class="lsms-nb">${formatNombre(m.nb_sms)}</span>
+        <span class="lsms-nb">${m.plateforme ? '<span class="discret">offert</span>' : formatNombre(m.nb_sms)}</span>
         <span class="lsms-statut">${badgeStatut(m.statut, m.statut === 'echec' ? m.erreur : null)}</span>
       </li>`;
   }
@@ -587,16 +590,17 @@ function monterHistorique(zone) {
     if (!suite) { s.messages = []; s.fin = false; sous('liste').innerHTML = '<li class="discret">Chargement…</li>'; }
     const debut = s.messages.length;
     const [res, envoyes] = await Promise.all([
-      filtrer(sb.from('messages_envoyes').select('id, cle, campagne_id, destinataire, nom, texte, nb_sms, statut, erreur, programme_at, envoye_at, created_at'))
+      filtrer(sb.from('messages_envoyes').select('id, cle, campagne_id, destinataire, nom, texte, nb_sms, statut, erreur, programme_at, envoye_at, created_at, plateforme'))
         .order('created_at', { ascending: false }).range(debut, debut + TAILLE_PAGE - 1),
-      suite ? Promise.resolve(null) : chargerParLots((d, f) => filtrer(sb.from('messages_envoyes').select('nb_sms')).eq('statut', 'envoye').range(d, f)).catch(() => null)
+      suite ? Promise.resolve(null) : chargerParLots((d, f) => filtrer(sb.from('messages_envoyes').select('nb_sms, plateforme')).eq('statut', 'envoye').range(d, f)).catch(() => null)
     ]);
     if (jeton !== s.jeton || !zone.isConnected) return;
     if (res.error) { sous('liste').innerHTML = `<li class="bloc-erreur">${esc(messageErreur(res.error))}</li>`; return; }
     s.messages.push(...res.data);
     s.fin = res.data.length < TAILLE_PAGE;
     if (envoyes) {
-      const total = envoyes.reduce((t, m) => t + (Number(m.nb_sms) || 0), 0);
+      // Les messages de YOUMMA ne sont pas décomptés du crédit de la boutique.
+      const total = envoyes.filter((m) => !m.plateforme).reduce((t, m) => t + (Number(m.nb_sms) || 0), 0);
       sous('total').innerHTML = `<strong>${formatNombre(total)} SMS envoyé${total > 1 ? 's' : ''}</strong> sur la période`;
     }
     sous('liste').innerHTML = s.messages.length ? s.messages.map(ligneHTML).join('') : '<li class="etat-vide"><p>Aucun message sur cette période.</p></li>';

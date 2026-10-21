@@ -2,7 +2,8 @@
  * option-boutique.js — La boutique en ligne en option payante (étape 14b, maquette OptionBoutique.dc.html).
  *
  *  - page d'activation (#/boutique-en-ligne quand le module est à l'état « option ») : avantages, prix lu dans
- *    option_infos(p_boutique, p_code) — jamais en dur —, « Activer » ouvre WhatsApp avec un message pré-rempli ;
+ *    option_infos(p_boutique, p_code) — jamais en dur —, prix à l'année par tarif_option(p_option, 12) (mois offerts),
+ *    « Activer » ouvre WhatsApp avec un message pré-rempli ;
  *  - bandeaux au-dessus des onglets : « Comprise dans votre formule », « Offerte pendant l'essai », fin proche.
  * Aucun paiement dans l'appli : YOUMMA active l'option après réception (admin_option).
  */
@@ -100,19 +101,21 @@ export function afficherActivationOption(conteneur) {
         <aside class="option-cote">
           <section class="carte option-prix" data-zone="prix"><span class="squelette" style="height:150px"></span></section>
           <section class="carte option-payer" data-zone="payer"></section>
+          <p class="option-pourquoi"><strong>Pourquoi c’est séparé :</strong> beaucoup de boutiques veulent seulement tenir leur caisse et leur stock. Celles qui veulent vendre en ligne paient uniquement ce service en plus.</p>
         </aside>
       </div>
     </div>`;
   const zone = (n) => conteneur.querySelector(`[data-zone="${n}"]`);
 
-  function render(info) {
+  function render(info, an) {
     const prix = Number(info.prix_mois) || 0;
-    const offerts = Number(info.mois_offerts) || 0;
+    // Prix à l'année calculé par la base (mois payés + mois offerts).
+    const annee = an && Number(an.montant) ? ` <strong>${esc(formatNombre(an.montant))} GNF pour un an</strong>${Number(an.mois_gratuits) ? ` — ${esc(String(an.mois_payes))} mois payés, ${esc(String(an.mois_gratuits))} offerts` : ''}.` : '';
     const incluse = (info.incluse_formules || []).map(nomFormule).filter(Boolean);
     zone('prix').innerHTML = `
       <span class="etiquette-carte">Option ${esc(String(info.nom || 'boutique en ligne').toLowerCase())}</span>
       ${prix ? `<div class="option-montant"><strong>${esc(formatNombre(prix))}</strong><span>GNF / mois</span></div>` : ''}
-      <span class="option-prix-texte">En plus de votre formule actuelle${info.formule ? ` (${esc(nomFormule(info.formule))})` : ''}.${offerts ? ` ${offerts} mois offerts si vous payez l’année.` : ''}${incluse.length ? ` Comprise dans la formule ${esc(incluse.join(', '))}.` : ''}</span>
+      <span class="option-prix-texte">En plus de votre formule actuelle${info.formule ? ` (${esc(nomFormule(info.formule))})` : ''}.${annee}${incluse.length ? ` Comprise dans la formule ${esc(incluse.join(', '))}.` : ''}</span>
       ${responsable
         ? `<a class="btn btn-primaire btn-bloc" href="${esc(lienActivation(info.whatsapp))}" target="_blank" rel="noopener" data-action="activer">Activer ma boutique en ligne</a>`
         : '<p class="option-prix-texte"><strong>Demandez au propriétaire de la boutique</strong> d’activer l’option.</p>'}
@@ -153,15 +156,16 @@ export function afficherActivationOption(conteneur) {
   });
 
   (async () => {
-    const [infos, enLigne] = await Promise.all([
+    const [infos, enLigne, an] = await Promise.all([
       sb.rpc('option_infos', { p_boutique: boutique.id, p_code: CODE_OPTION }),
-      sb.from('boutiques_en_ligne').select('slug').eq('boutique_id', boutique.id).maybeSingle()
+      sb.from('boutiques_en_ligne').select('slug').eq('boutique_id', boutique.id).maybeSingle(),
+      sb.rpc('tarif_option', { p_option: CODE_OPTION, p_mois: 12 })
     ]);
     if (!conteneur.isConnected) return;
     if (enLigne.data?.slug) conteneur.querySelector('[data-ref="adresse"]').textContent = lienCourtBoutique(enLigne.data.slug);
     // Repli sur les données du module si option_infos est indisponible (le prix vient toujours de la base).
     const m = infoModule(CODE_OPTION) || {};
     const info = premiere(infos.data) || { nom: m.nom, prix_mois: m.prix_mois, incluse_formules: m.incluse_formules, formule: formuleModules() };
-    render(info);
+    render(info, an.error ? null : premiere(an.data));
   })();
 }

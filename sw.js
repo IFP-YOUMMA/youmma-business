@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v21';
+const VERSION_CACHE = 'yb-statique-v22';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -71,6 +71,7 @@ const FICHIERS_STATIQUES = [
   './js/admin/support.js',
   './js/admin/equipe.js',
   './js/admin/parametres.js',
+  './js/admin/options.js',
   // Étape 10 : outil d'image unique, identité de la boutique, stockage (admin).
   './js/images/traitement.js',
   './js/images/prereglages.js',

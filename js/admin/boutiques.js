@@ -518,7 +518,8 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         <p class="texte-modale">${esc(b.nom || '')}${m.option_fin ? ` · actuellement jusqu’au ${esc(formatDate(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`, 'court'))}` : ''}</p>
         ${retrait ? `<div class="champ"><label for="opt-mois">Mois à retirer</label><input id="opt-mois" class="input" type="number" min="1" step="1" value="${restants}"></div>
           <p class="aide">Les données de la boutique en ligne sont conservées ; la vitrine se ferme si la date passe.</p>` : `
-        <div class="champ"><label for="opt-montant">Montant reçu (GNF)</label><input id="opt-montant" class="input" type="text" inputmode="numeric" value="${Number(m.prix_mois) ? formatNombre(Number(m.prix_mois) * mois) : ''}"></div>
+        <div class="champ"><label for="opt-montant">Montant reçu (GNF)</label><input id="opt-montant" class="input" type="text" inputmode="numeric" placeholder="Calcul du tarif…">
+          <small class="aide" data-ref="detail-tarif"></small></div>
         <div class="rangee-champs">
           <div class="champ"><label for="opt-mode">Mode de paiement</label><select id="opt-mode" class="input">${Object.entries(MODES_PAIEMENT_YOUMMA).map(([c, l]) => `<option value="${c}" ${c === 'orange_money' ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
           <div class="champ"><label for="opt-ref">Référence (facultatif)</label><input id="opt-ref" class="input" maxlength="80" placeholder="Ex. n° de transaction"></div>
@@ -529,6 +530,21 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
       </form>`
     });
     const form = el.querySelector('form');
+    // Montant juste (mois payés + mois offerts sur un an) calculé par la base ; il reste modifiable.
+    if (!retrait) {
+      rpc('tarif_option', { p_option: m.code, p_mois: mois }).then((r) => {
+        const t = premiere(r) || {};
+        const champMontant = form.querySelector('#opt-montant');
+        if (!champMontant.isConnected) return;
+        champMontant.placeholder = '';
+        if (!champMontant.value && t.montant !== undefined && t.montant !== null) champMontant.value = formatNombre(t.montant);
+        if (Number(t.mois_gratuits) > 0) form.querySelector('[data-ref="detail-tarif"]').textContent = `${t.mois_payes} mois payés + ${t.mois_gratuits} offerts`;
+      }).catch(() => {
+        const champMontant = form.querySelector('#opt-montant');
+        champMontant.placeholder = '';
+        if (!champMontant.value && Number(m.prix_mois)) champMontant.value = formatNombre(Number(m.prix_mois) * mois);
+      });
+    }
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const z = form.querySelector('.erreur-form');

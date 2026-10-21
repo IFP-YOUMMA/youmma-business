@@ -75,6 +75,8 @@ export function afficherAccueil(conteneur) {
 
   chargerStatsModules(zone, conteneur);
 
+  // Options payantes (boutique en ligne) : chiffres exacts d'admin_options_catalogue.
+  const catalogueOptions = rpc('admin_options_catalogue').then((r) => (Array.isArray(r) ? r : liste(premiere(r), 'options'))).catch(() => null);
   // Stockage et base (limites et seuil réglables) : lus en parallèle des statistiques.
   const infosStockage = lireStockage().catch(() => null);
   (async () => {
@@ -85,15 +87,16 @@ export function afficherAccueil(conteneur) {
     const precedent = Number(champ(s, 'revenus_mois_precedent', 'revenus_mois_prec')) || 0;
     const evolution = precedent ? Math.round(((revenus - precedent) / precedent) * 100) : null;
     const sms = Number(champ(s, 'sms_mois', 'sms_envoyes_mois')) || 0;
+    const opt = ((await catalogueOptions) || []).find((o) => o.code === 'boutique_en_ligne') || null;
     const echecs = Number(champ(s, 'sms_echecs_mois')) || 0;
     const kpis = [
       ['Boutiques actives', nombre(champ(s, 'boutiques_actives')), `+${nombre(champ(s, 'nouvelles_mois', 'inscriptions_mois') || 0)} ce mois`, '', 'vert'],
       ['En essai gratuit', nombre(champ(s, 'essais', 'boutiques_essai')), `${nombre(champ(s, 'essais_fin_semaine') || 0)} finissent cette semaine`, '', 'orange'],
       ['Revenus du mois', nombre(revenus), `GNF${evolution === null ? '' : ` · ${evolution >= 0 ? '+' : ''}${evolution} % vs mois préc.`}`, 'vert', evolution !== null && evolution < 0 ? 'rouge' : 'vert'],
       ['Licences à renouveler', nombre(champ(s, 'a_renouveler_7j', 'renouveler_7j')), 'dans les 7 jours', 'orange', 'orange'],
-      // Étape 14b : option boutique en ligne (payée, comprise ou offerte) ; repli sur admin_stats_modules.
-      ['Boutiques en ligne actives', champ(s, 'boutiques_en_ligne_actives', 'options_actives', 'vitrines_actives') !== undefined ? nombre(champ(s, 'boutiques_en_ligne_actives', 'options_actives', 'vitrines_actives')) : (conteneur.dataset.boutiquesEnLigne || '…'),
-        champ(s, 'options_payees') !== undefined ? `dont ${nombre(champ(s, 'options_payees'))} payées` : 'option boutique en ligne', 'vert', ''],
+      // Option boutique en ligne : seulement les boutiques qui la paient (ni essai, ni formule qui l'inclut).
+      ['Boutiques en ligne actives', opt ? nombre(opt.nb_payantes || 0) : '—',
+        opt ? `+ ${nombre(opt.nb_incluses || 0)} en Premium · ${nombre(opt.nb_essai || 0)} en essai` : 'option boutique en ligne', 'vert', ''],
       ['Ventes enregistrées (mois)', nombre(champ(s, 'ventes_mois')), `${formatMillions(champ(s, 'ventes_mois_montant', 'montant_ventes_mois') || 0)} GNF traités`, '', ''],
       ['SMS envoyés (mois)', nombre(sms), `${sms ? (Math.round((echecs / sms) * 1000) / 10).toString().replace('.', ',') : 0} % d’échecs`, '', '']
     ];
@@ -106,6 +109,7 @@ export function afficherAccueil(conteneur) {
     const lignes = [
       [t.paiements_a_valider, 'Paiements à valider', 'Licence à prolonger ou SMS à ajouter', 'marque', '#/licences'],
       [champ(s, 'a_renouveler_7j', 'renouveler_7j'), 'Licences qui expirent sous 7 jours', 'Relancer par SMS en un clic', 'orange', '#/licences'],
+      [opt?.a_relancer, 'Boutiques en ligne à renouveler', 'Fin de l’option dans moins de 15 jours (SMS automatique à J-7 et J-2)', 'orange', '#/parametres?options=bientot'],
       [t.support_ouvertes, 'Demandes d’aide ouvertes', t.support_24h ? `Dont ${t.support_24h} depuis plus de 24 h` : 'À traiter dans Support', 'rouge', '#/support'],
       [t.inactives_7j, 'Boutiques inactives depuis 7 jours', 'Aucune vente enregistrée', 'gris', '#/boutiques?filtre=inactives'],
       [t.sans_credit_sms, 'Boutiques sans crédit SMS', 'Alertes et reçus bloqués', 'orange', '#/sms'],
@@ -183,11 +187,6 @@ async function chargerStatsModules(zone, conteneur) {
   const mods = liste(s.modules ?? s.modules_utilises ?? s.par_module).map((l) => ({
     libelle: l.nom || champ(l, 'code', 'module'), n: Number(champ(l, 'nb', 'actifs', 'boutiques', 'total', 'nombre')) || 0
   })).sort((a, b) => b.n - a.n).slice(0, 12);
-  // KPI « Boutiques en ligne actives » quand admin_stats ne le fournit pas.
-  const bel = liste(s.modules ?? s.modules_utilises ?? s.par_module).find((l) => champ(l, 'code', 'module') === 'boutique_en_ligne');
-  conteneur.dataset.boutiquesEnLigne = bel ? nombre(Number(champ(bel, 'nb', 'actifs', 'boutiques', 'total', 'nombre')) || 0) : '—';
-  const k = conteneur.querySelector('[data-ref="kpi-options"] .adm-kpi-valeur');
-  if (k && k.textContent === '…') k.textContent = conteneur.dataset.boutiquesEnLigne;
   zone('par-activite').innerHTML = barres(parAct);
   zone('modules-utilises').innerHTML = barres(mods, '#C99A2E');
 }
