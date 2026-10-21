@@ -3431,3 +3431,67 @@ body { font-variant-numeric: tabular-nums; }
 }
 /* Interrupteurs : zone de toucher de 44 px sans changer le dessin. */
 .interrupteur::after { content: ""; position: absolute; inset: -9px -2px; }
+
+/* =============================================================================
+   Étape 14b — boutique en ligne en option payante (maquette OptionBoutique)
+   ============================================================================= */
+.lien-menu.verrouille { color: #7FA597; }
+.lien-menu.verrouille svg { opacity: .6; }
+.cadenas-menu { margin-left: auto; display: inline-flex; color: #8FB5A8; flex: none; }
+.plus-lien.verrouille { color: var(--muted); }
+.plus-lien.verrouille svg { color: var(--muted-2); }
+.plus-lien .cadenas-menu { flex: none; color: var(--muted-2); }
+
+.bandeau-option { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-dark); font-size: 13px; }
+.bandeau-option > span { flex: 1 1 220px; }
+.bandeau-option.alerte { background: #FFF8E6; border: 1px solid #F2D9A0; color: #6B4E00; }
+.bandeau-option.discret-option { background: var(--separateur); color: var(--muted); }
+
+.page-option { gap: 16px; }
+.option-entete { display: flex; flex-direction: column; gap: 4px; }
+.option-entete h1 { font-size: 23px; font-weight: 800; letter-spacing: -.015em; }
+.option-entete span { font-size: 13.5px; color: var(--muted); }
+.option-corps { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+.option-avantages { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+.option-vitrine { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.option-vitrine-icone { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--primary-soft); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; }
+.option-vitrine-textes { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.option-vitrine-textes strong { font-size: 14px; overflow-wrap: anywhere; }
+.option-pas-active { font-size: 11.5px; font-weight: 800; padding: 5px 11px; border-radius: 999px; background: var(--separateur); color: var(--muted); }
+.option-liste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.option-liste li { display: flex; gap: 10px; align-items: flex-start; }
+.option-liste li > span:last-child { display: flex; flex-direction: column; gap: 1px; }
+.option-liste strong { font-size: 13.5px; }
+.option-liste li > span:last-child > span { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.option-coche { width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.option-sans { background: var(--bg); border-radius: 12px; padding: 13px 15px; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.option-cote { display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+.option-prix { padding: 18px; display: flex; flex-direction: column; gap: 12px; border-color: #BFE0D3; background: linear-gradient(180deg, #F6FBF9, #FFFFFF); }
+.option-montant { display: flex; align-items: flex-end; gap: 6px; }
+.option-montant strong { font-size: 30px; line-height: 1; letter-spacing: -.03em; font-weight: 800; }
+.option-montant span { font-size: 13px; color: var(--muted); font-weight: 700; padding-bottom: 3px; }
+.option-prix-texte { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.option-prix .btn { min-height: 46px; }
+.option-payer { padding: 15px 17px; display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.option-payer > strong:first-child { font-size: 14px; color: var(--text); }
+.option-payer span strong { color: var(--text); }
+.option-exemple { display: flex; flex-direction: column; gap: 12px; }
+.option-exemple-tel { border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--bg); }
+.option-exemple-entete { background: var(--navy); color: #FFFFFF; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.option-exemple-entete span { font-size: 12px; color: var(--navy-text); }
+.option-exemple-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+.option-exemple-article { background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; min-width: 0; }
+.option-exemple-article img, .option-exemple-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--separateur); display: flex; align-items: center; justify-content: center; color: var(--muted-2); }
+.option-exemple-article strong { font-size: 12.5px; overflow-wrap: anywhere; }
+.option-exemple-ajout { margin-top: 4px; text-align: center; padding: 6px; border-radius: 8px; background: var(--primary); color: #FFFFFF; font-weight: 800; }
+
+.badge-module.option { background: #FFF4DC; color: #6B4E00; }
+.pastille-module.offerte { background: var(--primary-soft); color: var(--primary-dark); }
+.carte-option-bouton { align-self: flex-start; margin-top: 6px; }
+
+@media (max-width: 899.98px) {
+  .option-corps { grid-template-columns: minmax(0, 1fr); }
+  .option-liste { grid-template-columns: minmax(0, 1fr); }
+  .option-entete h1 { font-size: 21px; }
+  .option-prix .btn { min-height: 52px; }
+}

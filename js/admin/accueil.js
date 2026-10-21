@@ -91,11 +91,14 @@ export function afficherAccueil(conteneur) {
       ['En essai gratuit', nombre(champ(s, 'essais', 'boutiques_essai')), `${nombre(champ(s, 'essais_fin_semaine') || 0)} finissent cette semaine`, '', 'orange'],
       ['Revenus du mois', nombre(revenus), `GNF${evolution === null ? '' : ` · ${evolution >= 0 ? '+' : ''}${evolution} % vs mois préc.`}`, 'vert', evolution !== null && evolution < 0 ? 'rouge' : 'vert'],
       ['Licences à renouveler', nombre(champ(s, 'a_renouveler_7j', 'renouveler_7j')), 'dans les 7 jours', 'orange', 'orange'],
+      // Étape 14b : option boutique en ligne (payée, comprise ou offerte) ; repli sur admin_stats_modules.
+      ['Boutiques en ligne actives', champ(s, 'boutiques_en_ligne_actives', 'options_actives', 'vitrines_actives') !== undefined ? nombre(champ(s, 'boutiques_en_ligne_actives', 'options_actives', 'vitrines_actives')) : (conteneur.dataset.boutiquesEnLigne || '…'),
+        champ(s, 'options_payees') !== undefined ? `dont ${nombre(champ(s, 'options_payees'))} payées` : 'option boutique en ligne', 'vert', ''],
       ['Ventes enregistrées (mois)', nombre(champ(s, 'ventes_mois')), `${formatMillions(champ(s, 'ventes_mois_montant', 'montant_ventes_mois') || 0)} GNF traités`, '', ''],
       ['SMS envoyés (mois)', nombre(sms), `${sms ? (Math.round((echecs / sms) * 1000) / 10).toString().replace('.', ',') : 0} % d’échecs`, '', '']
     ];
     zone('kpis').innerHTML = kpis.map(([l, v, sous, encre, encreSous]) => `
-      <div class="adm-kpi"><span class="adm-kpi-libelle">${esc(l)}</span><span class="adm-kpi-valeur ${encre}">${esc(v)}</span><span class="adm-kpi-sous ${encreSous}">${esc(sous)}</span></div>`).join('');
+      <div class="adm-kpi" ${l === 'Boutiques en ligne actives' ? 'data-ref="kpi-options"' : ''}><span class="adm-kpi-libelle">${esc(l)}</span><span class="adm-kpi-valeur ${encre}">${esc(v)}</span><span class="adm-kpi-sous ${encreSous}">${esc(sous)}</span></div>`).join('');
 
     zone('graphique').innerHTML = graphique(liste(s.revenus_6_mois));
 
@@ -180,6 +183,11 @@ async function chargerStatsModules(zone, conteneur) {
   const mods = liste(s.modules ?? s.modules_utilises ?? s.par_module).map((l) => ({
     libelle: l.nom || champ(l, 'code', 'module'), n: Number(champ(l, 'nb', 'actifs', 'boutiques', 'total', 'nombre')) || 0
   })).sort((a, b) => b.n - a.n).slice(0, 12);
+  // KPI « Boutiques en ligne actives » quand admin_stats ne le fournit pas.
+  const bel = liste(s.modules ?? s.modules_utilises ?? s.par_module).find((l) => champ(l, 'code', 'module') === 'boutique_en_ligne');
+  conteneur.dataset.boutiquesEnLigne = bel ? nombre(Number(champ(bel, 'nb', 'actifs', 'boutiques', 'total', 'nombre')) || 0) : '—';
+  const k = conteneur.querySelector('[data-ref="kpi-options"] .adm-kpi-valeur');
+  if (k && k.textContent === '…') k.textContent = conteneur.dataset.boutiquesEnLigne;
   zone('par-activite').innerHTML = barres(parAct);
   zone('modules-utilises').innerHTML = barres(mods, '#C99A2E');
 }

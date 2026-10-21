@@ -144,6 +144,8 @@ window.addEventListener('modules:change', () => {
   const nom = lireRoute().nom.split('/')[0];
   if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer('aujourdhui', { remplacer: true }); return; }
   if (nom === 'aujourdhui') resoudre();
+  // Option payée ou terminée pendant qu'on regarde la boutique en ligne : onglets ↔ page d'activation.
+  else if (nom === 'boutique-en-ligne' && (accesRoute(nom) === 'option') !== Boolean(document.querySelector('.page-option'))) resoudre();
 });
 
 /** Écran affiché tant que js/config.js n'est pas rempli. */

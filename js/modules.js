@@ -113,11 +113,22 @@ export function enLectureSeule(code) {
 /** Visible (actif ou en lecture seule). */
 export const moduleVisible = (code) => aModule(code) || enLectureSeule(code);
 
-/** actif · inactif · formule · bloque · bientot (ou 'socle'). */
+/** actif · inactif · formule · option · bloque · bientot (ou 'socle'). « option » : option payante non payée (étape 14b). */
 export function etatModule(code) {
   if (SOCLE.includes(code)) return 'socle';
   return courant.donnees?.modules?.find((m) => m.code === code)?.etat || (aModule(code) ? 'actif' : 'inactif');
 }
+
+/** Données d'un module (option_payante, prix_mois, incluse_formules, depend_de, option_fin…) ou null. */
+export function infoModule(code) {
+  return courant.donnees?.modules?.find((m) => m.code === code) || null;
+}
+
+/** Formule de la boutique selon mes_modules (essai, essentiel, pro, premium). */
+export const formuleModules = () => courant.donnees?.formule || null;
+
+/** Option payante pas encore payée : l'écran affiche la page d'activation au lieu de refuser. */
+export const enOption = (code) => etatModule(code) === 'option';
 
 export function activite() {
   return courant.donnees?.activite || null;
@@ -135,11 +146,12 @@ export function unites() {
   return Array.isArray(u) && u.length ? u : null;
 }
 
-/** Module requis par une route (ou null) ; accès : 'ok' | 'lecture' | 'refuse'. */
+/** Module requis par une route (ou null) ; accès : 'ok' | 'lecture' | 'option' (page d'activation) | 'refuse'. */
 export function accesRoute(route) {
   const code = MODULE_DE_ROUTE[route];
   if (!code) return 'ok';
   if (aModule(code)) return 'ok';
+  if (enOption(code)) return 'option';
   if (ROUTES_LECTURE.includes(route) && enLectureSeule(code)) return 'lecture';
   return 'refuse';
 }

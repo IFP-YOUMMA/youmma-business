@@ -15,7 +15,7 @@ import { ouvrirEnregistrerPaiement } from './licences.js';
 const FILTRES = [['toutes', 'Toutes'], ['actives', 'Actives'], ['essai', 'Essai'], ['expirent_7j', 'Expirent < 7 j'], ['expirees', 'Expirées'], ['suspendues', 'Suspendues'], ['inactives', 'Inactives 7 j']];
 const PAGE = 50;
 const ONGLETS = [['resume', 'Résumé'], ['membres', 'Membres'], ['licence', 'Licence & paiements'], ['modules', 'Modules'], ['sms', 'SMS'], ['vitrine', 'Boutique en ligne'], ['activite', 'Activité']];
-const ETATS_MODULE = { actif: ['Actif', 'vert'], inactif: ['Masqué', 'gris'], formule: ['Formule trop basse', 'orange'], bloque: ['Bloqué', 'rouge'], bientot: ['Bientôt', 'gris'] };
+const ETATS_MODULE = { actif: ['Actif', 'vert'], inactif: ['Masqué', 'gris'], formule: ['Formule trop basse', 'orange'], option: ['Option non payée', 'orange'], bloque: ['Bloqué', 'rouge'], bientot: ['Bientôt', 'gris'] };
 const GROUPES_MODULES = { vente: 'Vente', activite: 'Activité', communication: 'Communication' };
 const ROLES = { proprietaire: 'Propriétaire', gerant: 'Gérant', vendeur: 'Vendeur' };
 const estMobile = () => window.matchMedia('(max-width: 899.98px)').matches;
@@ -433,8 +433,33 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
     s.modulesAdmin = d;
     const b = s.fiche.boutique || {};
     const act = d.activite || {};
-    const modules = liste(d, 'modules');
+    const tous = liste(d, 'modules');
+    // Étape 14b : options payantes (boutique en ligne) dans leur propre section, en haut.
+    const options = tous.filter((m) => m.option_payante);
+    const modules = tous.filter((m) => !m.option_payante);
     const modif = estSuper();
+    const formuleB = d.formule || b.licence_formule || '';
+    const ligneOption = (m) => {
+      const incluse = (m.incluse_formules || []).includes(formuleB);
+      const fin = m.option_fin ? formatDate(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`, 'court') : null;
+      let etatTxt; let couleur;
+      if (m.etat === 'bloque') { etatTxt = 'Bloquée'; couleur = 'rouge'; }
+      else if (m.etat === 'actif' && formuleB === 'essai' && !m.option_fin) { etatTxt = 'Offerte (essai)'; couleur = 'vert'; }
+      else if (m.etat === 'actif' && incluse && !m.option_fin) { etatTxt = `Comprise (${formuleB})`; couleur = 'vert'; }
+      else if (m.etat === 'actif') { etatTxt = 'Payée'; couleur = 'vert'; }
+      else { etatTxt = 'Non payée'; couleur = 'orange'; }
+      return `
+        <div class="adm-option" data-option="${esc(m.code)}">
+          <div class="adm-ligne-textes"><strong>${esc(m.nom || m.code)}</strong>
+            <span class="discret">${Number(m.prix_mois) ? `${gnf(m.prix_mois)} / mois` : 'Prix non défini'}${(m.incluse_formules || []).length ? ` · comprise en ${esc(m.incluse_formules.join(', '))}` : ''}</span></div>
+          <span class="pastille-admin ${couleur}">${esc(etatTxt)}</span>
+          <span class="adm-option-fin">${fin ? `jusqu’au <strong>${esc(fin)}</strong>` : '<span class="discret">aucune date de fin</span>'}</span>
+          <span class="adm-boutons-ligne">
+            ${[1, 3, 12].map((n) => `<button type="button" class="btn btn-secondaire btn-petit" data-option-mois="${n}" data-code="${esc(m.code)}">+${n} mois</button>`).join('')}
+            ${modif && m.option_fin ? `<button type="button" class="btn btn-refuser btn-petit" data-option-retirer="${esc(m.code)}">Retirer</button>` : ''}
+          </span>
+        </div>`;
+    };
     const ligne = (m) => {
       const [libEtat, couleur] = ETATS_MODULE[m.etat] || [m.etat || '—', 'gris'];
       const c = choixAdmin(m.admin);
@@ -453,6 +478,8 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         <div><span>Formule</span><strong>${esc(d.formule || b.licence_formule || '—')}</strong></div>
         <div><span>Modules actifs</span><strong>${nombre(modules.filter((m) => m.etat === 'actif').length)} / ${nombre(modules.length)}</strong></div>
       </div>
+      ${options.length ? `<section class="adm-options"><h3>Options</h3>${options.map(ligneOption).join('')}
+        <p class="aide">+1 / +3 / +12 mois : prolonge l’option et enregistre le paiement (montant, référence, mode). Le retrait est réservé au super admin. Rien n’est supprimé à l’expiration : articles en ligne, zones et commandes reviennent au renouvellement.</p></section>` : ''}
       ${modif ? '<div class="adm-boutons"><button type="button" class="btn btn-secondaire" data-action="changer-activite">Changer l’activité</button></div>' : ''}
       <div class="tableau-adm-cadre"><table class="tableau-adm adm-tableau-modules">
         <thead><tr><th>Module</th><th>État pour la boutique</th><th class="droite">Réglage YOUMMA</th></tr></thead>
@@ -463,6 +490,14 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
           <input id="motif-modules" class="input" type="text" maxlength="200" placeholder="Ex. Offert pendant le lancement"></div>
         <div class="adm-boutons"><button type="button" class="btn btn-primaire" data-action="enregistrer-modules" disabled>Enregistrer les modules</button></div>
         <p class="aide">Normal : le propriétaire choisit. Offert : actif même si sa formule ne le comprend pas. Bloqué : masqué et non activable par la boutique.</p>` : '<p class="aide">Lecture seule : seul le super admin modifie les modules.</p>'}`;
+    zoneMod.querySelectorAll('[data-option-mois]').forEach((btn) => btn.addEventListener('click', () => {
+      const m = options.find((x) => x.code === btn.dataset.code);
+      if (m) ouvrirOption(m, Number(btn.dataset.optionMois));
+    }));
+    zoneMod.querySelectorAll('[data-option-retirer]').forEach((btn) => btn.addEventListener('click', () => {
+      const m = options.find((x) => x.code === btn.dataset.optionRetirer);
+      if (m) ouvrirOption(m, -1);
+    }));
     zoneMod.querySelectorAll('[data-choix]').forEach((btn) => btn.addEventListener('click', () => {
       const tr = btn.closest('tr');
       tr.querySelectorAll('[data-choix]').forEach((x) => { x.classList.toggle('actif', x === btn); x.setAttribute('aria-pressed', String(x === btn)); });
@@ -470,6 +505,54 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
       const changes = [...zoneMod.querySelectorAll('tr[data-module]')].some((l) => l.dataset.choix && l.dataset.choix !== l.dataset.initial);
       zoneMod.querySelector('[data-action="enregistrer-modules"]').disabled = !changes;
     }));
+  }
+
+  /** Prolonger (mois > 0) ou retirer (mois < 0, super admin) une option : admin_option. */
+  function ouvrirOption(m, mois) {
+    const retrait = mois < 0;
+    const b = s.fiche.boutique || {};
+    const restants = m.option_fin ? Math.max(1, Math.ceil((new Date(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`) - Date.now()) / (30 * 864e5))) : 1;
+    const { el, fermer } = ouvrirModale({
+      titre: retrait ? `Retirer : ${m.nom || m.code}` : `${m.nom || m.code} : +${mois} mois`,
+      contenu: `<form class="form-modale" novalidate>
+        <p class="texte-modale">${esc(b.nom || '')}${m.option_fin ? ` · actuellement jusqu’au ${esc(formatDate(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`, 'court'))}` : ''}</p>
+        ${retrait ? `<div class="champ"><label for="opt-mois">Mois à retirer</label><input id="opt-mois" class="input" type="number" min="1" step="1" value="${restants}"></div>
+          <p class="aide">Les données de la boutique en ligne sont conservées ; la vitrine se ferme si la date passe.</p>` : `
+        <div class="champ"><label for="opt-montant">Montant reçu (GNF)</label><input id="opt-montant" class="input" type="text" inputmode="numeric" value="${Number(m.prix_mois) ? formatNombre(Number(m.prix_mois) * mois) : ''}"></div>
+        <div class="rangee-champs">
+          <div class="champ"><label for="opt-mode">Mode de paiement</label><select id="opt-mode" class="input">${Object.entries(MODES_PAIEMENT_YOUMMA).map(([c, l]) => `<option value="${c}" ${c === 'orange_money' ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+          <div class="champ"><label for="opt-ref">Référence (facultatif)</label><input id="opt-ref" class="input" maxlength="80" placeholder="Ex. n° de transaction"></div>
+        </div>`}
+        <p class="erreur-form" role="alert" hidden></p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button>
+          <button type="submit" class="btn ${retrait ? 'btn-danger' : 'btn-primaire'}">${retrait ? 'Retirer' : 'Enregistrer et prolonger'}</button></div>
+      </form>`
+    });
+    const form = el.querySelector('form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const z = form.querySelector('.erreur-form');
+      const erreur = (t) => { z.textContent = t; z.hidden = !t; };
+      let params;
+      if (retrait) {
+        const n = Number(form.querySelector('#opt-mois').value);
+        if (!Number.isInteger(n) || n < 1) return erreur('Nombre de mois invalide.');
+        params = { p_boutique: idBoutique, p_option: m.code, p_mois: -n, p_montant: 0, p_reference: null, p_mode: null };
+      } else {
+        const montant = lireNombre(form.querySelector('#opt-montant').value);
+        if (montant === null || montant < 0) return erreur('Montant invalide.');
+        params = { p_boutique: idBoutique, p_option: m.code, p_mois: mois, p_montant: Math.round(montant), p_reference: form.querySelector('#opt-ref').value.trim() || null, p_mode: form.querySelector('#opt-mode').value };
+      }
+      erreur('');
+      const bouton = form.querySelector('[type=submit]');
+      boutonOccupe(bouton, true, 'Enregistrement…');
+      try {
+        const fin = premiere(await rpc('admin_option', params));
+        const date = typeof fin === 'object' && fin ? champ(fin, 'fin', 'option_fin', 'admin_option') : fin;
+        fermer();
+        rafraichir(date ? `${m.nom || 'Option'} : jusqu’au ${formatDate(`${String(date).slice(0, 10)}T12:00:00Z`, 'court')}.` : 'Option mise à jour.');
+      } catch (err) { boutonOccupe(bouton, false); erreur(erreurAdmin(err)); }
+    });
   }
 
   async function enregistrerModules(bouton) {
@@ -548,6 +631,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
 
 export function objetPaiement(p) {
   if (p.objet === 'sms') return `Pack ${nombre(champ(p, 'nb_sms') || 0)} SMS`;
+  if (p.objet === 'option') { const n = Number(champ(p, 'duree_mois', 'mois')) || 0; return `${champ(p, 'option_nom', 'option') === 'boutique_en_ligne' || !champ(p, 'option_nom', 'option') ? 'Boutique en ligne' : champ(p, 'option_nom', 'option')}${n ? ` ${n === 12 ? '1 an' : `${n} mois`}` : ''}`; }
   const mois = Number(champ(p, 'duree_mois')) || 0;
   return `${champ(p, 'formule_nom', 'formule') || 'Licence'} ${mois === 12 ? '1 an' : `${mois} mois`}`;
 }

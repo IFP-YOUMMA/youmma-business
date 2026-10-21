@@ -8,10 +8,12 @@
  *  - colonne de droite (onglet Commandes) : affiche du jour (Publier / Changer) + « Cette semaine »
  *    (stats_boutique_en_ligne sur 7 jours).
  * L'affiche du jour dépend de la boutique en ligne : la base renvoie son module inactif sinon → onglet masqué.
+ * Étape 14b : option payante non payée (état « option ») → page d'activation à la place des onglets.
  */
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
-import { aModule } from './modules.js';
+import { aModule, enOption } from './modules.js';
+import { afficherActivationOption, bandeauOptionHTML, CODE_OPTION } from './option-boutique.js';
 import { esc, icone, formatNombre, formatGNF, dateISO, lienBoutique, lienCourtBoutique } from './utils.js';
 import { afficherCommandes } from './commandes.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
@@ -32,6 +34,7 @@ function ongletsDisponibles() {
 }
 
 export function afficherBoutiqueOnglets(conteneur, params) {
+  if (enOption(CODE_OPTION)) return afficherActivationOption(conteneur);
   const idCommande = params.get('id');
   // Téléphone : la commande s'ouvre en page entière (comme avant).
   if (idCommande && estMobile()) return afficherCommandes(conteneur, params);
@@ -52,6 +55,7 @@ export function afficherBoutiqueOnglets(conteneur, params) {
         <span class="bo-etat" data-zone="etat" hidden></span>
         <a class="btn btn-secondaire bo-vitrine" data-zone="vitrine" href="#/boutique-en-ligne?onglet=reglages" hidden>${icone('enLigne', 16, 2)} Voir ma vitrine</a>
       </header>
+      ${bandeauOptionHTML()}
       <nav class="onglets-pastilles bo-onglets" aria-label="Boutique en ligne">
         ${onglets.map(([code, libelle]) => `<a class="onglet-pastille ${code === onglet ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=${code}" ${code === onglet ? 'aria-current="page"' : ''}>${esc(libelle)}${code === 'commandes' ? '<span class="pastille-compte" data-zone="compte-commandes" hidden></span>' : ''}</a>`).join('')}
       </nav>

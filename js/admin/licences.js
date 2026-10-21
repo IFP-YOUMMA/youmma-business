@@ -16,6 +16,7 @@ export const prixLicence = (f, mois) => (mois === 12 ? Number(f.prix_mois || 0) 
 
 function objet(p) {
   if (p.objet === 'sms') return `Pack ${nombre(champ(p, 'nb_sms') || 0)} SMS`;
+  if (p.objet === 'option') { const n = Number(champ(p, 'duree_mois', 'mois')) || 0; const nom = champ(p, 'option_nom', 'option'); return `Option ${!nom || nom === 'boutique_en_ligne' ? 'boutique en ligne' : nom}${n ? ` · ${n === 12 ? '1 an' : `${n} mois`}` : ''}`; }
   const mois = Number(champ(p, 'duree_mois')) || 0;
   return `${champ(p, 'formule_nom', 'formule') || 'Licence'} ${mois === 12 ? '1 an' : `${mois} mois`}`;
 }
@@ -119,7 +120,11 @@ export function afficherLicences(conteneur, { majCompteurs }) {
       const r = premiere(await rpc('admin_paiements', { p_statut: 'valide', p_debut: du, p_fin: au })) || {};
       s.encaissements = liste(r, 'lignes');
       const total = Number(champ(r, 'total_valide')) || s.encaissements.reduce((t, p) => t + (Number(p.montant) || 0), 0);
-      conteneur.querySelector('[data-ref="total"]').innerHTML = `Total <strong class="texte-succes">${gnf(total)}</strong> · ${nombre(s.encaissements.length)} paiement(s)`;
+      // Étape 14b : options (boutique en ligne) à part des licences et des SMS.
+      const somme = (f) => s.encaissements.filter(f).reduce((t, p) => t + (Number(p.montant) || 0), 0);
+      const totalOptions = Number(champ(r, 'total_options')) || somme((p) => p.objet === 'option');
+      const totalLicences = Number(champ(r, 'total_licences')) || somme((p) => !['option', 'sms'].includes(p.objet));
+      conteneur.querySelector('[data-ref="total"]').innerHTML = `Total <strong class="texte-succes">${gnf(total)}</strong> · ${nombre(s.encaissements.length)} paiement(s) · Licences <strong>${gnf(totalLicences)}</strong> · Options <strong>${gnf(totalOptions)}</strong>`;
       zone('encaissements').innerHTML = tableau([
         ['Date', (p) => esc(formatDate(champ(p, 'valide_at', 'created_at'), 'court'))],
         ['Boutique', (p) => `<strong>${esc(champ(p, 'boutique_nom', 'boutique') || '—')}</strong>`],

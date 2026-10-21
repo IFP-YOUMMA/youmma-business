@@ -4,11 +4,13 @@
  *  - sections Vente / Votre activité / Communication : une carte par module de niveau 2 (recommandé) ou 1 (proposé),
  *    interrupteur → choisir_module ; formule trop basse, bientôt, bloqué par YOUMMA ;
  *  - « Autres modules (n) » : niveau 0, activables quand même ;
- *  - aperçu « Votre menu » mis à jour en direct.
+ *  - aperçu « Votre menu » mis à jour en direct ;
+ *  - étape 14b : les options payantes (boutique en ligne) ont leur propre section « Options » : prix, date de fin,
+ *    interrupteur désactivé et bouton « Activer » (page d'activation).
  */
 import { sb } from './supabase.js';
 import { etat, estProprietaire } from './state.js';
-import { esc, icone, toast, boutonOccupe, messageErreur, ouvrirModale } from './utils.js';
+import { esc, icone, toast, boutonOccupe, messageErreur, ouvrirModale, formatNombre, formatDate } from './utils.js';
 import { chargerModules, appliquerModules, donneesModules, activite } from './modules.js';
 import { entreesMenu } from './layout.js';
 
@@ -35,19 +37,23 @@ export function afficherMesModules(conteneur) {
     const formule = m.etat === 'formule';
     const bientot = m.etat === 'bientot';
     const actif = m.etat === 'actif';
-    const verrou = bloque || formule || bientot || s.enCours.has(m.code);
+    // Module qui dépend d'une option (affiche du jour ← boutique en ligne) : verrouillé tant que l'option n'est pas active.
+    const parent = m.depend_de ? (donneesModules()?.modules || []).find((x) => x.code === m.depend_de) : null;
+    const dependance = Boolean(parent && parent.etat !== 'actif');
+    const verrou = bloque || formule || bientot || dependance || s.enCours.has(m.code);
     const badges = [
       m.niveau === 2 ? '<span class="badge-module recommande">recommandé</span>' : '',
       m.groupe === 'activite' ? '<span class="badge-module nouveau">nouveau</span>' : '',
       m.admin === true || m.admin === 'offert' ? '<span class="badge-module offert">offert par YOUMMA</span>' : ''
     ].join('');
     let note = '';
-    if (formule) note = `<span class="pastille-module formule">Disponible en ${esc(nomFormule(m.formule_min))}</span> <a class="lien-module" href="#/licence">Ma licence</a>`;
+    if (dependance) note = `<span class="pastille-module formule">Fait partie de l’option ${esc(parent.nom || 'Boutique en ligne')}</span>${parent.etat === 'option' ? ' <a class="lien-module" href="#/boutique-en-ligne">Activer</a>' : ''}`;
+    else if (formule) note = `<span class="pastille-module formule">Disponible en ${esc(nomFormule(m.formule_min))}</span> <a class="lien-module" href="#/licence">Ma licence</a>`;
     else if (bientot) note = '<span class="pastille-module bientot">Bientôt</span>';
     else if (bloque) note = '<span class="pastille-module bloque">Désactivé par YOUMMA</span>';
     else if (m.en_cours) note = `<span class="note-module">${esc(typeof m.en_cours === 'string' ? m.en_cours : 'Opérations en cours')}</span>`;
     return `
-      <div class="carte-module ${actif ? 'active' : ''} ${formule || bientot ? 'grisee' : ''}" data-module="${esc(m.code)}">
+      <div class="carte-module ${actif ? 'active' : ''} ${formule || bientot || dependance ? 'grisee' : ''}" data-module="${esc(m.code)}">
         <div class="carte-module-textes">
           <span class="carte-module-nom">${esc(m.nom)} ${badges}</span>
           <span class="carte-module-desc">${esc(m.description || '')}</span>
@@ -58,10 +64,36 @@ export function afficherMesModules(conteneur) {
       </div>`;
   }
 
+  /** Carte d'une option payante : prix, état, date de fin ; on ne la bascule pas ici. */
+  function carteOption(m, formule) {
+    const actif = m.etat === 'actif';
+    const incluse = (m.incluse_formules || []).includes(formule);
+    const fin = m.option_fin ? formatDate(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`, 'court') : null;
+    let note;
+    if (m.etat === 'bloque') note = '<span class="pastille-module bloque">Désactivée par YOUMMA</span>';
+    else if (actif && formule === 'essai') note = '<span class="pastille-module offerte">Offerte pendant l’essai</span>';
+    else if (actif && incluse) note = '<span class="pastille-module offerte">Comprise dans votre formule</span>';
+    else if (actif) note = `<span class="pastille-module offerte">Active${fin ? ` jusqu’au ${esc(fin)}` : ''}</span>`;
+    else note = '<span class="pastille-module formule">Pas encore activée</span>';
+    const prix = Number(m.prix_mois) ? `${esc(formatNombre(m.prix_mois))} GNF / mois` : '';
+    return `
+      <div class="carte-module carte-option ${actif ? 'active' : ''}" data-module="${esc(m.code)}">
+        <div class="carte-module-textes">
+          <span class="carte-module-nom">${esc(m.nom)} <span class="badge-module option">option</span></span>
+          <span class="carte-module-desc">${esc(m.description || '')}</span>
+          <span class="carte-module-note">${note}${prix ? ` <span class="note-module">${prix}</span>` : ''}</span>
+          ${m.etat === 'option' ? '<a class="btn btn-secondaire btn-petit carte-option-bouton" href="#/boutique-en-ligne">Activer</a>' : ''}
+        </div>
+        <input type="checkbox" class="bascule-doc" role="switch" ${actif ? 'checked' : ''} disabled aria-label="${esc(m.nom)} : ${actif ? 'active' : 'pas activée'} (option payante, activée par YOUMMA)">
+      </div>`;
+  }
+
   function render() {
     const d = donneesModules() || {};
     const a = activite() || {};
-    const modules = (d.modules || []).filter((m) => m.code);
+    const tous = (d.modules || []).filter((m) => m.code);
+    const options = tous.filter((m) => m.option_payante);
+    const modules = tous.filter((m) => !m.option_payante);
     // Niveau 2 ou 1 : sections ; niveau 0 : « Autres modules » (les modules « bientôt » de niveau 0 ne sont pas montrés).
     const proposes = modules.filter((m) => Number(m.niveau) >= 1);
     const autres = modules.filter((m) => Number(m.niveau) === 0 && m.etat !== 'bientot');
@@ -82,6 +114,9 @@ export function afficherMesModules(conteneur) {
             <span class="discret">Les modules recommandés pour votre activité sont déjà activés.</span></div>
           ${estProprietaire() ? '<button type="button" class="btn btn-secondaire" data-action="changer-activite">Changer d’activité</button>' : ''}
         </div>
+        ${options.length ? `<section class="groupe-modules groupe-options"><h2>Options</h2>
+          <p class="discret">Services payants en plus de votre formule. YOUMMA les active dès réception du paiement.</p>
+          <div class="grille-modules">${options.map((m) => carteOption(m, d.formule)).join('')}</div></section>` : ''}
         ${sections || '<p class="discret">Aucun module proposé.</p>'}
         ${autres.length ? `<details class="autres-modules"><summary>Autres modules (${autres.length}) — rarement utiles pour ${esc((a.nom || 'votre activité').toLowerCase())}</summary>
           <div class="grille-modules">${autres.map(carte).join('')}</div></details>` : ''}
@@ -162,7 +197,7 @@ export function ouvrirChangementActivite(apres = () => {}) {
     const apparaissent = [];
     const disparaissent = [];
     for (const m of d.modules || []) {
-      if (['bientot', 'formule', 'bloque'].includes(m.etat)) continue;
+      if (['bientot', 'formule', 'bloque', 'option'].includes(m.etat)) continue;
       const niveau = s.matrice.get(`${s.choix}|${m.code}`) ?? 0;
       const choisi = s.garder && (m.choix === true || m.choix === false) ? m.choix : null;
       const offert = m.admin === true || m.admin === 'offert';

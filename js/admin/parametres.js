@@ -1,10 +1,26 @@
 /**
  * admin/parametres.js — Paramètres de la plateforme (super admin ; lecture seule pour un agent) :
  * durée d'essai, SMS offerts, WhatsApp du support, relances avant expiration, délai de grâce,
- * nom d'expéditeur SMS, mode maintenance + message (confirmation, en rouge).
+ * nom d'expéditeur SMS, mode maintenance + message (confirmation, en rouge) ;
+ * étape 14b : prix de l'option « boutique en ligne » et formules qui l'incluent (admin_option_tarif).
  */
-import { esc, toast, confirmer, boutonOccupe, normaliserTelephone } from '../utils.js';
-import { estSuper, rpc, premiere, erreurAdmin, telLocal, blocErreur, squelette } from './commun.js';
+import { esc, toast, confirmer, boutonOccupe, normaliserTelephone, lireNombre, formatNombre } from '../utils.js';
+import { estSuper, rpc, premiere, champ, liste, erreurAdmin, telLocal, blocErreur, squelette } from './commun.js';
+
+const CODE_OPTION = 'boutique_en_ligne';
+
+/**
+ * Tarif actuel de l'option : admin_parametres.options s'il existe, sinon lu dans les modules d'une boutique
+ * (admin_modules_boutique renvoie prix_mois et incluse_formules pour chaque option).
+ */
+async function lireTarifOption(r) {
+  const direct = liste(r, 'options').find((o) => champ(o, 'code', 'option') === CODE_OPTION);
+  if (direct) return direct;
+  const b = liste(premiere(await rpc('admin_liste_boutiques', { p_recherche: '', p_filtre: 'toutes', p_limite: 1, p_offset: 0 })) || {}, 'lignes')[0];
+  if (!b) return null;
+  const d = premiere(await rpc('admin_modules_boutique', { p_boutique: b.id })) || {};
+  return liste(d, 'modules').find((m) => m.code === CODE_OPTION) || null;
+}
 
 const CHAMPS = [
   ['essai_jours', 'Durée de l’essai (jours)', 'nombre'],
@@ -34,8 +50,47 @@ export function afficherParametres(conteneur, { majCompteurs }) {
   conteneur.innerHTML = `
     <header class="adm-entete"><div class="adm-titres"><h1>Paramètres de la plateforme</h1>
       <span class="discret">${lecture ? 'Lecture seule : réservé au super admin.' : 'S’appliquent à toutes les boutiques.'}</span></div></header>
-    <section class="adm-carte" data-zone="parametres">${squelette(6)}</section>`;
+    <section class="adm-carte" data-zone="parametres">${squelette(6)}</section>
+    <section class="adm-carte" data-zone="option">${squelette(2)}</section>`;
   const zone = conteneur.querySelector('[data-zone="parametres"]');
+  const zoneOption = conteneur.querySelector('[data-zone="option"]');
+
+  /** Option « boutique en ligne » : prix mensuel et formules qui l'incluent. */
+  async function chargerOption() {
+    let r; let o;
+    try { r = premiere(await rpc('admin_parametres')) || {}; o = await lireTarifOption(r); } catch (err) { zoneOption.innerHTML = blocErreur(err); return; }
+    if (!conteneur.isConnected) return;
+    const formules = liste(r, 'formules');
+    const incluses = (o && (o.incluse_formules || o.incluse)) || [];
+    zoneOption.innerHTML = `
+      <form class="form-modale" novalidate>
+        <h2>Option boutique en ligne</h2>
+        <p class="discret">Prix mensuel affiché aux boutiques sur la page d’activation. Les formules cochées l’incluent sans supplément (l’essai l’offre toujours).</p>
+        <div class="champ"><label for="opt-prix">Prix par mois (GNF)</label>
+          <input id="opt-prix" class="input" type="text" inputmode="numeric" value="${o && Number(o.prix_mois) ? formatNombre(o.prix_mois) : ''}" ${lecture ? 'readonly' : ''}></div>
+        <fieldset class="adm-formules-option"><legend class="etiquette">Comprise dans les formules</legend>
+          ${formules.filter((f) => f.code !== 'essai').map((f) => `<label class="case-option"><input type="checkbox" name="incluse" value="${esc(f.code)}" ${incluses.includes(f.code) ? 'checked' : ''} ${lecture ? 'disabled' : ''}> ${esc(f.nom || f.code)}</label>`).join('') || '<span class="discret">Aucune formule.</span>'}
+        </fieldset>
+        <p class="erreur-form" role="alert" hidden></p>
+        ${lecture ? '' : '<div class="adm-boutons"><button type="submit" class="btn btn-primaire">Enregistrer le tarif de l’option</button></div>'}
+      </form>`;
+    if (lecture) return;
+    const form = zoneOption.querySelector('form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const z = form.querySelector('.erreur-form');
+      const erreur = (m) => { z.textContent = m; z.hidden = !m; };
+      const prix = lireNombre(form.querySelector('#opt-prix').value);
+      if (prix === null || prix < 0) return erreur('Prix invalide.');
+      const incluse = [...form.querySelectorAll('[name="incluse"]:checked')].map((c) => c.value);
+      erreur('');
+      const bouton = form.querySelector('[type=submit]');
+      boutonOccupe(bouton, true, 'Enregistrement…');
+      try { await rpc('admin_option_tarif', { p_option: CODE_OPTION, p_prix: Math.round(prix), p_incluse: incluse }); toast('Tarif de l’option enregistré.', 'succes'); chargerOption(); }
+      catch (err) { boutonOccupe(bouton, false); erreur(erreurAdmin(err)); }
+    });
+  }
+  chargerOption();
 
   async function charger() {
     let p;

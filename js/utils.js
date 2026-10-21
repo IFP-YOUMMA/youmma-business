@@ -392,6 +392,7 @@ const MESSAGES_METIER = {
   PROFORMA_INTROUVABLE: 'Ce devis est introuvable dans votre boutique.',
   MODULE_INACTIF: 'Cette fonction n’est pas activée pour votre boutique — Paramètres › Mes modules.',
   MODULE_FORMULE: 'Disponible avec une formule supérieure.',
+  MODULE_OPTION: 'La boutique en ligne est une option à activer.',
   MODULE_BIENTOT: 'Ce module sera bientôt disponible.',
   MODULE_BLOQUE: 'Désactivé par YOUMMA — contactez le support.',
   MODULE_INCONNU: 'Ce module est inconnu.',
@@ -438,7 +439,7 @@ export function messageErreur(err) {
   // Module masqué : message clair, et les modules de la boutique sont relus (menu redessiné).
   const enCoursModule = brut.match(/MODULE_EN_COURS\s*:?\s*(.*)$/);
   if (enCoursModule) return `Impossible de masquer ce module${enCoursModule[1] ? ` : ${enCoursModule[1].trim().replace(/\.$/, '')}` : ''}. Terminez d’abord ces opérations.`;
-  if (brut.includes('MODULE_INACTIF') && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('yb:module-inactif'));
+  if ((brut.includes('MODULE_INACTIF') || brut.includes('MODULE_OPTION')) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('yb:module-inactif'));
   const quota = brut.match(/QUOTA_PHOTOS\s*:?\s*(\d+)/);
   if (quota || brut.includes('QUOTA_PHOTOS')) {
     return `Limite de ${quota ? formatNombre(Number(quota[1])) + ' ' : ''}photos atteinte pour votre formule. Retirez des photos ou passez à une formule supérieure.`;
@@ -601,6 +602,7 @@ export function confirmer(message, { titre = 'Confirmation', libelleOk = 'Confir
 export const ICONES = {
   tableau: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
   maison: 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5',
+  cadenas: 'M5.5 11h13v10h-13zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11',
   caisse: 'M3 7h18v12H3zM3 11h18M7 15h3',
   ventes: 'M6 2L3 6v14h18V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
   stock: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',

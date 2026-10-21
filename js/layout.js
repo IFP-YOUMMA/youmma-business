@@ -10,7 +10,7 @@ import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
-import { moduleVisible, aModule, vocab, activite, chargerModules } from './modules.js';
+import { moduleVisible, aModule, enOption, vocab, activite, chargerModules } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
 } from './utils.js';
@@ -38,7 +38,13 @@ export const SECTIONS = [
 
 /** Sections visibles : droits du rôle ET modules de la boutique (un module en lecture seule reste visible). */
 function sectionsVisibles() {
-  return SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.module || moduleVisible(section.module)));
+  // Option payante non payée (boutique en ligne) : l'entrée reste, grisée avec un cadenas, et mène à la page d'activation.
+  return SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.module || moduleVisible(section.module) || enOption(section.module)));
+}
+
+/** Entrée d'une option à activer (grisée, cadenas à la place des pastilles). */
+function verrouillee(section) {
+  return Boolean(section.module && enOption(section.module));
 }
 
 /** Onglet « Stock » de la barre du bas : libellé du menu de l'activité (« Stock », « Menu », « Prestations »…). */
@@ -225,12 +231,12 @@ function libelleSection(section, court = true) {
 
 function lienMenu(section) {
   return `
-    <a href="#/${section.route}" class="lien-menu" data-route="${section.route}" ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
+    <a href="#/${section.route}" class="lien-menu ${verrouillee(section) ? 'verrouille' : ''}" data-route="${section.route}" ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
       ${icone(section.icone, 17, 1.7)}
       <span class="lien-menu-libelle">${esc(libelleSection(section))}</span>
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
       ${section.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
-      ${section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+      ${verrouillee(section) ? `<span class="cadenas-menu" title="Option à activer">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
       ${section.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
     </a>`;
 }
@@ -361,10 +367,10 @@ function ouvrirPanneauPlus() {
         </div>` : ''}
       <div class="plus-groupe">
         ${sections.map((s, i) => `${s.groupe && s.groupe !== 'bas' && s.groupe !== sections[i - 1]?.groupe ? `<span class="plus-groupe-titre">${esc(s.groupe)}</span>` : ''}
-          <a href="#/${s.route}" class="plus-lien">
+          <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''}">
             ${icone(s.icone, 20, 1.7)}<span>${esc(libelleSection(s, false))}</span>
             ${s.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
-            ${s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+            ${verrouillee(s) ? `<span class="cadenas-menu">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
             ${s.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
           </a>`).join('')}
         ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
