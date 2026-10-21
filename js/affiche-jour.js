@@ -1,5 +1,5 @@
 /**
- * affiche-jour.js — Écran « Affiche du jour » (maquettes AfficheJour.dc.html et AffichesPro.dc.html), #/affiche.
+ * affiche-jour.js — Écran « Affiche du jour » (maquettes AfficheJour.dc.html et AffichesPro.dc.html), onglet « Affiche du jour » de #/boutique-en-ligne.
  *
  * Le serveur choisit l'article chaque matin à 6 h (affiche_du_jour) ; le gérant peut changer le modèle,
  * l'article, les 2 articles de plus de « Sélection », la phrase, la couleur et la photo (avec « Retirer
@@ -230,7 +230,7 @@ export function afficherAfficheJour(conteneur) {
     <div class="page page-affiche">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Affiche du jour</h1>
           <span data-ref="sous-titre">${esc(capitaliser(formatDate(new Date(), 'long')))}</span>
         </div>

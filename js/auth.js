@@ -71,7 +71,7 @@ async function entrerDansLApplication(session) {
   await Promise.all([chargerEtatPlateforme(), etat.boutique ? chargerEtatLicence() : null]);
   // Maintenance (sauf équipe YOUMMA) ou mot de passe provisoire à changer : écran bloquant.
   if (await controlesApresConnexion(() => location.reload())) return;
-  naviguer(etat.boutique ? 'tableau-de-bord' : 'nouvelle-boutique', { remplacer: true });
+  naviguer(etat.boutique ? 'aujourdhui' : 'nouvelle-boutique', { remplacer: true });
 }
 
 /* ---------------------------------------------------------------- Connexion */

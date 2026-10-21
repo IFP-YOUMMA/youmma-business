@@ -133,6 +133,6 @@ export function ouvrirDocument({ type, vente = null, proforma = null, essai = fa
   if (vente) params.set('vente', vente);
   if (proforma) params.set('proforma', proforma);
   if (essai) params.set('essai', '1');
-  try { sessionStorage.setItem('yb_document_retour', retour || '#/tableau-de-bord'); } catch { /* retour par défaut */ }
+  try { sessionStorage.setItem('yb_document_retour', retour || '#/aujourdhui'); } catch { /* retour par défaut */ }
   location.href = `document.html?${params}`;
 }

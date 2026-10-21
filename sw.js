@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v19';
+const VERSION_CACHE = 'yb-statique-v20';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -33,7 +33,9 @@ const FICHIERS_STATIQUES = [
   './js/unites.js',
   './js/livraisons.js',
   './js/vendor/JsBarcode.all.min.js',
-  './js/dashboard.js',
+  './js/aujourdhui.js',
+  './js/onglets-vente.js',
+  './js/boutique-onglets.js',
   './js/caisse.js',
   './js/stock.js',
   './js/clients-commun.js',

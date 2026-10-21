@@ -100,7 +100,7 @@ export function htmlRecuVente(recu, { mentions = [], reglages = {}, code = null 
     <div class="recu-sep"></div>
     ${ligne('Sous-total', formatGNF(recu.sousTotal))}
     ${recu.remise ? ligne('Remise', `− ${formatGNF(recu.remise)}`) : ''}
-    ${Number(recu.fraisLivraison) ? ligne('Livraison', formatGNF(recu.fraisLivraison)) : ''}
+    ${Number(recu.fraisLivraison) ? ligne(recu.libelleLivraison || 'Livraison', formatGNF(recu.fraisLivraison)) : ''}
     ${ligne('TOTAL', formatGNF(recu.total), 'recu-total')}
     ${ligne('Paiement', MODES_PAIEMENT[recu.mode]?.libelle || recu.mode)}
     ${recu.montantRecu !== null && recu.montantRecu !== undefined

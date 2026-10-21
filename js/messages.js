@@ -122,7 +122,7 @@ export function afficherMessages(conteneur, params) {
     <div class="page page-messages">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Messages</h1>
           <span>Alertes automatiques, relances et campagnes · SMS et WhatsApp</span>
         </div>

@@ -55,7 +55,7 @@ export function afficherDepenses(conteneur) {
     <div class="page page-depenses">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Dépenses</h1>
         </div>
         <div class="segments segments-cadre" role="group" aria-label="Période">

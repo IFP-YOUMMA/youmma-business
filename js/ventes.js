@@ -15,7 +15,8 @@ import { imprimerRecuVente } from './recu.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { aModule } from './modules.js';
 import { completerLignesBase } from './unites.js';
-import { ouvrirOrganiserLivraison } from './livraisons.js';
+import { ouvrirOrganiserLivraison, afficherLivraisons } from './livraisons.js';
+import { poserOngletsVente } from './onglets-vente.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatNumeroVente, dateISO, decalerDate,
@@ -68,8 +69,17 @@ function badgeVente(vente) {
 /** Point d'entrée des routes #/ventes et #/ventes/<id>. */
 export function afficherVentes(conteneur, params) {
   const idDemande = params.get('id');
+  // Étape 14 : onglet « Livraisons » de « Caisse & ventes » (écran de l'étape 13 tel quel).
+  if (!idDemande && params.get('onglet') === 'livraisons' && aModule('livraisons')) {
+    afficherLivraisons(conteneur);
+    poserOngletsVente(conteneur, 'livraisons');
+    return;
+  }
   if (idDemande && estMobile()) afficherDetailPage(conteneur, idDemande);
-  else afficherHistorique(conteneur, idDemande);
+  else {
+    afficherHistorique(conteneur, idDemande);
+    poserOngletsVente(conteneur, 'ventes');
+  }
 }
 
 /* =========================================================================
@@ -104,8 +114,8 @@ function afficherHistorique(conteneur, idSelection) {
     <div class="page page-ventes">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
-          <h1>Historique des ventes</h1>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
+          <h1>Ventes</h1>
         </div>
         <label class="recherche-entete recherche-ventes">
           ${icone('recherche', 18, 2)}
@@ -466,7 +476,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
           </a>` : ''}
 
         ${commande ? `
-          <a class="client-bouton lien-commande-vente" href="#/commandes/${encodeURIComponent(commande.id)}">
+          <a class="client-bouton lien-commande-vente" href="#/boutique-en-ligne/${encodeURIComponent(commande.id)}">
             <span class="avatar">${icone('enLigne', 18, 2)}</span>
             <span class="client-textes"><span class="gras">Commande en ligne ${esc(commande.numero)}</span><span class="discret">${commande.reception === 'livraison' ? `Livraison${commande.zone_nom ? ' · ' + esc(commande.zone_nom) : ''}` : 'Retrait en boutique'} · voir la commande</span></span>
             ${icone('chevronDroite', 16, 2)}

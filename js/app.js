@@ -8,7 +8,7 @@ import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
 import { preparerShell, retirerShell, afficherBientot, SECTIONS } from './layout.js';
-import { afficherTableauDeBord } from './dashboard.js';
+import { afficherAujourdhui } from './aujourdhui.js';
 import { afficherCaisse } from './caisse.js';
 import { afficherStock } from './stock.js';
 import { afficherClients } from './clients.js';
@@ -22,10 +22,7 @@ import { afficherMessages } from './messages.js';
 import { afficherAide } from './aide.js';
 import { afficherLicence } from './licence.js';
 import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion, afficherMaintenance } from './plateforme.js';
-import { afficherCommandes } from './commandes.js';
-import { afficherLivraisons } from './livraisons.js';
-import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
-import { afficherAfficheJour } from './affiche-jour.js';
+import { afficherBoutiqueOnglets } from './boutique-onglets.js';
 import { afficherProformas } from './proformas.js';
 import { afficherReglagesDocuments } from './documents/reglages.js';
 import { afficherIdentite } from './identite.js';
@@ -40,7 +37,7 @@ const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max
  * publique : accessible sans connexion · horsShell : sans menu (onboarding)
  * pleinEcran : menu masqué (booléen, ou fonction des paramètres de la route)
  * droit : action requise (peut() dans state.js), sinon retour au tableau de bord
- * admin : réservée à l'équipe YOUMMA (est_admin_plateforme), sinon retour au tableau de bord
+ * redirection : ancienne adresse → nouvelle (étape 14), avec les paramètres de la route
  */
 const ROUTES = {
   connexion: { vue: afficherConnexion, publique: true },
@@ -48,7 +45,10 @@ const ROUTES = {
   // Écran de choix : rejoindre avec un code ou créer sa boutique (?creer=1 : formulaire de création).
   'nouvelle-boutique': { vue: afficherOnboarding, horsShell: true },
   rejoindre: { vue: afficherOnboarding, horsShell: true },
-  'tableau-de-bord': { vue: afficherTableauDeBord },
+  // Écran « Aujourd'hui » (étape 14) ; l'ancien tableau de bord y renvoie.
+  aujourdhui: { vue: afficherAujourdhui },
+  'tableau-de-bord': { redirection: () => 'aujourdhui' },
+  // « Caisse & ventes » : onglets Caisse (#/caisse), Ventes (#/ventes), Livraisons (#/ventes?onglet=livraisons).
   caisse: { vue: afficherCaisse, pleinEcran: true },
   stock: { vue: afficherStock },
   clients: { vue: afficherClients, pleinEcran: detailPleinEcran },
@@ -65,14 +65,13 @@ const ROUTES = {
   },
   // #/messages (onglet dans l'adresse : #/messages/campagnes…), #/messages/campagne (nouvelle campagne)
   messages: { vue: afficherMessages, droit: 'messages.voir' },
-  // Panneau d'administration YOUMMA : page séparée admin/ (l'ancien écran #/admin y renvoie).
-  admin: { vue: () => { location.href = 'admin/'; }, admin: true },
   aide: { vue: afficherAide },
   licence: { vue: afficherLicence },
-  // #/commandes, #/commandes/<id> (détail en page sur téléphone)
-  commandes: { vue: afficherCommandes, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
-  'boutique-en-ligne': { vue: afficherBoutiqueEnLigne, droit: 'boutique_en_ligne.gerer' },
-  affiche: { vue: afficherAfficheJour, droit: 'affiche.partager' },
+  // « Boutique en ligne » (étape 14) : onglets Commandes · Articles en ligne · Affiche du jour · Livraison & zones · Réglages.
+  // #/boutique-en-ligne/<id> : détail d'une commande (en page sur téléphone).
+  'boutique-en-ligne': { vue: afficherBoutiqueOnglets, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
+  commandes: { redirection: (params) => (params.get('id') ? `boutique-en-ligne/${encodeURIComponent(params.get('id'))}` : 'boutique-en-ligne') },
+  affiche: { redirection: () => 'boutique-en-ligne?onglet=affiche' },
   // #/proformas (liste), #/proformas/nouveau, #/proformas/<id> (éditeur)
   proformas: { vue: afficherProformas, droit: 'devis.creer', pleinEcran: detailPleinEcran },
   // Paramètres → Documents (réglages des factures, reçus, devis)
@@ -81,8 +80,8 @@ const ROUTES = {
   identite: { vue: afficherIdentite, droit: 'documents.reglages' },
   // Paramètres → Mes modules (gérant et propriétaire)
   modules: { vue: afficherMesModules, droit: 'parametres_boutique' },
-  // Livraisons & camions (module « livraisons »).
-  livraisons: { vue: afficherLivraisons }
+  // Livraisons & camions (module « livraisons ») : onglet de « Caisse & ventes ».
+  livraisons: { redirection: () => 'ventes?onglet=livraisons' }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -99,16 +98,16 @@ function resoudre() {
   if (identifiant) params.set('id', decodeURIComponent(identifiant));
   if (sousVue) params.set('vue', sousVue);
   const route = ROUTES[nom];
-  const accueil = etat.boutique ? 'tableau-de-bord' : 'nouvelle-boutique';
+  const accueil = etat.boutique ? 'aujourdhui' : 'nouvelle-boutique';
 
   if (!route) return naviguer(etat.session ? accueil : 'connexion', { remplacer: true });
   if (route.publique && etat.session) return naviguer(accueil, { remplacer: true });
   if (!route.publique && !etat.session) return naviguer('connexion', { remplacer: true });
   if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('nouvelle-boutique', { remplacer: true });
-  if (route.admin && !etat.adminPlateforme) return naviguer('tableau-de-bord', { remplacer: true });
+  if (route.redirection) return naviguer(route.redirection(params), { remplacer: true });
   if (route.droit && !peut(route.droit)) {
     toast('Accès réservé au gérant.', 'erreur');
-    return naviguer('tableau-de-bord', { remplacer: true });
+    return naviguer('aujourdhui', { remplacer: true });
   }
   // Modules de la boutique : connus avant d'afficher un écran (copie locale immédiate, sinon réseau).
   if (!route.publique && !route.horsShell && etat.boutique && !modulesPour(etat.boutique.id)) {
@@ -118,7 +117,7 @@ function resoudre() {
   // Écran d'un module masqué (lien ancien, favori) : retour au tableau de bord avec le message.
   if (!route.publique && !route.horsShell && accesRoute(nom) === 'refuse') {
     toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000);
-    return naviguer('tableau-de-bord', { remplacer: true });
+    return naviguer('aujourdhui', { remplacer: true });
   }
 
   nettoyerVue?.();
@@ -143,8 +142,8 @@ function resoudre() {
 window.addEventListener('modules:change', () => {
   if (!etat.boutique || !document.querySelector('.shell')) return;
   const nom = lireRoute().nom.split('/')[0];
-  if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer('tableau-de-bord', { remplacer: true }); return; }
-  if (nom === 'tableau-de-bord') resoudre();
+  if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer('aujourdhui', { remplacer: true }); return; }
+  if (nom === 'aujourdhui') resoudre();
 });
 
 /** Écran affiché tant que js/config.js n'est pas rempli. */

@@ -1,5 +1,5 @@
 /**
- * commandes.js — Commandes en ligne (maquette Commandes.dc.html), #/commandes et #/commandes/<id>.
+ * commandes.js — Commandes en ligne (maquette Commandes.dc.html), onglet « Commandes » de #/boutique-en-ligne (#/boutique-en-ligne/<id> pour une commande).
  *
  * Cycle : nouvelle → confirmée → prête → livrée (devient une vente : stock, reçu, crédit possible)
  *         ou annulée (motif). Le vendeur traite les commandes et peut refuser une commande nouvelle ;
@@ -89,7 +89,7 @@ export function afficherCommandes(conteneur, params) {
     conteneur.innerHTML = `
       <div class="page page-detail-commande">
         <div class="detail-page-entete">
-          <a href="#/commandes" class="btn-icone btn-icone-sombre" aria-label="Retour aux commandes">${icone('retour', 20, 2)}</a>
+          <a href="#/boutique-en-ligne" class="btn-icone btn-icone-sombre" aria-label="Retour aux commandes">${icone('retour', 20, 2)}</a>
           <span class="fiche-page-titre">Commande</span>
         </div>
         <section class="detail-commande" data-zone="detail"></section>
@@ -102,7 +102,7 @@ export function afficherCommandes(conteneur, params) {
     <div class="page page-commandes">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Commandes en ligne</h1>
           <span data-zone="sous-titre">Reçues depuis votre boutique en ligne</span>
         </div>
@@ -110,7 +110,7 @@ export function afficherCommandes(conteneur, params) {
       </header>
       <div class="liens-commandes">
         ${peut('boutique_en_ligne.gerer') ? `<a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne">${icone('enLigne', 16, 2)} Ma boutique en ligne</a>` : ''}
-        <a class="btn btn-secondaire btn-petit" href="#/affiche">${icone('image', 16, 2)} Affiche du jour</a>
+        <a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne?onglet=affiche">${icone('image', 16, 2)} Affiche du jour</a>
       </div>
       <nav class="onglets" role="tablist" aria-label="Statut" data-zone="onglets"></nav>
       <div class="commandes-corps">
@@ -170,8 +170,8 @@ export function afficherCommandes(conteneur, params) {
   function selectionner(id, { remplacerUrl = true } = {}) {
     s.selection = id;
     renderListe();
-    if (estMobile()) { naviguer(`commandes/${encodeURIComponent(id)}`); return; }
-    if (remplacerUrl) history.replaceState(null, '', `#/commandes/${encodeURIComponent(id)}`);
+    if (estMobile()) { naviguer(`boutique-en-ligne/${encodeURIComponent(id)}`); return; }
+    if (remplacerUrl) history.replaceState(null, '', `#/boutique-en-ligne/${encodeURIComponent(id)}`);
     chargerEtAfficherDetail(zone('detail'), id, 'panneau', () => charger({ garderSelection: true }));
   }
 
@@ -245,7 +245,7 @@ async function chargerEtAfficherDetail(cadre, id, mode, apresAction) {
   const { data: c, error } = await sb.from('commandes_web').select(COLONNES).eq('boutique_id', etat.boutique.id).eq('id', id).maybeSingle();
   if (cadre.dataset.commande !== id || !cadre.isConnected) return;
   if (error || !c) {
-    cadre.innerHTML = `<div class="carte fiche-vide"><p>${error ? esc(messageErreur(error)) : 'Cette commande est introuvable.'}</p><a class="btn btn-secondaire" href="#/commandes">Retour aux commandes</a></div>`;
+    cadre.innerHTML = `<div class="carte fiche-vide"><p>${error ? esc(messageErreur(error)) : 'Cette commande est introuvable.'}</p><a class="btn btn-secondaire" href="#/boutique-en-ligne">Retour aux commandes</a></div>`;
     return;
   }
   const ids = [...new Set((c.lignes || []).map((l) => l.produit_id).filter(Boolean))];
@@ -356,7 +356,7 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
     if (action === 'refuser') ouvrirRefus(c, apresAction);
     if (action === 'organiser-livraison') ouvrirOrganiserLivraison({ commande: { nom: c.nom, telephone: c.telephone, adresse: [c.zone_nom, c.adresse].filter(Boolean).join(' · '), vente_id: c.vente_id || null } });
     if (action === 'recu') imprimerRecuCommande(c, vente, bouton);
-    if (action === 'facture') ouvrirDocument({ type: 'facture', vente: vente.id, retour: `#/commandes/${encodeURIComponent(c.id)}` });
+    if (action === 'facture') ouvrirDocument({ type: 'facture', vente: vente.id, retour: `#/boutique-en-ligne/${encodeURIComponent(c.id)}` });
   };
 }
 

@@ -5,8 +5,8 @@
  * avec p_debut inclus et p_fin exclu. Export CSV (Excel) et impression A4.
  */
 import { sb } from './supabase.js';
-import { aModule } from './modules.js';
-import { etat } from './state.js';
+import { aModule, proprietaireSelonModules } from './modules.js';
+import { etat, estProprietaire } from './state.js';
 import {
   esc, icone, toast, messageErreur, capitaliser, formatNombre, formatGNF, formatMillions, formatQuantite,
   formatDate, dateISO, decalerDate, bornesPeriode, MODES_PAIEMENT, logoSymbole
@@ -52,6 +52,8 @@ function normaliserRapport(data) {
     remises: n(r.remises),
     cout: n(r.cout_marchandises),
     marge: n(r.marge_brute),
+    // Étape 14 : marge et bénéfice réservés au propriétaire (la base renvoie null aux autres).
+    voitMarge: r.marge_brute !== null && r.marge_brute !== undefined && (proprietaireSelonModules() ?? estProprietaire()),
     nbSansPrixAchat: n(r.nb_lignes_sans_prix_achat),
     caSansPrixAchat: n(r.ca_sans_prix_achat),
     depenses: n(r.depenses),
@@ -103,7 +105,7 @@ export function afficherRapports(conteneur) {
       </div>
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Rapports</h1>
           <span data-zone="sous-titre"></span>
         </div>
@@ -132,23 +134,28 @@ export function afficherRapports(conteneur) {
     const { du, au } = bornes();
     const pas = pasPour(du, au);
     const net = r.marge - r.depenses;
+    const blocs = r.voitMarge ? [
+      ['Ventes', formatNombre(r.ca), ''],
+      ['−', '', 'operateur'],
+      ['Coût des marchandises', formatNombre(r.cout), ''],
+      ['=', '', 'operateur'],
+      [`Marge brute (${taux(r.marge, r.ca)})`, formatNombre(r.marge), 'marge'],
+      ['− Dépenses', formatNombre(r.depenses), 'depenses'],
+      ['Bénéfice net', formatGNF(net), net < 0 ? 'net negatif' : 'net']
+    ] : [
+      ['Ventes', formatGNF(r.ca), ''],
+      ['Nombre de ventes', formatNombre(r.nbVentes), ''],
+      ['Dépenses', formatGNF(r.depenses), 'depenses']
+    ];
     zone('contenu').innerHTML = `
-      <section class="bandeau-benefice" aria-label="Bénéfice de la période">
-        ${[
-          ['Ventes', formatNombre(r.ca), ''],
-          ['−', '', 'operateur'],
-          ['Coût des marchandises', formatNombre(r.cout), ''],
-          ['=', '', 'operateur'],
-          [`Marge brute (${taux(r.marge, r.ca)})`, formatNombre(r.marge), 'marge'],
-          ['− Dépenses', formatNombre(r.depenses), 'depenses'],
-          ['Bénéfice net', formatGNF(net), net < 0 ? 'net negatif' : 'net']
-        ].map(([libelle, valeur, classe]) => `
+      <section class="bandeau-benefice ${r.voitMarge ? '' : 'sans-marge'}" aria-label="${r.voitMarge ? 'Bénéfice de la période' : 'Ventes de la période'}">
+        ${blocs.map(([libelle, valeur, classe]) => `
           <div class="benefice-bloc ${classe}">
             <span class="benefice-libelle">${esc(libelle)}</span>
             ${valeur ? `<span class="benefice-valeur">${esc(valeur)}</span>` : ''}
           </div>`).join('')}
       </section>
-      ${r.nbSansPrixAchat > 0
+      ${!r.voitMarge ? '' : r.nbSansPrixAchat > 0
         ? `<p class="note-alerte note-marge">${icone('alerte', 16, 2)} <span>${r.nbSansPrixAchat} ligne${r.nbSansPrixAchat > 1 ? 's' : ''} vendue${r.nbSansPrixAchat > 1 ? 's' : ''} sans prix d’achat (${esc(formatGNF(r.caSansPrixAchat))} de ventes) ne ${r.nbSansPrixAchat > 1 ? 'sont' : 'est'} pas comptée${r.nbSansPrixAchat > 1 ? 's' : ''} dans la marge. <a href="#/stock">Ajoutez les prix d’achat dans le Stock.</a></span></p>`
         : '<p class="note-marge discret">Le coût des marchandises est calculé avec le prix d’achat enregistré au moment de chaque vente.</p>'}
 
@@ -181,7 +188,7 @@ export function afficherRapports(conteneur) {
         <div class="bloc-entete">
           <h2>Articles les plus vendus</h2>
           <div class="segments" role="group" aria-label="Trier par">
-            ${TRIS.map(([code, libelle]) => `<button type="button" class="segment ${code === s.tri ? 'actif' : ''}" data-tri="${code}" aria-pressed="${code === s.tri}">${esc(libelle)}</button>`).join('')}
+            ${TRIS.filter(([code]) => s.rapport.voitMarge || code !== 'marge').map(([code, libelle]) => `<button type="button" class="segment ${code === s.tri ? 'actif' : ''}" data-tri="${code}" aria-pressed="${code === s.tri}">${esc(libelle)}</button>`).join('')}
           </div>
         </div>
         <div data-zone="top">${topHTML()}</div>
@@ -284,18 +291,19 @@ export function afficherRapports(conteneur) {
   }
 
   function articlesTries() {
-    const cle = { ca: 'ca', marge: 'marge', quantite: 'quantite' }[s.tri];
+    const cle = { ca: 'ca', marge: s.rapport.voitMarge ? 'marge' : 'ca', quantite: 'quantite' }[s.tri];
     return [...s.rapport.topArticles].sort((a, b) => (b[cle] ?? -Infinity) - (a[cle] ?? -Infinity));
   }
 
   function topHTML() {
     const articles = articlesTries();
+    const marge = s.rapport.voitMarge;
     if (!articles.length) return '<p class="discret">Aucun article vendu sur cette période.</p>';
     return `
       <div class="tableau-cadre">
         <table class="tableau tableau-top">
           <thead>
-            <tr><th>#</th><th>Article</th><th class="droite">Quantité</th><th class="droite">Chiffre d’affaires</th><th class="droite">Marge</th><th class="droite">Taux</th></tr>
+            <tr><th>#</th><th>Article</th><th class="droite">Quantité</th><th class="droite">Chiffre d’affaires</th>${marge ? '<th class="droite">Marge</th><th class="droite">Taux</th>' : ''}</tr>
           </thead>
           <tbody>
             ${articles.map((a, i) => `
@@ -304,8 +312,8 @@ export function afficherRapports(conteneur) {
                 <td class="gras">${esc(a.nom)}</td>
                 <td class="droite secondaire">${esc(formatQuantite(a.quantite, a.unite))}</td>
                 <td class="droite tres-gras">${formatGNF(a.ca)}</td>
-                <td class="droite tres-gras ${a.marge === null ? 'discret' : 'texte-succes'}">${a.marge === null ? '—' : formatGNF(a.marge)}</td>
-                <td class="droite secondaire">${a.marge === null ? '—' : taux(a.marge, a.ca)}</td>
+                ${marge ? `<td class="droite tres-gras ${a.marge === null ? 'discret' : 'texte-succes'}">${a.marge === null ? '—' : formatGNF(a.marge)}</td>
+                <td class="droite secondaire">${a.marge === null ? '—' : taux(a.marge, a.ca)}</td>` : ''}
               </tr>`).join('')}
           </tbody>
         </table>
@@ -349,21 +357,26 @@ export function afficherRapports(conteneur) {
       return /[;"\n]/.test(texte) ? `"${texte.replace(/"/g, '""')}"` : texte;
     };
     const entier = (v) => (v === null || v === undefined ? '' : Math.round(Number(v) || 0));
+    const m = r.voitMarge;
     const lignes = [
       ['Rapport YOUMMA Business', boutique.nom],
       ['Période', `du ${formatDate(`${du}T12:00:00Z`, 'court')} au ${formatDate(`${au}T12:00:00Z`, 'court')}`],
       [],
-      ['Résumé du bénéfice', 'Montant (GNF)'],
+      [m ? 'Résumé du bénéfice' : 'Résumé', 'Montant (GNF)'],
       ['Ventes', entier(r.ca)],
       ['Nombre de ventes', entier(r.nbVentes)],
       ['Remises', entier(r.remises)],
-      ['Coût des marchandises', entier(r.cout)],
-      ['Marge brute', entier(r.marge)],
-      ['Taux de marge', taux(r.marge, r.ca)],
+      ...(m ? [
+        ['Coût des marchandises', entier(r.cout)],
+        ['Marge brute', entier(r.marge)],
+        ['Taux de marge', taux(r.marge, r.ca)]
+      ] : []),
       ['Dépenses', entier(r.depenses)],
-      ['Bénéfice net', entier(r.marge - r.depenses)],
-      ['Lignes vendues sans prix d’achat', entier(r.nbSansPrixAchat)],
-      ['Ventes sans prix d’achat', entier(r.caSansPrixAchat)],
+      ...(m ? [
+        ['Bénéfice net', entier(r.marge - r.depenses)],
+        ['Lignes vendues sans prix d’achat', entier(r.nbSansPrixAchat)],
+        ['Ventes sans prix d’achat', entier(r.caSansPrixAchat)]
+      ] : []),
       [],
       ['Évolution', 'Ventes (GNF)', 'Dépenses (GNF)'],
       ...r.evolution.map((p) => [libellePoint(p.debut, pas), entier(p.ventes), entier(p.depenses)]),
@@ -371,8 +384,8 @@ export function afficherRapports(conteneur) {
       ['Ventes par vendeur', 'Montant (GNF)', 'Nombre de ventes'],
       ...r.parVendeur.map((v) => [v.nom, entier(v.total), entier(v.nb)]),
       [],
-      ['Rang', 'Article', 'Quantité', 'Unité', 'Chiffre d’affaires (GNF)', 'Marge (GNF)'],
-      ...articlesTries().map((a, i) => [i + 1, a.nom, String(a.quantite).replace('.', ','), a.unite || '', entier(a.ca), entier(a.marge)]),
+      ['Rang', 'Article', 'Quantité', 'Unité', 'Chiffre d’affaires (GNF)', ...(m ? ['Marge (GNF)'] : [])],
+      ...articlesTries().map((a, i) => [i + 1, a.nom, String(a.quantite).replace('.', ','), a.unite || '', entier(a.ca), ...(m ? [entier(a.marge)] : [])]),
       [],
       ['Dépenses par catégorie', 'Montant (GNF)'],
       ...r.parCategorie.map((c) => [c.categorie, entier(c.total)])

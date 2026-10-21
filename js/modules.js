@@ -20,10 +20,7 @@ export const MODULE_DE_ROUTE = {
   proformas: 'devis',
   devis: 'devis',
   messages: 'messages',
-  commandes: 'boutique_en_ligne',
-  'boutique-en-ligne': 'boutique_en_ligne',
-  affiche: 'affiche',
-  livraisons: 'livraisons'
+  'boutique-en-ligne': 'boutique_en_ligne'
 };
 
 /** Modules dont les écrans restent consultables en lecture seule (encaisser, consulter). */
@@ -43,7 +40,9 @@ function normaliser(r) {
     formule: d.formule || null,
     actifs: Array.isArray(d.actifs) ? d.actifs : [],
     lecture_seule: Array.isArray(d.lecture_seule) ? d.lecture_seule : [],
-    modules: Array.isArray(d.modules) ? d.modules : []
+    modules: Array.isArray(d.modules) ? d.modules : [],
+    // Étape 14 : vrai si le membre connecté est le propriétaire (bénéfice, marge et valeur du stock).
+    proprietaire: typeof d.proprietaire === 'boolean' ? d.proprietaire : null
   };
 }
 
@@ -96,6 +95,9 @@ export const modulesCharges = () => Boolean(courant.donnees);
 /** Vrai si les modules de cette boutique sont connus (copie locale ou réseau). */
 export const modulesPour = (idBoutique) => courant.boutique === idBoutique && Boolean(courant.donnees);
 export const donneesModules = () => courant.donnees;
+
+/** Propriétaire selon la base (null si la réponse ne le dit pas : l'appelant se rabat sur le rôle). */
+export const proprietaireSelonModules = () => (typeof courant.donnees?.proprietaire === 'boolean' ? courant.donnees.proprietaire : null);
 
 /** Vrai si le module est disponible (socle ou actif). */
 export function aModule(code) {

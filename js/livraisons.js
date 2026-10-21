@@ -1,7 +1,7 @@
 /**
  * livraisons.js — Livraisons & camions (module « livraisons », étape 13, maquette Livraisons).
  *
- *  - écran #/livraisons : résumé du jour, liste (tableau sur ordinateur, cartes sur téléphone), actions ;
+ *  - écran #/ventes?onglet=livraisons (onglet de « Caisse & ventes ») : résumé du jour, liste (tableau sur ordinateur, cartes sur téléphone), actions ;
  *  - fenêtre « Organiser la livraison » (depuis une vente, une commande en ligne ou libre) → creer_livraison ;
  *  - « Faire partir » → partir_livraison (SMS au chauffeur avec son lien d/<jeton>, client prévenu) ;
  *  - Mes véhicules : écriture directe dans la table vehicules (gérant).
@@ -57,7 +57,7 @@ function quand(l) {
 }
 
 /* =========================================================================
-   Écran #/livraisons
+   Écran des livraisons (onglet de « Caisse & ventes »)
    ========================================================================= */
 
 export function afficherLivraisons(conteneur) {
@@ -68,7 +68,7 @@ export function afficherLivraisons(conteneur) {
     <div class="page page-livraisons">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Livraisons</h1>
           <span>Camions, chauffeurs et bons signés</span>
         </div>
@@ -199,7 +199,7 @@ export function afficherLivraisons(conteneur) {
       }
       return;
     }
-    if (b.dataset.bon) { ouvrirDocument({ type: 'bon_livraison', vente: l.vente_id, retour: '#/livraisons' }); return; }
+    if (b.dataset.bon) { ouvrirDocument({ type: 'bon_livraison', vente: l.vente_id, retour: '#/ventes?onglet=livraisons' }); return; }
     if (b.dataset.frais) { action(() => sb.rpc('payer_frais_livraison', { p_livraison: l.id, p_paye: true }), b, `Frais de ${formatGNF(l.frais)} payés au chauffeur.`); return; }
     if (b.dataset.annuler) ouvrirAnnulation(l, charger);
   });
@@ -286,7 +286,7 @@ async function ouvrirFicheLivraison(idLivraison) {
         ${b.signature ? `<div class="fiche-livraison-signature"><span class="discret">Signature du client</span><img src="${esc(b.signature)}" alt="Signature du client"></div>` : ''}
       </div>`
   });
-  el.querySelector('[data-bon-fiche]')?.addEventListener('click', () => ouvrirDocument({ type: 'bon_livraison', vente: b.vente_id, retour: '#/livraisons' }));
+  el.querySelector('[data-bon-fiche]')?.addEventListener('click', () => ouvrirDocument({ type: 'bon_livraison', vente: b.vente_id, retour: '#/ventes?onglet=livraisons' }));
 }
 
 /* =========================================================================
@@ -384,6 +384,40 @@ function ouvrirVehicule(v, apres) {
 async function contenuVente(idVente) {
   const { data } = await sb.from('ventes_lignes').select('nom_produit, unite, quantite').eq('vente_id', idVente);
   return (data || []).map((l) => `${formatQuantite(Number(l.quantite), String(l.unite || '').toLowerCase())} ${l.nom_produit}`).join(', ');
+}
+
+/** Véhicules actifs de la boutique (caisse : case « Le client veut être livré »). */
+export async function vehiculesActifs() {
+  const { data } = await sb.from('vehicules').select(COLONNES_VEHICULE).eq('boutique_id', etat.boutique.id).eq('actif', true).order('nom');
+  return data || [];
+}
+
+/**
+ * Caisse (étape 14) : livraison d'une vente qui vient d'être validée (creer_livraison), puis frais reportés sur la
+ * vente (ventes.frais_livraison et total) s'ils n'y sont pas déjà. Lève l'erreur de creer_livraison.
+ * Renvoie { livraison, fraisReportes } (fraisReportes : false si la vente n'a pas pu être mise à jour).
+ */
+export async function creerLivraisonVente({ vente, client = null, adresse, repere = null, vehicule = null, frais = 0, prevue = null }) {
+  const contenu = await contenuVente(vente.id).catch(() => '');
+  const { data, error } = await sb.rpc('creer_livraison', {
+    p_boutique: etat.boutique.id, p_vente: vente.id, p_client: client?.id || null, p_nom: client?.nom || 'Client comptoir',
+    p_telephone: client?.telephone || null, p_adresse: adresse, p_repere: repere || null, p_vehicule: vehicule || null,
+    p_frais: Math.round(frais) || 0, p_prevue: prevue, p_contenu: contenu || null, p_note: null
+  });
+  if (error) throw error;
+  const livraison = (Array.isArray(data) ? data[0] : data) || {};
+  let fraisReportes = true;
+  if (frais > 0) {
+    const { data: v, error: erreurLecture } = await sb.from('ventes').select('total, frais_livraison').eq('id', vente.id).maybeSingle();
+    const deja = Number(v?.frais_livraison) || 0;
+    if (erreurLecture || !v) fraisReportes = false;
+    else if (deja !== Math.round(frais)) {
+      const { error: erreurMaj } = await sb.from('ventes')
+        .update({ frais_livraison: Math.round(frais), total: (Number(v.total) || 0) - deja + Math.round(frais) }).eq('id', vente.id);
+      fraisReportes = !erreurMaj;
+    }
+  }
+  return { livraison, fraisReportes };
 }
 
 /**
@@ -484,7 +518,7 @@ export async function ouvrirOrganiserLivraison({ vente = null, commande = null, 
     if (error) { boutonOccupe(bouton, false); montrer(messageErreur(error)); return; }
     const r = (Array.isArray(data) ? data[0] : data) || {};
     fermer();
-    toast(`Livraison ${r.numero || ''} créée.`, 'succes', 6000, { libelle: 'Voir les livraisons', href: '#/livraisons' });
+    toast(`Livraison ${r.numero || ''} créée.`, 'succes', 6000, { libelle: 'Voir les livraisons', href: '#/ventes?onglet=livraisons' });
     apres(r);
   });
 }

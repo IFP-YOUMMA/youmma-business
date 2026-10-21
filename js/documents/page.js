@@ -32,7 +32,7 @@ async function chargerTransport(idVente) {
 }
 
 function retour() {
-  let cible = '#/tableau-de-bord';
+  let cible = '#/aujourdhui';
   try { cible = sessionStorage.getItem('yb_document_retour') || cible; } catch { /* défaut */ }
   location.href = `./${cible}`;
 }

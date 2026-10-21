@@ -14,6 +14,8 @@ import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aModule, vocab, unArticle } from './modules.js';
+import { ongletsVenteHTML } from './onglets-vente.js';
+import { vehiculesActifs, creerLivraisonVente, ouvrirOrganiserLivraison } from './livraisons.js';
 import { chargerUnitesArticles, ouvrirChoixUnite, prixUnite, quantiteEnUnite, completerLignesBase } from './unites.js';
 import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVariantes, oublierVariantes, nomAvecVariante, libelleVariante } from './variantes.js';
 import {
@@ -59,6 +61,10 @@ export function afficherCaisse(conteneur, params) {
     montantRecu: null,
     echeance: dateISO(ECHEANCE_PAR_DEFAUT_JOURS),
     recuSms: false,
+    /** Étape 14 : case « Le client veut être livré » (module livraisons) et sa livraison en cours de saisie. */
+    livrer: false,
+    livraison: { adresse: '', repere: '', vehicule: '', frais: null, quand: 'aujourdhui', date: '' },
+    vehicules: null,
     enCours: false,
     panierOuvert: false,
     /** Devis en cours de transformation en vente (relu en base) : { id, numero, total, lignes, libres, client_nom }. */
@@ -117,8 +123,14 @@ export function afficherCaisse(conteneur, params) {
     s.panier.forEach((l) => { sousTotal += prixLigne(l) * l.quantite; });
     sousTotal = Math.round(sousTotal);
     const remise = Math.min(Math.max(0, Math.round(s.remise || 0)), sousTotal);
-    return { sousTotal, remise, total: sousTotal - remise };
+    // Livraison cochée : les frais s'ajoutent à ce que le client paie (« À payer »).
+    const frais = livraisonActive() ? Math.max(0, Math.round(Number(s.livraison.frais) || 0)) : 0;
+    return { sousTotal, remise, marchandise: sousTotal - remise, frais, total: sousTotal - remise + frais };
   }
+
+  const livraisonActive = () => s.livrer && aModule('livraisons');
+  /** Zone affichée dans les totaux : début de l'adresse (« Kipé, derrière la mosquée » → « Kipé »). */
+  const zoneLivraison = () => (s.livraison.adresse.split(/[,·–-]/)[0] || '').trim();
 
   function nombreArticles() {
     return s.panier.size;
@@ -147,12 +159,13 @@ export function afficherCaisse(conteneur, params) {
     <div class="caisse">
       <header class="caisse-entete">
         <div class="caisse-entete-gauche">
-          <a href="#/tableau-de-bord" class="btn-icone btn-icone-sombre" aria-label="Retour au tableau de bord">${icone('retour', 20, 2)}</a>
+          <a href="#/aujourdhui" class="btn-icone btn-icone-sombre" aria-label="Retour à « Aujourd’hui »">${icone('retour', 20, 2)}</a>
           <div class="caisse-titres">
             <span class="caisse-titre"><span class="seul-ordi">Caisse · </span>Nouvelle vente</span>
             <span class="caisse-sous">${esc(boutique.nom)} · Vendeur : ${esc(prenom(etat.membre?.nom) || '—')}</span>
           </div>
         </div>
+        ${ongletsVenteHTML('caisse', { sombre: true })}
         <div class="caisse-outils">
           ${aModule('prix_gros') ? `<div class="segments segments-sombre" role="group" aria-label="Type de prix">
             <button type="button" class="segment actif" data-prix="detail" aria-pressed="true">Prix détail</button>
@@ -264,7 +277,7 @@ export function afficherCaisse(conteneur, params) {
 
   function renderPanier() {
     const lignes = [...s.panier.values()];
-    const { sousTotal, remise, total } = totaux();
+    const { sousTotal, remise, frais, total } = totaux();
     const expiree = licenceExpiree();
     const nomClient = s.client ? s.client.nom : 'Client comptoir';
 
@@ -300,10 +313,14 @@ export function afficherCaisse(conteneur, params) {
         </div>
 
         <div class="totaux">
-          <div class="totaux-ligne"><span class="discret">Sous-total</span><span class="gras"><span data-ref="sous-total">${formatNombre(sousTotal)}</span> GNF</span></div>
+          <div class="totaux-ligne"><span class="discret">${livraisonActive() ? 'Marchandise' : 'Sous-total'}</span><span class="gras"><span data-ref="sous-total">${formatNombre(sousTotal)}</span> GNF</span></div>
           ${remiseHTML(remise)}
+          <div class="totaux-ligne" data-ref="ligne-livraison" ${livraisonActive() ? '' : 'hidden'}>
+            <span class="discret" data-ref="libelle-livraison">${esc(libelleLivraison())}</span>
+            <span class="gras"><span data-ref="frais-livraison">${formatNombre(frais)}</span> GNF</span>
+          </div>
           <div class="totaux-ligne totaux-final">
-            <span>Total à payer</span>
+            <span>${livraisonActive() ? 'À payer' : 'Total à payer'}</span>
             <span class="total-grand"><span data-ref="total">${formatNombre(total)}</span> <span class="unite-gnf">GNF</span></span>
           </div>
         </div>
@@ -314,6 +331,8 @@ export function afficherCaisse(conteneur, params) {
         </div>
 
         ${detailModeHTML(total)}
+
+        ${livraisonHTML()}
 
         ${aModule('messages') ? `<label class="case-sms ${s.client?.telephone ? '' : 'inactive'}">
           <input type="checkbox" data-ref="sms" ${s.recuSms && s.client?.telephone ? 'checked' : ''} ${s.client?.telephone ? '' : 'disabled'}>
@@ -425,6 +444,64 @@ export function afficherCaisse(conteneur, params) {
       </div>`;
   }
 
+  function libelleLivraison() {
+    const zone = zoneLivraison();
+    return zone ? `Livraison · ${zone}` : 'Livraison';
+  }
+
+  /** Case « Le client veut être livré » (CaisseLivraison.dc.html) : adresse, repère, véhicule, frais, quand. */
+  function livraisonHTML() {
+    if (!aModule('livraisons')) return '';
+    const l = s.livraison;
+    const vehicules = s.vehicules || [];
+    return `
+      <div class="bloc-livraison-caisse ${s.livrer ? 'ouvert' : ''}">
+        <label class="case-livraison">
+          <input type="checkbox" data-ref="livrer" ${s.livrer ? 'checked' : ''}>
+          <span><strong>Le client veut être livré</strong><small>Décochez si le client emporte lui-même</small></span>
+        </label>
+        ${s.livrer ? `
+        <div class="champs-livraison-caisse">
+          <div class="champ champ-large"><label for="caisse-liv-adresse">Adresse de livraison</label>
+            <input id="caisse-liv-adresse" class="input" maxlength="200" data-ref="liv-adresse" value="${esc(l.adresse)}" placeholder="Ex. Kipé, derrière la mosquée" required autocomplete="off"></div>
+          <div class="champ champ-large"><label for="caisse-liv-repere">Repère (facultatif)</label>
+            <input id="caisse-liv-repere" class="input" maxlength="200" data-ref="liv-repere" value="${esc(l.repere)}" placeholder="Ex. portail bleu" autocomplete="off"></div>
+          <div class="champ"><label for="caisse-liv-vehicule">Véhicule</label>
+            <select id="caisse-liv-vehicule" class="input" data-ref="liv-vehicule">
+              <option value="">${s.vehicules === null ? 'Chargement…' : 'Aucun / à choisir'}</option>
+              ${vehicules.map((v) => `<option value="${esc(v.id)}" data-frais="${Number(v.frais_voyage) || 0}" ${v.id === l.vehicule ? 'selected' : ''}>${esc(v.nom)}${v.chauffeur ? ` · ${esc(v.chauffeur)}` : ''}</option>`).join('')}
+            </select></div>
+          <div class="champ"><label for="caisse-liv-frais">Frais (GNF)</label>
+            <input id="caisse-liv-frais" class="input" type="text" inputmode="numeric" data-ref="liv-frais" value="${l.frais === null ? '' : esc(String(l.frais))}" placeholder="0"></div>
+          <div class="champ champ-large"><label for="caisse-liv-quand">Quand ?</label>
+            <div class="rangee-quand">
+              <select id="caisse-liv-quand" class="input" data-ref="liv-quand">
+                <option value="aujourdhui" ${l.quand === 'aujourdhui' ? 'selected' : ''}>Aujourd’hui</option>
+                <option value="demain" ${l.quand === 'demain' ? 'selected' : ''}>Demain</option>
+                <option value="date" ${l.quand === 'date' ? 'selected' : ''}>Une date…</option>
+              </select>
+              <label class="sr-only" for="caisse-liv-date">Date de livraison</label>
+              <input id="caisse-liv-date" class="input" type="date" min="${dateISO()}" data-ref="liv-date" value="${esc(l.date)}" ${l.quand === 'date' ? '' : 'hidden'}>
+            </div></div>
+          <p class="discret note-livraison-caisse">La livraison sera créée toute seule, prête à partir.</p>
+        </div>` : ''}
+      </div>`;
+  }
+
+  /** Date prévue envoyée à creer_livraison (heure de Conakry = UTC). */
+  function prevueLivraison() {
+    const l = s.livraison;
+    if (l.quand === 'demain') return `${dateISO(1)}T09:00:00Z`;
+    if (l.quand === 'date' && l.date) return `${l.date}T09:00:00Z`;
+    return new Date(Date.now() + 3600 * 1000).toISOString();
+  }
+
+  async function chargerVehicules() {
+    if (s.vehicules !== null) return;
+    s.vehicules = await vehiculesActifs().catch(() => []);
+    if (s.livrer && conteneur.isConnected) renderPanier();
+  }
+
   function texteMonnaie(total) {
     if (s.montantRecu === null) return '—';
     const monnaie = s.montantRecu - total;
@@ -433,8 +510,10 @@ export function afficherCaisse(conteneur, params) {
 
   /** Met à jour les montants sans reconstruire le panier (préserve la saisie en cours). */
   function majTotaux() {
-    const { sousTotal, remise, total } = totaux();
+    const { sousTotal, remise, frais, total } = totaux();
     refs('total').forEach((el) => { el.textContent = formatNombre(total); });
+    refs('frais-livraison').forEach((el) => { el.textContent = formatNombre(frais); });
+    refs('libelle-livraison').forEach((el) => { el.textContent = libelleLivraison(); });
     refs('sous-total').forEach((el) => { el.textContent = formatNombre(sousTotal); });
     refs('libelle-total').forEach((el) => { el.textContent = remise ? `Total (remise − ${formatNombre(remise)})` : 'Total'; });
     refs('monnaie').forEach((el) => { el.textContent = texteMonnaie(total); });
@@ -547,6 +626,8 @@ export function afficherCaisse(conteneur, params) {
     s.mode = 'especes';
     s.echeance = dateISO(ECHEANCE_PAR_DEFAUT_JOURS);
     s.recuSms = false;
+    s.livrer = false;
+    s.livraison = { adresse: '', repere: '', vehicule: '', frais: null, quand: 'aujourdhui', date: '' };
   }
 
   function choisirClient(client) {
@@ -822,8 +903,22 @@ export function afficherCaisse(conteneur, params) {
   async function valider() {
     if (s.enCours || !s.panier.size) return;
     if (licenceExpiree()) { toast(MESSAGE_LICENCE, 'erreur'); return; }
-    const { sousTotal, remise, total } = totaux();
+    const { sousTotal, remise, frais, total } = totaux();
 
+    if (livraisonActive()) {
+      const champAdresse = () => conteneur.querySelector('#caisse-liv-adresse');
+      if (!s.livraison.adresse.trim()) {
+        toast('Indiquez l’adresse de livraison.', 'erreur');
+        basculerPanier(true);
+        champAdresse()?.focus();
+        return;
+      }
+      if (s.livraison.quand === 'date' && (!s.livraison.date || s.livraison.date < dateISO())) {
+        toast('Choisissez une date de livraison à venir.', 'erreur');
+        basculerPanier(true);
+        return;
+      }
+    }
     if (s.mode === 'credit') {
       if (!s.client) {
         toast('Une vente à crédit nécessite un client.', 'erreur');
@@ -850,6 +945,11 @@ export function afficherCaisse(conteneur, params) {
       recuSms: Boolean(s.recuSms && s.client?.telephone),
       sousTotal,
       remise,
+      // Livraison demandée à la caisse (créée juste après valider_vente).
+      livraison: livraisonActive() ? {
+        adresse: s.livraison.adresse.trim(), repere: s.livraison.repere.trim(), vehicule: s.livraison.vehicule || null,
+        frais, prevue: prevueLivraison(), zone: zoneLivraison()
+      } : null,
       lignes: [...s.panier.values()].map((l) => ({
         nom_produit: nomAvecVariante(l.produit.nom, l.variante?.libelle), unite: l.unite ? l.unite.nom : l.produit.unite, quantite: l.quantite,
         prix_unitaire: prixLigne(l), total: Math.round(prixLigne(l) * l.quantite),
@@ -883,7 +983,8 @@ export function afficherCaisse(conteneur, params) {
       s.panierOuvert = false;
       document.body.classList.remove('panier-plein-ecran');
       renderPanier();
-      afficherConfirmation(vente, instantane);
+      const livraison = instantane.livraison && vente.id ? await livrerVente(vente, instantane) : null;
+      afficherConfirmation(vente, instantane, livraison);
       if (instantane.mode === 'credit') {
         toast(`Vente à crédit enregistrée pour ${instantane.client.nom}.`, 'succes', 8000,
           { libelle: 'Voir la fiche du client', href: `#/clients/${encodeURIComponent(instantane.client.id)}` });
@@ -898,8 +999,23 @@ export function afficherCaisse(conteneur, params) {
     }
   }
 
-  function afficherConfirmation(vente, instantane) {
-    const total = Number(vente.total ?? instantane.sousTotal - instantane.remise) || 0;
+  /** Livraison de la vente qui vient d'être validée : { ok, livraison?, erreur? } (la vente reste valide quoi qu'il arrive). */
+  async function livrerVente(vente, instantane) {
+    const l = instantane.livraison;
+    try {
+      const r = await creerLivraisonVente({ vente, client: instantane.client, adresse: l.adresse, repere: l.repere, vehicule: l.vehicule, frais: l.frais, prevue: l.prevue });
+      if (!r.fraisReportes && l.frais) toast('La livraison est créée, mais ses frais n’ont pas pu être ajoutés à la vente.', 'erreur', 8000);
+      return { ok: true, livraison: r.livraison };
+    } catch (err) {
+      return { ok: false, erreur: messageErreur(err) };
+    }
+  }
+
+  function afficherConfirmation(vente, instantane, resultatLivraison = null) {
+    const liv = instantane.livraison;
+    const fraisLiv = liv ? liv.frais : 0;
+    // valider_vente renvoie le total des articles : les frais de livraison s'y ajoutent.
+    const total = (Number(vente.total ?? instantane.sousTotal - instantane.remise) || 0) + fraisLiv;
     const monnaie = instantane.montantRecu !== null ? instantane.montantRecu - total : null;
     const recu = {
       numero: vente.numero,
@@ -912,7 +1028,9 @@ export function afficherCaisse(conteneur, params) {
       remise: instantane.remise,
       total,
       montantRecu: instantane.montantRecu,
-      monnaie
+      monnaie,
+      fraisLivraison: fraisLiv,
+      libelleLivraison: liv ? `Livraison · ${liv.adresse}` : null
     };
     // Les montants exacts (recalculés par le serveur) remplacent l'aperçu dès qu'ils arrivent.
     const recuServeur = chargerRecuServeur(vente.id, recu);
@@ -927,6 +1045,7 @@ export function afficherCaisse(conteneur, params) {
           <p class="discret">${esc(MODES_PAIEMENT[instantane.mode].libelle)}${instantane.client ? ' · ' + esc(instantane.client.nom) : ''}</p>
           ${monnaie !== null ? `<div class="confirmation-monnaie"><span>Monnaie à rendre</span><strong>${formatGNF(Math.max(0, monnaie))}</strong></div>` : ''}
           ${instantane.echeance ? `<p class="discret">Ajouté au crédit du client · échéance le ${esc(formatDate(instantane.echeance, 'court'))}</p>` : ''}
+          ${liv ? `<div class="confirmation-livraison" data-zone="etat-livraison">${etatLivraisonHTML(resultatLivraison, liv)}</div>` : ''}
         </div>
         ${boutonsDocuments()}
         <div class="modale-actions">
@@ -937,6 +1056,20 @@ export function afficherCaisse(conteneur, params) {
     el.querySelector('[data-action="nouvelle-vente"]').focus();
     el.addEventListener('click', async (e) => {
       if (e.target.closest('[data-action="nouvelle-vente"]')) fermer();
+      const reessayer = e.target.closest('[data-action="reessayer-livraison"]');
+      if (reessayer) {
+        boutonOccupe(reessayer, true, 'Création…');
+        const r = await livrerVente(vente, instantane);
+        const z = el.querySelector('[data-zone="etat-livraison"]');
+        if (z) z.innerHTML = etatLivraisonHTML(r, liv);
+        if (r.ok) toast('Livraison créée.', 'succes');
+        return;
+      }
+      if (e.target.closest('[data-action="organiser-livraison"]')) {
+        fermer();
+        ouvrirOrganiserLivraison({ vente: { id: vente.id, numero: vente.numero, client_id: instantane.client?.id || null } });
+        return;
+      }
       const boutonImprimer = e.target.closest('[data-action="imprimer"]');
       if (boutonImprimer) {
         boutonOccupe(boutonImprimer, true, 'Préparation…');
@@ -947,6 +1080,19 @@ export function afficherCaisse(conteneur, params) {
       const boutonDoc = e.target.closest('[data-document]');
       if (boutonDoc && vente.id) ouvrirDocument({ type: boutonDoc.dataset.document, vente: vente.id, retour: '#/caisse' });
     });
+  }
+
+  /** État de la livraison créée à la caisse, dans la fenêtre « Vente enregistrée ». */
+  function etatLivraisonHTML(r, liv) {
+    if (r?.ok) {
+      return `<p class="encadre-succes-livraison">${icone('camion', 18, 2)} <span>Livraison ${esc(r.livraison?.numero || '')} créée · ${esc(liv.adresse)}${liv.frais ? ` · ${esc(formatGNF(liv.frais))}` : ''}. <a href="#/ventes?onglet=livraisons">Voir les livraisons</a></span></p>`;
+    }
+    return `<div class="note-alerte note-livraison-echec" role="alert">${icone('alerte', 18, 2)}
+      <span>La vente est enregistrée, mais la livraison n’a pas été créée.${r?.erreur ? ` <small>${esc(r.erreur)}</small>` : ''}</span></div>
+      <div class="actions-livraison-echec">
+        <button type="button" class="btn btn-secondaire btn-petit" data-action="reessayer-livraison">Réessayer</button>
+        <button type="button" class="btn-lien" data-action="organiser-livraison">Organiser la livraison…</button>
+      </div>`;
   }
 
   /** Boutons d'impression : facture (ou reçu) A4, bon de livraison, ticket 80 mm ; le format par défaut en premier. */
@@ -1058,7 +1204,7 @@ export function afficherCaisse(conteneur, params) {
     if (!zoneDevis) return;
     if (!s.devis) { zoneDevis.hidden = true; zoneDevis.innerHTML = ''; return; }
     const { cible, totalLibres, manquants } = s.devis;
-    const { total } = totaux();
+    const { marchandise: total } = totaux();
     const alertes = [];
     if (s.devis.libres.length) alertes.push(`Lignes libres du devis à ajouter manuellement ou en remise : ${s.devis.libres.map((l) => `${l.nom} (${formatGNF(l.total)})`).join(', ')}.`);
     if (manquants.length) alertes.push(`Non repris : ${manquants.join(', ')}.`);
@@ -1084,12 +1230,15 @@ export function afficherCaisse(conteneur, params) {
     if (!idVente) return recuLocal;
     try {
       const [venteRes, lignesRes] = await Promise.all([
-        sb.from('ventes').select('numero, created_at, sous_total, remise, total, mode_paiement, echeance').eq('id', idVente).single(),
+        sb.from('ventes').select('numero, created_at, sous_total, remise, total, mode_paiement, echeance, frais_livraison').eq('id', idVente).single(),
         sb.from('ventes_lignes').select('produit_id, nom_produit, unite, quantite, prix_unitaire, total, facteur, quantite_base').eq('vente_id', idVente)
       ]);
       if (venteRes.error || lignesRes.error) return recuLocal;
       const v = venteRes.data;
       await completerLignesBase(lignesRes.data);
+      // Frais de livraison de la caisse pas (encore) reportés sur la vente : on les garde sur le reçu.
+      const fraisVente = Number(v.frais_livraison) || 0;
+      const total = Number(v.total) + (recuLocal.fraisLivraison && !fraisVente ? recuLocal.fraisLivraison : 0);
       return {
         ...recuLocal,
         numero: v.numero,
@@ -1098,8 +1247,9 @@ export function afficherCaisse(conteneur, params) {
         echeance: v.echeance,
         sousTotal: Number(v.sous_total),
         remise: Number(v.remise),
-        total: Number(v.total),
-        monnaie: recuLocal.montantRecu !== null ? recuLocal.montantRecu - Number(v.total) : null,
+        total,
+        fraisLivraison: fraisVente || recuLocal.fraisLivraison || 0,
+        monnaie: recuLocal.montantRecu !== null ? recuLocal.montantRecu - total : null,
         lignes: lignesRes.data.length ? lignesRes.data : recuLocal.lignes
       };
     } catch {
@@ -1210,6 +1360,9 @@ export function afficherCaisse(conteneur, params) {
     if (ref === 'montant-recu') { s.montantRecu = lireNombre(e.target.value); majTotaux(); }
     if (ref === 'remise') { s.remise = Math.max(0, lireNombre(e.target.value) || 0); majTotaux(); }
     if (ref === 'echeance') s.echeance = e.target.value;
+    if (ref === 'liv-adresse') { s.livraison.adresse = e.target.value; majTotaux(); }
+    if (ref === 'liv-repere') s.livraison.repere = e.target.value;
+    if (ref === 'liv-frais') { const f = lireNombre(e.target.value); s.livraison.frais = f === null ? null : Math.max(0, Math.round(f)); majTotaux(); }
   });
 
   conteneur.addEventListener('change', (e) => {
@@ -1220,6 +1373,28 @@ export function afficherCaisse(conteneur, params) {
       else definirQuantite(e.target.dataset.qte, quantite);
     }
     if (e.target.dataset.ref === 'sms') s.recuSms = e.target.checked;
+    if (e.target.dataset.ref === 'livrer') {
+      s.livrer = e.target.checked;
+      if (s.livrer) chargerVehicules();
+      renderPanier();
+      if (s.livrer) conteneur.querySelector('#caisse-liv-adresse')?.focus();
+    }
+    if (e.target.dataset.ref === 'liv-vehicule') {
+      s.livraison.vehicule = e.target.value;
+      const frais = e.target.selectedOptions[0]?.dataset.frais;
+      if (frais !== undefined) {
+        s.livraison.frais = Number(frais) || 0;
+        const champ = conteneur.querySelector('#caisse-liv-frais');
+        if (champ) champ.value = String(s.livraison.frais);
+      }
+      majTotaux();
+    }
+    if (e.target.dataset.ref === 'liv-quand') {
+      s.livraison.quand = e.target.value;
+      const champDate = conteneur.querySelector('#caisse-liv-date');
+      if (champDate) { champDate.hidden = s.livraison.quand !== 'date'; if (!champDate.hidden) champDate.focus(); }
+    }
+    if (e.target.dataset.ref === 'liv-date') s.livraison.date = e.target.value;
     if (e.target.dataset.ref === 'remise') {
       s.remise = totaux().remise;
       s.editionRemise = false;

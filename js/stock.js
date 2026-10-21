@@ -102,11 +102,12 @@ export function afficherStock(conteneur, params) {
     <div class="page ${aModule('prix_gros') ? '' : 'sans-gros'}">
       <header class="page-entete">
         <div class="page-titres">
-          <h1>${esc(vocab('menu'))}</h1>
+          <h1>${esc(vocab('menu') === 'Stock' ? `${vocab('articles')} & stock` : vocab('menu'))}</h1>
           <span data-zone="resume">Chargement…</span>
         </div>
         ${gerer ? `<button type="button" class="btn btn-primaire" data-action="ajouter">${icone('plus', 18, 2.4)} Ajouter ${esc(unArticle())}</button>` : ''}
       </header>
+      <section class="carte valeur-stock" data-zone="valeur-stock" aria-label="Valeur du stock" hidden></section>
 
       <section class="carte outils-stock" aria-label="Filtres">
         <label class="recherche-entete recherche-large">
@@ -250,7 +251,39 @@ export function afficherStock(conteneur, params) {
     renderFiltres();
     renderListe();
     chargerBandeauReassort();
+    chargerValeurStock();
     return true;
+  }
+
+  /**
+   * Valeur du stock (étape 14, propriétaire seulement) : valeur_stock(p_boutique) →
+   * { patron, valeur_achat, valeur_vente, nb_articles, nb_sans_prix_achat } ; { patron: false } pour les autres → rien.
+   */
+  async function chargerValeurStock() {
+    const { data, error } = await sb.rpc('valeur_stock', { p_boutique: boutique.id });
+    const z = zone('valeur-stock');
+    if (!z?.isConnected) return;
+    const v = (Array.isArray(data) ? data[0] : data) || {};
+    if (error || v.patron !== true || v.valeur_vente === null || v.valeur_vente === undefined) { z.hidden = true; z.innerHTML = ''; return; }
+    const sans = Number(v.nb_sans_prix_achat) || 0;
+    const nb = Number(v.nb_articles) || 0;
+    z.hidden = false;
+    z.innerHTML = `
+      <div class="valeur-stock-chiffres">
+        <div class="valeur-stock-bloc">
+          <span class="etiquette-carte">Valeur du stock · prix d’achat <span class="pastille-patron">PATRON</span></span>
+          <strong class="nombre-gros">${formatNombre(v.valeur_achat)}<small>GNF</small></strong>
+        </div>
+        <div class="valeur-stock-bloc">
+          <span class="etiquette-carte">Au prix de vente</span>
+          <strong class="nombre-gros">${formatNombre(v.valeur_vente)}<small>GNF</small></strong>
+        </div>
+        <div class="valeur-stock-bloc">
+          <span class="etiquette-carte">${esc(vocab('articles'))} en stock</span>
+          <strong class="nombre-gros">${formatNombre(nb)}</strong>
+        </div>
+      </div>
+      ${sans > 0 ? `<p class="valeur-stock-note">${icone('alerte', 15, 2)} ${sans} ${esc((sans > 1 ? vocab('articles') : vocab('article')).toLowerCase())} n’${sans > 1 ? 'ont' : 'a'} pas de prix d’achat, la valeur est estimée sur le prix de vente.</p>` : ''}`;
   }
 
   /** Cases actives de tous les modèles à tailles / couleurs (par lots de 100 articles). */

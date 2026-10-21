@@ -65,7 +65,7 @@ export async function verifierCommandes() {
       .order('created_at', { ascending: false }).limit(1);
     const derniere = data?.[0];
     toast(`Nouvelle commande en ligne ${derniere?.numero || ''}`.trim(), 'succes', 8000,
-      derniere ? { href: `#/commandes/${encodeURIComponent(derniere.id)}`, libelle: 'Voir' } : null);
+      derniere ? { href: `#/boutique-en-ligne/${encodeURIComponent(derniere.id)}`, libelle: 'Voir' } : null);
     if (sonCommandesActif()) jouerSonCommande();
   }
   dernierNombre = n;

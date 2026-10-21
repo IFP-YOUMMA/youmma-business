@@ -61,7 +61,7 @@ export function afficherVendeurs(conteneur) {
     <div class="page page-vendeurs">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Vendeurs</h1>
           <span>Votre équipe et ses ventes · ${esc(boutique.nom)}</span>
         </div>

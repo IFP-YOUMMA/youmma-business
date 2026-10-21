@@ -48,7 +48,7 @@ export function afficherAide(conteneur) {
     <div class="page page-aide">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>Aide</h1>
           <span>Une question, un souci ? L’équipe YOUMMA vous répond ici ou sur WhatsApp.</span>
         </div>

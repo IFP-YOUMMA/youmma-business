@@ -600,6 +600,7 @@ export function confirmer(message, { titre = 'Confirmation', libelleOk = 'Confir
 
 export const ICONES = {
   tableau: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
+  maison: 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5',
   caisse: 'M3 7h18v12H3zM3 11h18M7 15h3',
   ventes: 'M6 2L3 6v14h18V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
   stock: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',

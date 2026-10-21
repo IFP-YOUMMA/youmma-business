@@ -96,7 +96,7 @@ function afficherListe(conteneur, idSelection) {
     <div class="page page-clients ${moduleVisible('credits') ? '' : 'sans-credits'}">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour seul-ordi" href="#/tableau-de-bord">← Tableau de bord</a>
+          <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
           <h1>${moduleVisible('credits') ? 'Clients &amp; crédits' : 'Clients'}</h1>
         </div>
         <div class="dash-entete-actions entete-clients-actions">

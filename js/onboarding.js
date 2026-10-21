@@ -59,7 +59,7 @@ export function afficherOnboarding(conteneur, params) {
 function boutonEntete() {
   return etat.boutiques.length === 0
     ? '<button type="button" class="btn btn-fantome-sombre" data-action="deconnexion">Se déconnecter</button>'
-    : '<a class="btn btn-fantome-sombre" href="#/tableau-de-bord">Retour</a>';
+    : '<a class="btn btn-fantome-sombre" href="#/aujourdhui">Retour</a>';
 }
 
 /* ------------------------------------------------------------ Choix : code d'invitation ou création */
@@ -154,7 +154,7 @@ function afficherChoix(conteneur, peutCreer) {
       await chargerBoutiques();
       choisirBoutique(idBoutique);
       toast(`Bienvenue dans la boutique ${etat.boutique?.nom || ''} !`, 'succes', 6000);
-      naviguer('tableau-de-bord', { remplacer: true });
+      naviguer('aujourdhui', { remplacer: true });
     } catch (err) {
       zone.innerHTML = `<p class="encadre-erreur">${icone('alerte', 18, 2)} <span>${esc(messageErreur(err))}</span></p>`;
       boutonOccupe(bouton, false);
@@ -267,7 +267,7 @@ async function creerBoutique(formulaire) {
     await chargerModules(idBoutique, { annoncer: false });
     const nomActivite = activitesConnues.find((a) => a.code === type)?.nom || TYPES_ACTIVITE[type] || 'votre activité';
     toast(`Votre appli est prête pour ${nomActivite.toLowerCase()} : menu et modules adaptés (Paramètres › Mes modules pour changer). Essai gratuit de 14 jours.`, 'succes', 8000);
-    naviguer('tableau-de-bord', { remplacer: true });
+    naviguer('aujourdhui', { remplacer: true });
   } catch (err) {
     afficherErreur(messageErreur(err));
     boutonOccupe(bouton, false);

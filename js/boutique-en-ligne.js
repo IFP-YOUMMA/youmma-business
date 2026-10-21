@@ -42,7 +42,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
     <div class="page page-boutique-en-ligne">
       <header class="page-entete">
         <div class="page-titres">
-          <a class="lien-retour" href="#/commandes">← Commandes en ligne</a>
+          <a class="lien-retour" href="#/boutique-en-ligne">← Boutique en ligne</a>
           <h1>Ma boutique en ligne</h1>
           <span>Vos clients commandent depuis leur téléphone, vous recevez la commande ici et sur WhatsApp.</span>
         </div>
@@ -62,7 +62,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
   function render() {
     const r = s.reglages;
     zone('principal').innerHTML = `
-      <section class="carte ben-section">
+      <section class="carte ben-section" data-section="reglages">
         <div class="ben-activation">
           <div class="ben-activation-textes">
             <h2>Boutique en ligne ${r.actif ? 'activée' : 'fermée'}</h2>
@@ -89,7 +89,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
         </div>
       </section>
 
-      <section class="carte ben-section">
+      <section class="carte ben-section" data-section="reglages">
         <h2>Présentation</h2>
         <div class="rangee-champs">
           <div class="champ"><label for="ben-wa">Numéro WhatsApp qui reçoit les commandes</label>
@@ -114,14 +114,14 @@ export function afficherBoutiqueEnLigne(conteneur) {
         <div class="ben-enregistrer"><button type="button" class="btn btn-primaire" data-action="enregistrer">Enregistrer</button></div>
       </section>
 
-      <section class="carte ben-section">
+      <section class="carte ben-section" data-section="zones">
         <div class="bloc-entete"><h2>Zones de livraison</h2><span class="discret">Frais ajoutés au total de la commande</span></div>
         <ul class="liste-zones" data-zone="zones"></ul>
         <button type="button" class="btn-ajout-pointille" data-action="ajouter-zone">+ Ajouter une zone</button>
         <label class="case-option"><input type="checkbox" data-action="zones-inactives"> Afficher les zones désactivées</label>
       </section>
 
-      <section class="carte ben-section">
+      <section class="carte ben-section" data-section="articles">
         <div class="bloc-entete">
           <div class="bloc-titres"><h2>Articles en ligne</h2><span class="discret" data-ref="resume-articles"></span></div>
           <div class="ben-tout">
@@ -157,7 +157,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
         <div class="recap-ligne-clair"><span>Visites de la boutique</span><strong data-ref="st-visites">${stats ? formatNombre(stats.visites || 0) : '…'}</strong></div>
         <div class="recap-ligne-clair"><span>Commandes reçues</span><strong data-ref="st-commandes">${stats ? formatNombre(stats.commandes || 0) : '…'}</strong></div>
         <div class="recap-ligne-clair"><span>Livrées et encaissées</span><strong data-ref="st-livrees">${stats ? `${formatNombre(stats.livrees || 0)} · ${formatGNF(stats.montant_livre || 0)}` : '…'}</strong></div>
-        ${stats && stats.a_traiter ? `<a class="btn btn-secondaire btn-petit" href="#/commandes">${formatNombre(stats.a_traiter)} commande${stats.a_traiter > 1 ? 's' : ''} à traiter</a>` : ''}
+        ${stats && stats.a_traiter ? `<a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne?onglet=commandes">${formatNombre(stats.a_traiter)} commande${stats.a_traiter > 1 ? 's' : ''} à traiter</a>` : ''}
       </section>`;
   }
 
