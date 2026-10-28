@@ -3657,3 +3657,16 @@ section.aff-auto { padding: 14px 16px; }
 }
 .aff-reseau .aff-reseau-textes { flex: 1 1 120px; }
 .aff-reseau-droite { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+
+/* Étape 15 — bande « Habillage » (vignettes du vrai dessin, 62 px) */
+.aff-habillages { display: flex; flex-direction: column; gap: 6px; }
+.aff-habillages-titre { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-2); text-align: center; }
+.aff-habillages-liste { display: flex; gap: 10px; justify-content: center; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.aff-habillages-liste::-webkit-scrollbar { display: none; }
+.aff-habillage { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 3px; border: 2px solid transparent; border-radius: 12px; background: none; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; min-width: 70px; }
+.aff-habillage.actif { border-color: var(--primary); color: var(--primary-dark); }
+.aff-habillage:disabled { cursor: default; }
+.aff-vignette { width: 62px; height: 78px; border-radius: 8px; overflow: hidden; background: var(--separateur); display: block; box-shadow: 0 1px 3px rgba(14, 31, 26, .18); }
+.aff-vignette img, .aff-vignette .squelette { width: 100%; height: 100%; display: block; object-fit: cover; }
+.aff-lien-selection { align-self: center; min-height: 44px; }
+.aff-theme-style { font-size: 11.5px; font-weight: 700; color: var(--primary-dark); }

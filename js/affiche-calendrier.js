@@ -3,7 +3,7 @@
  *
  *  - ordinateur : grille du mois (mon_plan ; generer_plan si le mois n'est pas encore préparé), une couleur par
  *    thème, aujourd'hui entouré, dimanches « Repos », pastille quand la journée est publiée ; clic sur un jour →
- *    thème / article / retirer (changer_jour_plan) ; un jour passé n'est pas modifiable ;
+ *    thème / habillage / article / retirer (changer_jour_plan) ; un jour passé n'est pas modifiable ;
  *  - téléphone : les 7 prochains jours ;
  *  - « Changer le rythme » : jours, heure, réseaux, ton, signature (modifier_publication) ;
  *  - colonne de droite : Mes réseaux (mes_reseaux, connecter / déconnecter), chiffres du mois, publication
@@ -43,6 +43,8 @@ export async function bandeauExpiration(zone) {
 const moisDe = (jour) => `${String(jour).slice(0, 7)}-01`;
 function decalerMois(mois, n) { const d = new Date(`${mois}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); }
 const jourSemaine = (jour) => { const j = new Date(`${String(jour).slice(0, 10)}T12:00:00Z`).getUTCDay(); return j === 0 ? 7 : j; };
+const NOMS_STYLES = { catalogue: 'Catalogue', impact: 'Impact', selection: 'Sélection', photo: 'Photo', message: 'Message' };
+const STYLE_DEFAUT = { produit: 'catalogue', promo: 'impact', lundi: 'message', vendredi: 'message', fete: 'message', arrivage: 'photo', horaires: 'message', merci: 'message', saison: 'catalogue' };
 const idProduit = (j) => (j.produit && typeof j.produit === 'object' ? j.produit.id : j.produit) || null;
 const nomProduit = (j) => (j.produit && typeof j.produit === 'object' ? j.produit.nom : null);
 
@@ -251,6 +253,7 @@ export function monterCalendrier(zone, { modifier }) {
       contenu: `<form class="form-modale" novalidate>
         <div class="champ"><label for="cal-theme">Thème</label>
           <select id="cal-theme" class="input">${themes.map((t) => `<option value="${esc(t.code)}" data-besoin="${esc(t.besoin || 'aucun')}" ${t.code === j.theme ? 'selected' : ''}>${esc(t.nom)}</option>`).join('')}</select></div>
+        <div class="champ" data-ref="champ-style"><label for="cal-style">Habillage</label><select id="cal-style" class="input"></select></div>
         <div class="champ" data-ref="champ-article"><label for="cal-article">Article</label>
           <select id="cal-article" class="input"><option value="">Choisi automatiquement</option>${produits.map((p) => `<option value="${esc(p.id)}" ${p.id === idProduit(j) ? 'selected' : ''}>${esc(p.nom)} · ${formatNombre(prixApplique(p))} GNF</option>`).join('')}</select></div>
         <p class="erreur-form" role="alert" hidden></p>
@@ -262,12 +265,21 @@ export function monterCalendrier(zone, { modifier }) {
     });
     const form = el.querySelector('form');
     const select = form.querySelector('#cal-theme');
-    const majArticle = () => { form.querySelector('[data-ref="champ-article"]').hidden = select.selectedOptions[0]?.dataset.besoin !== 'produit'; };
+    const nomStyle = (c) => (s.plan?.styles || []).find((x) => x.code === c)?.nom || NOMS_STYLES[c] || c;
+    const majArticle = () => {
+      form.querySelector('[data-ref="champ-article"]').hidden = select.selectedOptions[0]?.dataset.besoin !== 'produit';
+      // Seulement les habillages permis par ce thème (affiche_themes.styles), celui par défaut d'abord choisi.
+      const t = themes.find((x) => x.code === select.value) || {};
+      const permis = (t.styles && t.styles.length ? t.styles : [t.style_defaut || STYLE_DEFAUT[select.value] || 'message']);
+      const actuel = select.value === j.theme && j.style && permis.includes(j.style) ? j.style : (t.style_defaut || STYLE_DEFAUT[select.value] || permis[0]);
+      form.querySelector('#cal-style').innerHTML = permis.map((c) => `<option value="${esc(c)}" ${c === actuel ? 'selected' : ''}>${esc(nomStyle(c))}</option>`).join('');
+      form.querySelector('[data-ref="champ-style"]').hidden = permis.length < 2;
+    };
     majArticle();
     select.addEventListener('change', majArticle);
-    const enregistrer = async (theme, produit, bouton) => {
+    const enregistrer = async (theme, produit, bouton, style = null) => {
       boutonOccupe(bouton, true);
-      const { error } = await sb.rpc('changer_jour_plan', { p_boutique: boutique.id, p_jour: date, p_theme: theme, p_produit: produit });
+      const { error } = await sb.rpc('changer_jour_plan', { p_boutique: boutique.id, p_jour: date, p_theme: theme, p_produit: produit, p_style: style });
       if (error) { boutonOccupe(bouton, false); const z = form.querySelector('.erreur-form'); z.textContent = messageErreur(error); z.hidden = false; return; }
       fermer();
       toast('Jour mis à jour.', 'succes');
@@ -276,7 +288,7 @@ export function monterCalendrier(zone, { modifier }) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const besoin = select.selectedOptions[0]?.dataset.besoin === 'produit';
-      enregistrer(select.value, besoin ? (form.querySelector('#cal-article').value || null) : null, form.querySelector('[type=submit]'));
+      enregistrer(select.value, besoin ? (form.querySelector('#cal-article').value || null) : null, form.querySelector('[type=submit]'), form.querySelector('#cal-style').value || null);
     });
     form.querySelector('[data-action="retirer"]')?.addEventListener('click', (e) => enregistrer(null, null, e.currentTarget));
   }

@@ -1,7 +1,9 @@
 /**
  * affiche.js — Les 9 affiches du jour dessinées dans un <canvas> (étape 15, maquette AfficheModeles.dc.html).
  *
- * Thèmes : produit · promo · lundi · vendredi · fete · arrivage · horaires · merci · saison.
+ * Deux choix séparés : le THÈME (ce que l'affiche raconte : produit · promo · lundi · vendredi · fete · arrivage ·
+ * horaires · merci · saison) et l'HABILLAGE (à quoi elle ressemble : catalogue · impact · selection · photo · message).
+ * Le thème ajoute ses éléments (date, croissant, tampon, horaires, 🤝 et vrai chiffre, émoji météo) à l'habillage.
  * Toujours aux couleurs de la boutique (boutique.couleur, boutique.accent), logo en haut à gauche
  * (jamais déformé), pied « téléphone · commune, ville ». Jamais de texte blanc sur l'or : sur l'accent,
  * le texte est foncé.
@@ -107,7 +109,7 @@ function ajusterTaille(ctx, texte, largeurMax, tailleMax, tailleMin, police) {
 
 /** Découpe en lignes (maxLignes) ; la dernière finit par « … » si besoin. */
 function couperLignes(ctx, texte, largeurMax, maxLignes) {
-  const mots = String(texte || '').trim().split(/\s+/).filter(Boolean);
+  const mots = String(texte || '').trim().split(/[ \t\n\r]+/).filter(Boolean);
   const lignes = [];
   let courante = '';
   for (let i = 0; i < mots.length; i++) {
@@ -134,7 +136,7 @@ function couperLignes(ctx, texte, largeurMax, maxLignes) {
 function ajusterBloc(ctx, texte, largeurMax, maxLignes, tailleMax, tailleMin, police) {
   for (let t = tailleMax; t >= tailleMin; t -= 2) {
     ctx.font = police(t);
-    const motsOk = String(texte).split(/\s+/).every((m) => ctx.measureText(m).width <= largeurMax);
+    const motsOk = String(texte).split(/[ \t\n\r]+/).every((m) => ctx.measureText(m).width <= largeurMax);
     const lignes = couperLignes(ctx, texte, largeurMax, maxLignes);
     if (motsOk && !lignes.at(-1)?.endsWith('…')) return { taille: t, lignes };
   }
@@ -447,7 +449,8 @@ function poser(ctx, blocs, zone, { align = 'centre' } = {}) {
  * Bloc de texte : taille réduite (k, puis ajustement) jusqu'à tenir en maxLignes sur la largeur.
  * o : { taille, poids, couleur, maxLignes, police: 'm' | 'b', align: 'left' | 'center', interligne, espace, largeur (fraction) }
  */
-function blocTexte(texte, o) {
+function blocTexte(brut, o) {
+  const texte = brut ? String(brut).replace(/ ([!?:;»])/g, '\u00A0$1').replace(/« /g, '«\u00A0') : brut;
   const police = o.police === 'b' ? (t) => bf(t) : (t) => mf(o.poids || 800, t);
   let mesure = null;
   const calculer = (ctx, k, l) => {
@@ -498,11 +501,11 @@ const blocFlex = (min, dessin, { max, ecart } = {}) => ({ flex: true, min, max, 
 /* ------------------------------------------------------------ Éléments communs */
 
 /** Émoji : encre blanche, pour rester visible si l'appareil n'a pas de police d'émojis en couleur. */
-function dessinerEmoji(ctx, texte, x, y, taille, align = 'center') {
+function dessinerEmoji(ctx, texte, x, y, taille, align = 'center', couleur = '#FFFFFF') {
   ctx.save();
   ctx.font = EMOJI(taille);
   ctx.textAlign = align;
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = couleur;
   ctx.fillText(texte, x, y);
   ctx.restore();
 }
@@ -610,196 +613,287 @@ function visuel(ctx, d, img, x, y, l, h, ombre = 0.4) {
   dessinerVisuel(ctx, d.produit || {}, img.photo, x, y, l, h, { couleur: d.accent, ombre });
 }
 
-/* ------------------------------------------------------------ Les 9 thèmes */
+/* ------------------------------------------------------------ Thème (ce que l'affiche raconte) */
 
-const THEMES = {
-  /** Article du jour : dégradé couleur → foncé, photo au centre, pastille ronde du prix, nom et unité en bas. */
-  produit(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.04), fonce(d.couleur, 0.55));
-    cercleDoux(ctx, W * 0.92, H * 0.2, W * 0.36, 'rgba(255,255,255,0.05)');
-    const z = cadre(ctx, W, H, d, img);
-    const p = d.produit || {};
-    const encre = '#FFFFFF';
+/** Habillage par défaut de chaque thème (la base le donne aussi : affiche_themes.style_defaut). */
+export const STYLE_DEFAUT_THEME = { produit: 'catalogue', promo: 'impact', lundi: 'message', vendredi: 'message', fete: 'message', arrivage: 'photo', horaires: 'message', merci: 'message', saison: 'catalogue' };
+const STYLES_AVEC_ARTICLE = ['catalogue', 'impact', 'selection', 'photo'];
+
+const pourcentPromo = (p) => (p && Number(p.prix_barre) > Number(p.prix) ? Math.round(((p.prix_barre - p.prix) / p.prix_barre) * 100) : null);
+const finPromo = (p) => (p?.promo_fin ? `Jusqu’au ${fmt(dateJour(p.promo_fin), { weekday: 'long', day: 'numeric', month: 'long' })} · dans la limite du stock` : 'Dans la limite du stock');
+function meteo(jour) {
+  const m = dateJour(jour).getUTCMonth() + 1;
+  return m >= 6 && m <= 9 ? '🌧️' : m === 12 || m <= 2 ? '🌬️' : m <= 5 ? '☀️' : '⛅';
+}
+
+/**
+ * Ce que le thème ajoute à l'habillage : surtitre, titre, phrase, symbole (croissant ou émoji), tampon,
+ * liste d'horaires, fond particulier (or pour vendredi, nuit pour une fête, bleu pour horaires et saison).
+ */
+function contenuTheme(d) {
+  const p = d.produit;
+  const fete = d.fete || {};
+  const sous = phraseSecondaire(d);
+  switch (d.theme) {
+    case 'promo': { const pct = pourcentPromo(p); return { surtitre: `PROMO${pct ? ` −${pct} %` : ''}`, titre: d.titre || 'Promotion', sous: finPromo(p), sousProduit: finPromo(p), promo: true }; }
+    case 'lundi': return { surtitre: fmt(dateJour(d.jour), { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase(), titre: d.titre || 'Bonne semaine à tous !', sous: d.sousTexte || sous };
+    case 'vendredi': return { surtitre: 'VENDREDI', titre: d.titre || 'Bon vendredi et bonne prière', sous: d.sousTexte || sous, fond: 'or' };
+    case 'fete': return { symbole: fete.emoji || '🌙', titre: d.titre || (fete.nom ? `Bonne fête de ${fete.nom}` : 'Bonne fête'), sous: fete.message || `${d.boutique.nom} vous souhaite paix et prospérité`, fond: 'nuit', centre: true, titreAccent: true };
+    case 'arrivage': return { tampon: 'NOUVEL ARRIVAGE', titre: d.titre || 'Nouvel arrivage', sous, sousProduit: sous || 'Arrivé cette semaine' };
+    case 'horaires': return { titre: 'Nos horaires', horaires: d.horaires || [['Lundi – vendredi', '8 h – 18 h'], ['Samedi', '8 h – 17 h'], ['Dimanche', 'Fermé']], sous: d.sousTexte || sous || 'Commandez aussi en ligne, nous vous répondons sur WhatsApp.', fond: 'bleu', titreAccent: true };
+    case 'merci': return { emoji: '🤝', titre: d.titre || 'Merci pour votre confiance', sous: d.phraseMerci || sous, centre: true };
+    case 'saison': return { emoji: meteo(d.jour), titre: d.titre || 'La saison change', surtitre: d.titre || null, sous, sousProduit: sous || 'Disponible en boutique', fond: 'pluie' };
+    default: return { titre: p?.nom || d.titre || 'Article du jour', sous, sousProduit: sous || 'Disponible tout de suite en boutique' };
+  }
+}
+
+/** Tampon incliné (« NOUVEL ARRIVAGE ») à la couleur d'accent. */
+function tampon(ctx, texte, x, y, k, accent, fond = null) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.09);
+  const t = 50 * k;
+  ctx.font = mf(800, t);
+  espacement(ctx, 4 * k);
+  const lt = ctx.measureText(texte).width + 56 * k;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 6 * k;
+  rectArrondi(ctx, 0, 0, lt, t + 40 * k, 14 * k);
+  if (fond) { ctx.fillStyle = fond; ctx.fill(); }
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.fillText(texte, 28 * k, t + 9 * k);
+  ctx.restore();
+}
+
+/** Pastille arrondie (surtitre, badge). Renvoie sa largeur. */
+function pastille(ctx, texte, x, y, h, fond, encre, poids = 800) {
+  ctx.save();
+  ctx.font = mf(poids, h * 0.46);
+  const l = ctx.measureText(texte).width + h * 0.9;
+  ctx.fillStyle = fond;
+  rectArrondi(ctx, x, y, l, h, h / 2);
+  ctx.fill();
+  ctx.fillStyle = encre;
+  ctx.textAlign = 'left';
+  ctx.fillText(texte, x + h * 0.45, y + h * 0.65);
+  ctx.restore();
+  return l;
+}
+
+/** Ligne de prix : grand prix condensé + « GNF / unité ». */
+function blocPrix(p, couleur, { taille = 170, unite = true, ecart } = {}) {
+  const prix = prixTexte(p?.prix);
+  return blocTexte(`${prix}${unite ? ` GNF${p?.unite ? ` / ${p.unite}` : ''}` : ''}`, { police: 'b', taille, maxLignes: 1, minRatio: 0.38, couleur, interligne: 1, ecart });
+}
+/** Symbole d'une fête (croissant dessiné, ou émoji) dans un cercle accent. */
+function blocSymbole(c, d, fondNuit) {
+  return blocFixe(250, (ctx, x, y, l, k) => {
+    const r = 112 * k;
+    const cx = c.centre ? x + l / 2 : x + r;
+    const cy = y + 125 * k;
+    cercleDoux(ctx, cx, cy, r, alpha(d.accent, 0.14));
+    ctx.strokeStyle = d.accent;
+    ctx.lineWidth = 6 * k;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    if (c.symbole === '🌙') {
+      ctx.fillStyle = d.accent;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.56, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = fondNuit;
+      ctx.beginPath(); ctx.arc(cx + r * 0.26, cy - r * 0.16, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    } else dessinerEmoji(ctx, c.symbole, cx, cy + 44 * k, 120 * k);
+  });
+}
+
+/* ------------------------------------------------------------ Les 5 habillages (à quoi l'affiche ressemble) */
+
+const HABILLAGES = {
+  /** Grand texte centré, sans article : titre énorme, deux lignes, cercles doux. Vendredi : fond or, texte foncé. */
+  message(ctx, W, H, d, img, c) {
+    let encre = '#FFFFFF';
+    let nuit = fonce(d.couleur, 0.62);
+    if (c.fond === 'or') { encre = encreSur(d.accent); fondDegrade(ctx, W, H, eclaire(d.accent, 0.08), fonce(d.accent, 0.12)); }
+    else if (c.fond === 'nuit') {
+      fondDegrade(ctx, W, H, fonce(d.couleur, 0.55), fonce(d.couleur, 0.82));
+      for (let i = 0; i < 26; i++) cercleDoux(ctx, (i * 397) % W, (i * 613) % (H * 0.7), 2 + (i % 3), 'rgba(255,255,255,0.35)');
+    } else if (c.fond === 'bleu') { nuit = '#0B1A30'; fondDegrade(ctx, W, H, '#1C3A5E', '#0B1A30'); }
+    else if (c.fond === 'pluie') { nuit = '#132E4C'; fondDegrade(ctx, W, H, '#2F6496', '#132E4C'); }
+    else fondDegrade(ctx, W, H, eclaire(d.couleur, 0.06), fonce(d.couleur, 0.45));
+    const doux = c.fond === 'or' ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)';
+    cercleDoux(ctx, W * 0.95, H * 0.12, W * 0.42, doux);
+    cercleDoux(ctx, W * 0.04, H * 0.8, W * 0.3, doux);
+    const z = cadre(ctx, W, H, d, img, c.fond === 'or' ? { encre, pied: 'rgba(0,0,0,0.08)', piedEncre: encre } : {});
+    const align = c.centre ? 'center' : 'left';
+    const p = d.produit;
     poser(ctx, [
-      blocFlex(260, (c, x, y, l, k, h) => {
-        visuel(c, d, img, x + l * 0.04, y, l * 0.78, h);
-        const r = Math.min(150, h * 0.32) * Math.max(0.8, k);
-        pastillePrix(c, x + l - r * 0.92, y + r * 1.02, r, d);
-      }),
-      blocTexte(p.nom, { taille: 78, maxLignes: 2, couleur: encre, ecart: 36 }),
-      blocTexte(phraseSecondaire(d, 1) || (p.unite ? `Vendu au ${p.unite}` : ''), { taille: 36, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.86), ecart: 14 })
-    ], z, { align: 'bas' });
+      c.symbole ? blocSymbole(c, d, nuit) : null,
+      c.emoji ? blocFixe(160, (cx, x, y, l, k) => dessinerEmoji(cx, c.emoji, c.centre ? x + l / 2 : x, y + 130 * k, 130 * k, c.centre ? 'center' : 'left')) : null,
+      c.surtitre && d.theme !== 'saison' ? blocTexte(c.surtitre, { taille: 38, maxLignes: 1, couleur: c.fond === 'or' ? alpha(encre, 0.8) : d.accent, espace: 4, align }) : null,
+      blocTexte(c.titre, { taille: c.horaires ? 88 : 128, maxLignes: 4, couleur: c.titreAccent ? d.accent : encre, interligne: 1.06, align, ecart: 24 }),
+      ...(c.horaires || []).map(([jour, h], i) => blocFixe(92, (cx, x, y, l, k) => {
+        cx.fillStyle = 'rgba(255,255,255,0.14)';
+        if (i) cx.fillRect(x, y, l, 2);
+        cx.font = mf(600, 42 * k); cx.fillStyle = encre; cx.textAlign = 'left';
+        cx.fillText(jour, x, y + 60 * k);
+        cx.font = mf(800, 42 * k); cx.textAlign = 'right';
+        cx.fillText(h, x + l, y + 60 * k);
+      }, i ? 0 : 36)),
+      c.horaires ? blocFixe(6, (cx, x, y, l) => { cx.fillStyle = d.accent; cx.fillRect(x, y, l * 0.18, 6); }, 30) : null,
+      blocTexte(c.sous, { taille: 42, poids: 600, maxLignes: 4, couleur: alpha(encre, 0.88), align, ecart: 36, interligne: 1.3 }),
+      p && d.theme === 'saison' ? blocTexte(`${p.nom}${p.prix ? ` · ${prixGnf(p.prix)}${p.unite ? ` le ${p.unite}` : ''}` : ''}`, { taille: 42, poids: 800, maxLignes: 2, couleur: d.accent, align, ecart: 22 }) : null
+    ], z, { align: 'centre' });
   },
 
-  /** Promotion : fond foncé, bande diagonale accent « PROMO −x % », prix barré, date de fin. */
-  promo(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, fonce(d.couleur, 0.5), fonce(d.couleur, 0.78));
-    const z = cadre(ctx, W, H, d, img);
-    const p = d.produit || {};
-    const pct = Number(p.prix_barre) > Number(p.prix) ? Math.round(((p.prix_barre - p.prix) / p.prix_barre) * 100) : null;
-    const fin = p.promo_fin ? `Jusqu’au ${fmt(dateJour(p.promo_fin), { weekday: 'long', day: 'numeric', month: 'long' })} · dans la limite du stock` : 'Dans la limite du stock';
+  /** Fond clair, grand disque pâle derrière la photo, nom très grand, prix très lisible, badges. */
+  catalogue(ctx, W, H, d, img, c) {
+    const encre = fonce(d.couleur, 0.72);
+    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.94), eclaire(d.couleur, 0.86));
+    const z = cadre(ctx, W, H, d, img, { encre, pied: fonce(d.couleur, 0.55), piedEncre: '#FFFFFF' });
+    const p = d.produit;
+    const badges = [
+      c.promo && p.promo_fin ? `Promo jusqu’au ${fmt(dateJour(p.promo_fin), { day: 'numeric', month: 'long' })}` : 'Disponible en boutique',
+      p.prix_gros ? `Prix de gros dès ${prixTexte(p.prix_gros)}` : null,
+      d.lien ? 'Commandez en ligne' : null
+    ].filter(Boolean);
     poser(ctx, [
-      blocFixe(170, (c, x, y, l, k) => {
-        c.save();
-        c.translate(W / 2, y + 85 * k);
-        c.rotate(-0.12);
-        c.fillStyle = d.accent;
-        c.fillRect(-W * 0.75, -64 * k, W * 1.5, 128 * k);
-        c.fillStyle = encreSur(d.accent);
-        c.textAlign = 'center';
-        const t = ajusterTaille(c, `PROMO ${pct ? `−${pct} %` : ''}`.trim(), W * 0.8, 96 * k, 48, (s) => mf(800, s));
-        c.font = mf(800, t);
-        c.fillText(`PROMO${pct ? ` −${pct} %` : ''}`, 0, t * 0.35);
-        c.restore();
-      }, 0),
-      img.photo ? blocFlex(120, (c, x, y, l, k, h) => visuel(c, d, img, x + l * 0.1, y, l * 0.8, h, 0.5)) : null,
-      blocTexte(p.nom, { taille: 70, maxLignes: 2, couleur: '#FFFFFF', ecart: 34 }),
-      blocTexte(prixGnf(p.prix), { police: 'b', taille: 150, maxLignes: 1, couleur: d.accent, ecart: 10, interligne: 1 }),
-      p.prix_barre ? blocTexte(prixGnf(p.prix_barre), { taille: 46, poids: 700, maxLignes: 1, couleur: alpha('#FFFFFF', 0.6), barre: true, ecart: 6 }) : null,
-      blocTexte(fin, { taille: 34, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.85), ecart: 22 })
+      c.tampon ? blocFixe(110, (cx, x, y, l, k) => tampon(cx, c.tampon, x + 10, y + 16 * k, k, fonce(d.accent, 0.35))) : null,
+      c.emoji ? blocFixe(100, (cx, x, y, l, k) => dessinerEmoji(cx, c.emoji, x, y + 84 * k, 84 * k, 'left', encre)) : null,
+      c.surtitre && !c.tampon && c.surtitre.length <= 22 ? blocFixe(64, (cx, x, y, l, k) => pastille(cx, c.surtitre, x, y, 62 * k, d.accent, encreSur(d.accent))) : null,
+      c.surtitre && !c.tampon && c.surtitre.length > 22 ? blocTexte(c.surtitre, { taille: 46, maxLignes: 2, couleur: fonce(d.accent, 0.45), ecart: 16 }) : null,
+      blocTexte(p.nom, { taille: 96, maxLignes: 3, minRatio: 0.45, couleur: encre, interligne: 1.05 }),
+      blocFlex(220, (cx, x, y, l, k, h) => {
+        const r = Math.min(l * 0.42, h * 0.55);
+        cercleDoux(cx, x + l * 0.5, y + h * 0.52, r, alpha(eclaire(d.couleur, 0.55), 0.55));
+        visuel(cx, d, img, x + l * 0.12, y, l * 0.76, h, 0.3);
+      }, { ecart: 20 }),
+      blocPrix(p, fonce(d.couleur, 0.5), { taille: 168, ecart: 18 }),
+      p.prix_barre ? blocTexte(prixGnf(p.prix_barre), { taille: 44, poids: 700, maxLignes: 1, couleur: alpha(encre, 0.55), barre: true, ecart: 4 }) : null,
+      c.sousProduit && !c.promo ? blocTexte(c.sousProduit, { taille: 36, poids: 600, maxLignes: 2, couleur: alpha(encre, 0.8), ecart: 14 }) : null,
+      blocFixe(60, (cx, x, y, l, k) => {
+        let bx = x;
+        badges.forEach((b) => { if (bx < x + l - 160) bx += pastille(cx, b, bx, y, 56 * k, '#FFFFFF', encre, 700) + 12; });
+      }, 22)
     ], z, { align: 'haut' });
   },
 
-  /** Bon lundi : dégradé couleur, deux cercles doux, date en accent, titre très gros, horaires. */
-  lundi(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.06), fonce(d.couleur, 0.45));
-    cercleDoux(ctx, W * 0.95, H * 0.12, W * 0.42, 'rgba(255,255,255,0.07)');
-    cercleDoux(ctx, W * 0.02, H * 0.78, W * 0.3, 'rgba(255,255,255,0.06)');
+  /** Fond foncé, bande diagonale accent avec le prix géant, titre condensé, prix barré et fin de promo. */
+  impact(ctx, W, H, d, img, c) {
+    fondDegrade(ctx, W, H, fonce(d.couleur, 0.5), fonce(d.couleur, 0.8));
     const z = cadre(ctx, W, H, d, img);
-    const date = fmt(dateJour(d.jour), { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
+    const p = d.produit;
+    const encreBande = encreSur(d.accent);
     poser(ctx, [
-      blocTexte(date, { taille: 38, maxLignes: 1, couleur: d.accent, espace: 4 }),
-      blocTexte(d.titre || 'Bonne semaine à tous !', { taille: 132, maxLignes: 4, couleur: '#FFFFFF', interligne: 1.06, ecart: 26 }),
-      blocTexte(d.sousTexte || phraseSecondaire(d), { taille: 42, poids: 600, maxLignes: 4, couleur: alpha('#FFFFFF', 0.9), ecart: 40, interligne: 1.3 })
-    ], z, { align: 'centre' });
+      c.tampon ? blocFixe(110, (cx, x, y, l, k) => tampon(cx, c.tampon, x + 10, y + 16 * k, k, d.accent, 'rgba(0,0,0,0.3)')) : null,
+      c.surtitre ? blocTexte(c.surtitre, { taille: 44, maxLignes: 2, couleur: d.accent, espace: 3 }) : null,
+      blocTexte(String(p.nom || '').toUpperCase(), { police: 'b', taille: 150, maxLignes: 3, minRatio: 0.42, couleur: '#FFFFFF', interligne: 0.98, ecart: 14 }),
+      blocFlex(img.photo ? 160 : 0, (cx, x, y, l, k, h) => visuel(cx, d, img, x + l * 0.15, y, l * 0.7, h, 0.5)),
+      blocFixe(230, (cx, x, y, l, k) => {
+        cx.save();
+        cx.translate(W / 2, y + 115 * k);
+        cx.rotate(-0.07);
+        cx.fillStyle = d.accent;
+        cx.fillRect(-W * 0.75, -95 * k, W * 1.5, 190 * k);
+        cx.fillStyle = encreBande;
+        cx.textAlign = 'center';
+        const texte = `${prixTexte(p.prix)} GNF${p.unite ? ` / ${String(p.unite).toUpperCase()}` : ''}`;
+        const t = ajusterTaille(cx, texte, W * 0.86, 170 * k, 50, (s) => bf(s));
+        cx.font = bf(t);
+        cx.fillText(texte, 0, t * 0.36);
+        cx.restore();
+      }, 26),
+      p.prix_barre ? blocTexte(`Au lieu de ${prixGnf(p.prix_barre)}`, { taille: 42, poids: 700, maxLignes: 1, couleur: alpha('#FFFFFF', 0.62), ecart: 26 }) : null,
+      blocTexte(c.promo ? finPromo(p) : c.sousProduit, { taille: 34, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.85), ecart: 12 })
+    ], z, { align: 'haut' });
   },
 
-  /** Bon vendredi : fond accent (or), texte foncé, horaires de prière. */
-  vendredi(ctx, W, H, d, img) {
-    const encre = encreSur(d.accent);
-    fondDegrade(ctx, W, H, eclaire(d.accent, 0.08), fonce(d.accent, 0.12));
-    cercleDoux(ctx, W * 0.86, H * 0.86, W * 0.4, 'rgba(255,255,255,0.16)');
-    const z = cadre(ctx, W, H, d, img, { encre, pied: 'rgba(0,0,0,0.08)', piedEncre: encre });
-    poser(ctx, [
-      blocTexte('VENDREDI', { taille: 36, maxLignes: 1, couleur: alpha(encre, 0.8), espace: 5 }),
-      blocTexte(d.titre || 'Bon vendredi et bonne prière', { taille: 118, maxLignes: 4, couleur: encre, interligne: 1.06, ecart: 24 }),
-      blocTexte(d.sousTexte || phraseSecondaire(d), { taille: 40, poids: 600, maxLignes: 4, couleur: alpha(encre, 0.85), ecart: 38, interligne: 1.3 })
-    ], z, { align: 'centre' });
-  },
-
-  /** Fête : fond vert nuit, emoji (ou croissant) dans un cercle accent, message centré. */
-  fete(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, fonce(d.couleur, 0.55), fonce(d.couleur, 0.82));
-    for (let i = 0; i < 26; i++) cercleDoux(ctx, (i * 397) % W, (i * 613) % (H * 0.7), 2 + (i % 3), 'rgba(255,255,255,0.35)');
+  /** Dégradé couleur, titre sur 2 lignes, 3 cartes blanches (l'article + les 2 autres). */
+  selection(ctx, W, H, d, img, c) {
+    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.04), fonce(d.couleur, 0.5));
+    cercleDoux(ctx, W * 0.92, H * 0.1, W * 0.34, 'rgba(255,255,255,0.06)');
     const z = cadre(ctx, W, H, d, img);
-    const fete = d.fete || {};
+    const articles = [d.produit, ...(d.autres || [])].filter(Boolean).slice(0, 3);
+    const photos = [img.photo, ...(img.autres || [])];
+    const titre = d.theme === 'produit' ? 'Notre sélection du jour' : d.theme === 'promo' ? 'Les promos du moment' : c.titre;
     poser(ctx, [
-      blocFixe(250, (c, x, y, l, k) => {
-        const r = 112 * k;
-        const cx = x + l / 2;
-        const cy = y + 125 * k;
-        cercleDoux(c, cx, cy, r, alpha(d.accent, 0.14));
-        c.strokeStyle = d.accent;
-        c.lineWidth = 6 * k;
-        c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
-        const symbole = fete.emoji || '🌙';
-        if (symbole === '🌙') {
-          c.fillStyle = d.accent;
-          c.beginPath(); c.arc(cx, cy, r * 0.56, 0, Math.PI * 2); c.fill();
-          c.fillStyle = fonce(d.couleur, 0.62);
-          c.beginPath(); c.arc(cx + r * 0.26, cy - r * 0.16, r * 0.5, 0, Math.PI * 2); c.fill();
-        } else {
-          dessinerEmoji(c, symbole, cx, cy + 44 * k, 120 * k);
-        }
-      }),
-      blocTexte(d.titre || (fete.nom ? `Bonne fête de ${fete.nom}` : 'Bonne fête'), { taille: 92, maxLignes: 3, couleur: d.accent, align: 'center', interligne: 1.08, ecart: 40 }),
-      blocTexte(fete.message || `${d.boutique.nom} vous souhaite paix et prospérité`, { taille: 40, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), align: 'center', ecart: 26, interligne: 1.3 })
-    ], z, { align: 'centre' });
+      c.tampon ? blocFixe(110, (cx, x, y, l, k) => tampon(cx, c.tampon, x + 10, y + 16 * k, k, d.accent)) : null,
+      c.surtitre && !c.tampon ? blocTexte(c.surtitre, { taille: 40, maxLignes: 1, couleur: d.accent, espace: 3 }) : null,
+      blocTexte(titre, { taille: 96, maxLignes: 2, couleur: '#FFFFFF', interligne: 1.05 }),
+      blocFlex(330, (cx, x, y, l, k, h) => {
+        const n = articles.length;
+        const gap = 22;
+        const lc = (l - gap * (n - 1)) / n;
+        const hc = Math.min(h, lc * 1.9);
+        const y0 = y + (h - hc) / 2;
+        articles.forEach((a, i) => {
+          const xc = x + i * (lc + gap);
+          cx.save();
+          cx.shadowColor = 'rgba(0,0,0,0.25)'; cx.shadowBlur = 24; cx.shadowOffsetY = 8;
+          cx.fillStyle = '#FFFFFF';
+          rectArrondi(cx, xc, y0, lc, hc, 26);
+          cx.fill();
+          cx.restore();
+          const m = 18;
+          const hv = hc - 150;
+          if (hv > 60) dessinerVisuel(cx, a, photos[i] || null, xc + m, y0 + m, lc - 2 * m, hv - m, { couleur: d.accent, ombre: 0.25 });
+          cx.fillStyle = fonce(d.couleur, 0.72);
+          cx.textAlign = 'left';
+          const tn = ajusterBloc(cx, a.nom, lc - 2 * m, 2, 34, 22, (s) => mf(800, s));
+          cx.font = mf(800, tn.taille);
+          tn.lignes.forEach((lg, j) => cx.fillText(lg, xc + m, y0 + hc - 108 + j * tn.taille * 1.1));
+          cx.fillStyle = fonce(d.couleur, 0.5);
+          const tp = ajusterTaille(cx, `${prixTexte(a.prix)} GNF`, lc - 2 * m, 52, 26, (s) => bf(s));
+          cx.font = bf(tp);
+          cx.fillText(`${prixTexte(a.prix)} GNF`, xc + m, y0 + hc - 24);
+        });
+      }, { ecart: 34 }),
+      blocTexte(c.promo ? finPromo(d.produit) : (d.theme === 'produit' ? 'Disponible en boutique · commandez sur WhatsApp' : c.sousProduit), { taille: 34, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.86), ecart: 26 })
+    ], z, { align: 'haut' });
   },
 
-  /** Nouvel arrivage : photo en fond assombri, tampon incliné « NOUVEL ARRIVAGE », nom et prix. */
-  arrivage(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, melange(d.couleur, '#7A4A1E', 0.6), fonce(melange(d.couleur, '#5A3412', 0.6), 0.55));
+  /** La photo occupe toute l'affiche, voile sombre en bas, nom et prix posés dessus. */
+  photo(ctx, W, H, d, img, c) {
+    fondDegrade(ctx, W, H, fonce(d.couleur, 0.2), fonce(d.couleur, 0.7));
     if (img.photo) {
       const e = Math.max(W / img.photo.width, H / img.photo.height);
       ctx.drawImage(img.photo, (W - img.photo.width * e) / 2, (H - img.photo.height * e) / 2, img.photo.width * e, img.photo.height * e);
     } else {
-      ctx.save(); ctx.globalAlpha = 0.35;
-      dessinerIllustration(ctx, d.produit || {}, W * 0.15, H * 0.2, W * 0.7, H * 0.45, { couleur: d.accent, ombre: 0 });
+      ctx.save(); ctx.globalAlpha = 0.5;
+      dessinerIllustration(ctx, d.produit || {}, W * 0.12, H * 0.16, W * 0.76, H * 0.46, { couleur: d.accent, ombre: 0 });
       ctx.restore();
     }
-    ctx.fillStyle = degrade(ctx, 0, 0, 0, H, [[0, 'rgba(0,0,0,0.45)'], [0.45, 'rgba(0,0,0,0.25)'], [1, 'rgba(0,0,0,0.82)']]);
+    ctx.fillStyle = degrade(ctx, 0, 0, 0, H, [[0, 'rgba(0,0,0,0.5)'], [0.22, 'rgba(0,0,0,0)'], [0.5, 'rgba(0,0,0,0.08)'], [1, 'rgba(0,0,0,0.86)']]);
     ctx.fillRect(0, 0, W, H);
     const z = cadre(ctx, W, H, d, img);
-    const p = d.produit || {};
-    // Tampon en haut de la zone.
-    ctx.save();
-    ctx.translate(z.x + 20, z.y + 30);
-    ctx.rotate(-0.09);
-    const t = 54;
-    ctx.font = mf(800, t);
-    espacement(ctx, 5);
-    const lt = ctx.measureText('NOUVEL ARRIVAGE').width + 64;
-    ctx.strokeStyle = d.accent;
-    ctx.lineWidth = 7;
-    rectArrondi(ctx, 0, 0, lt, t + 46, 14);
-    ctx.stroke();
-    ctx.fillStyle = d.accent;
-    ctx.fillText('NOUVEL ARRIVAGE', 32, t + 12);
-    ctx.restore();
+    const p = d.produit;
+    if (c.tampon) tampon(ctx, c.tampon, z.x + 10, z.y + 20, 1, d.accent, 'rgba(0,0,0,0.5)');
     poser(ctx, [
-      blocTexte(p.nom, { taille: 84, maxLignes: 3, couleur: '#FFFFFF', interligne: 1.08 }),
-      blocTexte([phraseSecondaire(d, 1), p.prix ? `${prixGnf(p.prix)}${p.unite ? ` / ${p.unite}` : ''}` : ''].filter(Boolean).join(' · '), { taille: 38, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), ecart: 22, interligne: 1.3 })
-    ], { ...z, y: z.y + 190, h: z.h - 190 }, { align: 'bas' });
-  },
-
-  /** Horaires : fond bleu nuit, lundi–vendredi / samedi / dimanche, trait, boutique en ligne. */
-  horaires(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, '#1C3A5E', '#0B1A30');
-    const z = cadre(ctx, W, H, d, img);
-    const lignes = d.horaires || [['Lundi – vendredi', '8 h – 18 h'], ['Samedi', '8 h – 17 h'], ['Dimanche', 'Fermé']];
-    poser(ctx, [
-      blocTexte('Nos horaires', { taille: 88, maxLignes: 1, couleur: d.accent }),
-      ...lignes.map(([jour, h], i) => blocFixe(92, (c, x, y, l, k) => {
-        c.fillStyle = 'rgba(255,255,255,0.14)';
-        if (i) c.fillRect(x, y, l, 2);
-        c.font = mf(600, 42 * k); c.fillStyle = '#FFFFFF'; c.textAlign = 'left';
-        c.fillText(jour, x, y + 60 * k);
-        c.font = mf(800, 42 * k); c.textAlign = 'right';
-        c.fillText(h, x + l, y + 60 * k);
-      }, i ? 0 : 40)),
-      blocFixe(6, (c, x, y, l) => { c.fillStyle = d.accent; c.fillRect(x, y, l * 0.18, 6); }, 34),
-      blocTexte(d.sousTexte || phraseSecondaire(d) || 'Commandez aussi en ligne, nous vous répondons sur WhatsApp.', { taille: 38, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.86), ecart: 30, interligne: 1.3 })
-    ], z, { align: 'centre' });
-  },
-
-  /** Merci : dégradé couleur, 🤝, un vrai chiffre de l'année. */
-  merci(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, eclaire(d.couleur, 0.05), fonce(d.couleur, 0.4));
-    cercleDoux(ctx, W * 0.5, H * 0.42, W * 0.46, 'rgba(255,255,255,0.05)');
-    const z = cadre(ctx, W, H, d, img);
-    poser(ctx, [
-      blocFixe(170, (c, x, y, l, k) => dessinerEmoji(c, '🤝', x + l / 2, y + 140 * k, 140 * k)),
-      blocTexte(d.titre || 'Merci pour votre confiance', { taille: 96, maxLignes: 3, couleur: '#FFFFFF', align: 'center', interligne: 1.08, ecart: 30 }),
-      blocTexte(d.phraseMerci || phraseSecondaire(d), { taille: 42, poids: 600, maxLignes: 3, couleur: alpha('#FFFFFF', 0.9), align: 'center', ecart: 30, interligne: 1.3 })
-    ], z, { align: 'centre' });
-  },
-
-  /** Saison : fond bleu pluie, emoji météo, conseil, article et prix. */
-  saison(ctx, W, H, d, img) {
-    fondDegrade(ctx, W, H, '#2F6496', '#132E4C');
-    const z = cadre(ctx, W, H, d, img);
-    const p = d.produit || {};
-    const mois = dateJour(d.jour).getUTCMonth() + 1;
-    const meteo = mois >= 6 && mois <= 9 ? '🌧️' : mois === 12 || mois <= 2 ? '🌬️' : mois <= 5 ? '☀️' : '⛅';
-    poser(ctx, [
-      blocFixe(150, (c, x, y, l, k) => dessinerEmoji(c, meteo, x, y + 120 * k, 120 * k, 'left')),
-      blocTexte(d.titre || 'La saison change', { taille: 92, maxLignes: 3, couleur: '#FFFFFF', interligne: 1.08, ecart: 22 }),
-      p.nom ? blocTexte(`${p.nom}${p.prix ? ` · ${prixGnf(p.prix)}${p.unite ? ` le ${p.unite}` : ''}` : ''}`, { taille: 42, poids: 700, maxLignes: 2, couleur: d.accent, ecart: 26 }) : null,
-      img.photo ? blocFlex(0, (c, x, y, l, k, h) => visuel(c, d, img, x + l * 0.15, y, l * 0.7, h, 0.45), { ecart: 30 }) : null
-    ], z, { align: img.photo ? 'haut' : 'centre' });
+      c.surtitre && !c.tampon && c.surtitre.length <= 22 ? blocFixe(64, (cx, x, y, l, k) => pastille(cx, c.surtitre, x, y, 62 * k, d.accent, encreSur(d.accent))) : null,
+      c.surtitre && !c.tampon && c.surtitre.length > 22 ? blocTexte(c.surtitre, { taille: 44, maxLignes: 2, couleur: d.accent }) : null,
+      blocTexte(p.nom, { taille: 96, maxLignes: 3, minRatio: 0.45, couleur: '#FFFFFF', interligne: 1.05, ecart: 18 }),
+      blocFixe(130, (cx, x, y, l, k) => {
+        const texte = `${prixTexte(p.prix)} GNF`;
+        const t = ajusterTaille(cx, texte, l * 0.8, 110 * k, 50, (s) => bf(s));
+        cx.font = bf(t);
+        const lt = cx.measureText(texte).width + 56 * k;
+        cx.fillStyle = d.accent;
+        rectArrondi(cx, x, y, lt, 126 * k, 22 * k);
+        cx.fill();
+        cx.fillStyle = encreSur(d.accent);
+        cx.textAlign = 'left';
+        cx.fillText(texte, x + 28 * k, y + 63 * k + t * 0.36);
+        if (p.prix_barre) {
+          cx.font = mf(700, 40 * k);
+          cx.fillStyle = alpha('#FFFFFF', 0.7);
+          const barre = prixGnf(p.prix_barre);
+          cx.fillText(barre, x + lt + 24 * k, y + 78 * k);
+          cx.fillRect(x + lt + 24 * k, y + 64 * k, cx.measureText(barre).width, 3);
+        }
+      }, 22),
+      blocTexte(c.promo ? finPromo(p) : c.sousProduit, { taille: 36, poids: 600, maxLignes: 2, couleur: alpha('#FFFFFF', 0.9), ecart: 18 })
+    ], { ...z, y: z.y + (c.tampon ? 150 : 0), h: z.h - (c.tampon ? 150 : 0) }, { align: 'bas' });
   }
 };
+export const HABILLAGES_AFFICHE = Object.keys(HABILLAGES);
 
 /* ------------------------------------------------------------ Génération */
 
@@ -812,7 +906,7 @@ function image(url) {
 
 /**
  * Dessine l'affiche du jour et renvoie le canvas (taille réelle).
- * a : réponse de affiche_du_jour ({ theme, titre, texte, jour, fete, boutique, produit… }) complétée par l'écran :
+ * a : réponse de affiche_du_jour ({ theme, style, titre, texte, jour, fete, boutique, produit, autres… }) complétée par l'écran :
  *   horaires ([[jour, heures]…]), sousTexte, phraseMerci.
  * format : '4:5' (défaut) | '9:16' | '1:1'.
  */
@@ -825,21 +919,28 @@ export async function genererAffiche(a, format = '4:5') {
     boutique: { nom: 'Ma boutique', ...b },
     couleur: rgb(b.couleur) ? b.couleur : COULEUR_DEFAUT,
     accent: rgb(b.accent) ? b.accent : ACCENT_DEFAUT,
-    produit: a?.produit ? { nom: 'Article', prix: 0, ...a.produit } : null
+    produit: a?.produit ? { nom: 'Article', prix: 0, ...a.produit } : null,
+    autres: (a?.autres || []).filter((x) => x && x.nom).slice(0, 2)
   };
-  const theme = THEMES[d.theme] ? d.theme : (d.produit ? 'produit' : 'merci');
+  if (!THEMES_AFFICHE.includes(d.theme)) d.theme = d.produit ? 'produit' : 'merci';
+  // Habillage : celui demandé s'il existe, sinon celui du thème ; sans article → « message ».
+  let style = HABILLAGES[d.style] ? d.style : STYLE_DEFAUT_THEME[d.theme];
+  if (STYLES_AVEC_ARTICLE.includes(style) && !d.produit) style = 'message';
+  // « Sélection » sans assez d'articles (la base passe déjà en « catalogue ») : on suit.
+  if (style === 'selection' && !(d.autres || []).length) style = 'catalogue';
   const [, logo, photo] = await Promise.all([
     chargerPolices(),
     image(b.logo_url),
     image(d.produit?.photo_url)
   ]);
+  const autres = style === 'selection' ? await Promise.all((d.autres || []).slice(0, 2).map((x) => image(x?.photo_url))) : [];
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.textBaseline = 'alphabetic';
-  THEMES[theme](ctx, W, H, d, { logo, photo });
+  HABILLAGES[style](ctx, W, H, d, { logo, photo, autres }, contenuTheme(d));
   return canvas;
 }
 

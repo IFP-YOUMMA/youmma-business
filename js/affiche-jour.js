@@ -2,14 +2,15 @@
  * affiche-jour.js — « Affiche du jour » (étape 15, maquettes AfficheJourV2 et AfficheCalendrier), onglet de
  * #/boutique-en-ligne. Deux vues : Aujourd'hui (écran du matin) et Mois (calendrier, affiche-calendrier.js).
  *
- * Écran du matin : affiche_du_jour → dessin des 3 formats sur le téléphone (affiche.js), texte et hashtags,
+ * Écran du matin : affiche_du_jour → dessin des 3 formats sur le téléphone (affiche.js), bande « Habillage »
+ * (vignettes des habillages permis par le thème, modifier_affiche p_style ; « Choisir les 3 articles » pour Sélection), texte et hashtags,
  * quatre boutons de publication (Facebook, Instagram, statut WhatsApp, TikTok), changer d'affiche
  * (autre suggestion, thème, article), publication automatique, dernières publications.
  * Images et vidéo déposées puis enregistrées (enregistrer_images_affiche) dès qu'elles changent.
  */
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
-import { genererAffiche, versJpeg, genererVideo, videoPossible, FORMATS_AFFICHE } from './affiche.js';
+import { genererAffiche, versJpeg, genererVideo, videoPossible, FORMATS_AFFICHE, HABILLAGES_AFFICHE, STYLE_DEFAUT_THEME } from './affiche.js';
 import {
   RESEAUX, enregistrerImages, publierManuellement, publierAutomatiquement, telechargerImage, nomFichier, iconeReseau, heureLisible
 } from './affiche-publier.js';
@@ -19,6 +20,8 @@ import {
 } from './utils.js';
 
 const premiere = (d) => (Array.isArray(d) ? d[0] : d) || null;
+/** Noms des habillages si la table affiche_styles n'est pas lisible. */
+export const NOMS_STYLES = { catalogue: 'Catalogue', impact: 'Impact', selection: 'Sélection', photo: 'Photo', message: 'Message' };
 const LIBELLES_FORMATS = { '4:5': 'Facebook · Instagram 4:5', '9:16': 'Statut · Story · TikTok 9:16', '1:1': 'Carré 1:1' };
 
 /** Complément de dessin : horaires (boutiques_en_ligne) et vrai chiffre de l'année (ventes). */
@@ -76,7 +79,7 @@ export function afficherAfficheJour(conteneur, params = new URLSearchParams()) {
 function monterJour(zone, { boutique, modifier }) {
   const s = {
     a: null, format: '4:5', fichiers: {}, urls: {}, video: null, reseaux: [], reglages: null, complements: null,
-    jeton: 0, enCours: new Set(), produits: null, themes: null
+    jeton: 0, enCours: new Set(), produits: null, themes: null, styles: null, vignettes: new Map()
   };
   const jour = dateISO();
 
@@ -182,6 +185,8 @@ function monterJour(zone, { boutique, modifier }) {
             ${Object.keys(FORMATS_AFFICHE).map((f) => `<button type="button" class="aff-format ${f === s.format ? 'actif' : ''}" data-format="${f}" aria-pressed="${f === s.format}">${esc(LIBELLES_FORMATS[f])}</button>`).join('')}
           </div>
           <div class="aff-apercu" data-zone="apercu" style="aspect-ratio:${FORMATS_AFFICHE[s.format].largeur} / ${FORMATS_AFFICHE[s.format].hauteur}"><span class="squelette"></span></div>
+          <div class="aff-habillages" data-zone="habillages" aria-label="Habillage"></div>
+          ${a.style === 'selection' && modifier ? '<button type="button" class="btn-lien aff-lien-selection" data-action="selection">Choisir les 3 articles</button>' : ''}
           <p class="aff-raison">${esc([a.theme_nom, a.raison].filter(Boolean).join(' · '))}${a.fete?.approximatif ? ' · date de la fête à confirmer' : ''}</p>
           ${modifier ? `<div class="aff-changer">
             <button type="button" class="btn btn-secondaire btn-petit" data-action="suggestion">${icone('retour', 15, 2)} Autre suggestion</button>
@@ -226,6 +231,74 @@ function monterJour(zone, { boutique, modifier }) {
         </div>
       </div>`;
     if (s.urls[s.format]) { montrerApercu(); zone.querySelectorAll('[data-publier]').forEach((b) => { b.disabled = false; }); }
+    renderHabillages();
+  }
+
+  /** Habillages permis par le thème (styles_possibles), en vignettes du vrai dessin (62 px de large). */
+  async function renderHabillages() {
+    const z = zone.querySelector('[data-zone="habillages"]');
+    if (!z) return;
+    const permis = (s.a.styles_possibles && s.a.styles_possibles.length ? s.a.styles_possibles : [s.a.style || STYLE_DEFAUT_THEME[s.a.theme]])
+      .filter((c) => HABILLAGES_AFFICHE.includes(c));
+    if (permis.length < 2) { z.hidden = true; return; }
+    const styles = await chargerStyles();
+    const nom = (c) => styles.find((x) => x.code === c)?.nom || NOMS_STYLES[c] || c;
+    const courant = s.a.style || STYLE_DEFAUT_THEME[s.a.theme];
+    z.hidden = false;
+    z.innerHTML = `<span class="aff-habillages-titre">Habillage</span><div class="aff-habillages-liste">${permis.map((c) => `
+      <button type="button" class="aff-habillage ${c === courant ? 'actif' : ''}" data-style="${esc(c)}" aria-pressed="${c === courant}" ${modifier ? '' : 'disabled'}>
+        <span class="aff-vignette" data-vignette="${esc(c)}"><span class="squelette"></span></span><span>${esc(nom(c))}</span>
+      </button>`).join('')}</div>`;
+    const cle = (c) => `${s.a.id}|${s.a.theme}|${s.a.produit?.id || ''}|${(s.a.autres || []).map((x) => x.id).join(',')}|${c}|${s.a.titre}`;
+    for (const c of permis) {
+      if (!s.vignettes.has(cle(c))) {
+        const grand = await genererAffiche({ ...s.a, ...(s.complements || {}), style: c }, '4:5');
+        const petit = document.createElement('canvas');
+        petit.width = 124; petit.height = 155;
+        petit.getContext('2d').drawImage(grand, 0, 0, 124, 155);
+        s.vignettes.set(cle(c), petit.toDataURL('image/jpeg', 0.8));
+      }
+      const v = z.querySelector(`[data-vignette="${c}"]`);
+      if (!v) return;
+      v.innerHTML = `<img src="${s.vignettes.get(cle(c))}" alt="">`;
+    }
+  }
+
+  async function chargerStyles() {
+    if (!s.styles) {
+      const { data } = await sb.from('affiche_styles').select('*');
+      s.styles = data || [];
+    }
+    return s.styles;
+  }
+
+  /** Sélection : l'article du jour + 2 autres (modifier_affiche p_autres). */
+  async function choisirSelection() {
+    const produits = await chargerProduits();
+    const principal = s.a.produit?.id;
+    const choisis = new Set((s.a.autres || []).map((x) => x.id));
+    const { el, fermer } = ouvrirModale({
+      titre: 'Choisir les 3 articles',
+      contenu: `<p class="texte-modale">L’article du jour <strong>${esc(s.a.produit?.nom || '')}</strong>, plus deux autres :</p>
+        <ul class="aff-liste-articles">${produits.filter((p) => p.id !== principal).map((p) => `<li><label class="aff-article">
+          <input type="checkbox" value="${esc(p.id)}" ${choisis.has(p.id) ? 'checked' : ''}>
+          ${p.photo_mini_url ? `<img src="${esc(p.photo_mini_url)}" alt="" loading="lazy">` : ''}
+          <span><strong>${esc(p.nom)}</strong><span class="discret">${formatNombre(prixApplique(p))} GNF</span></span></label></li>`).join('')}</ul>
+        <p class="erreur-form" role="alert" hidden></p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="button" class="btn btn-primaire" data-action="valider-selection">Enregistrer</button></div>`
+    });
+    const cases = () => [...el.querySelectorAll('input[type=checkbox]')];
+    el.addEventListener('change', () => {
+      const n = cases().filter((c) => c.checked).length;
+      cases().forEach((c) => { if (!c.checked) c.disabled = n >= 2; });
+    });
+    el.dispatchEvent(new Event('change'));
+    el.querySelector('[data-action="valider-selection"]').addEventListener('click', async (e) => {
+      const ids = cases().filter((c) => c.checked).map((c) => c.value);
+      if (ids.length !== 2) { const z = el.querySelector('.erreur-form'); z.textContent = 'Choisissez deux articles.'; z.hidden = false; return; }
+      const ok = await enregistrerChangement({ autres: ids, titre: s.a.titre, texte: s.a.texte, hashtags: s.a.hashtags }, e.currentTarget);
+      if (ok) fermer();
+    });
   }
 
   function montrerApercu() {
@@ -309,7 +382,7 @@ function monterJour(zone, { boutique, modifier }) {
 
   /* ---------------- Changer d'affiche */
 
-  async function enregistrerChangement({ theme = s.a.theme, produit = s.a.produit?.id || null, titre, texte, hashtags }, bouton) {
+  async function enregistrerChangement({ theme = s.a.theme, produit = s.a.produit?.id || null, style = s.a.style || null, autres = (s.a.autres || []).map((x) => x.id), titre, texte, hashtags }, bouton) {
     if (bouton) boutonOccupe(bouton, true);
     try {
       let t = { titre, texte, hashtags };
@@ -319,7 +392,7 @@ function monterJour(zone, { boutique, modifier }) {
         t = premiere(data) || {};
       }
       const { error } = await sb.rpc('modifier_affiche', {
-        p_boutique: boutique.id, p_jour: jour, p_theme: theme, p_produit: produit,
+        p_boutique: boutique.id, p_jour: jour, p_theme: theme, p_produit: produit, p_style: style, p_autres: autres && autres.length ? autres : null,
         p_titre: t.titre ?? null, p_texte: t.texte ?? null, p_hashtags: t.hashtags ?? null
       });
       if (error) throw error;
@@ -374,13 +447,15 @@ function monterJour(zone, { boutique, modifier }) {
   }
 
   async function changerTheme() {
-    const themes = await chargerThemes();
+    const [themes, styles] = await Promise.all([chargerThemes(), chargerStyles()]);
+    const nomStyle = (c) => styles.find((x) => x.code === c)?.nom || NOMS_STYLES[c] || c;
     const { el, fermer } = ouvrirModale({
       titre: 'Changer de thème',
       contenu: `<div class="aff-themes">${themes.map((t) => `
         <button type="button" class="aff-theme ${t.code === s.a.theme ? 'actif' : ''}" data-theme="${esc(t.code)}">
           <span class="aff-theme-pastille theme-${esc(t.code)}"></span>
-          <span><strong>${esc(t.nom)}</strong><span class="discret">${esc(t.description || '')}</span></span>
+          <span><strong>${esc(t.nom)}</strong><span class="discret">${esc(t.description || '')}</span>
+            <span class="aff-theme-style">Habillage : ${esc(nomStyle(t.style_defaut || STYLE_DEFAUT_THEME[t.code]))}</span></span>
         </button>`).join('')}</div>`
     });
     el.addEventListener('click', async (e) => {
@@ -391,7 +466,7 @@ function monterJour(zone, { boutique, modifier }) {
       let produit = t.besoin === 'produit' ? (s.a.produit?.id || null) : null;
       if (t.besoin === 'produit' && !produit) produit = await choisirArticle(`Article pour « ${t.nom} »`);
       if (t.besoin === 'produit' && !produit) return;
-      enregistrerChangement({ theme: t.code, produit });
+      enregistrerChangement({ theme: t.code, produit, style: t.style_defaut || STYLE_DEFAUT_THEME[t.code] || null, autres: [] });
     });
   }
 
@@ -478,6 +553,12 @@ function monterJour(zone, { boutique, modifier }) {
       montrerApercu();
       return;
     }
+    const habillage = e.target.closest('[data-style]');
+    if (habillage && !habillage.disabled && habillage.dataset.style !== (s.a.style || STYLE_DEFAUT_THEME[s.a.theme])) {
+      zone.querySelectorAll('[data-style]').forEach((b) => { b.classList.toggle('actif', b === habillage); b.setAttribute('aria-pressed', String(b === habillage)); });
+      enregistrerChangement({ style: habillage.dataset.style, titre: s.a.titre, texte: s.a.texte, hashtags: s.a.hashtags });
+      return;
+    }
     const pub = e.target.closest('[data-publier]');
     if (pub && !pub.disabled) { publier(pub.dataset.publier, pub); return; }
     const action = e.target.closest('[data-action]');
@@ -493,6 +574,7 @@ function monterJour(zone, { boutique, modifier }) {
       return;
     }
     if (a === 'theme') { changerTheme(); return; }
+    if (a === 'selection') { choisirSelection(); return; }
     if (a === 'article') { const id = await choisirArticle(); if (id) enregistrerChangement({ produit: id, theme: ['produit', 'promo', 'arrivage', 'saison'].includes(s.a.theme) ? s.a.theme : 'produit' }); return; }
     if (a === 'modifier') { modifierTexte(); return; }
     if (a === 'hashtags') { ajouterHashtags(); return; }

@@ -397,6 +397,7 @@ const MESSAGES_METIER = {
   RESEAU_INCONNU: 'Ce réseau n’est pas pris en charge.',
   JOUR_PASSE: 'Ce jour est passé : il ne peut plus être modifié.',
   TYPE_INVALIDE: 'Ce choix n’est pas valable pour ce jour.',
+  STYLE_INCONNU: 'Cet habillage n’est pas disponible pour ce thème.',
   MODULE_BIENTOT: 'Ce module sera bientôt disponible.',
   MODULE_BLOQUE: 'Désactivé par YOUMMA — contactez le support.',
   MODULE_INCONNU: 'Ce module est inconnu.',
