@@ -113,9 +113,9 @@
       ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']
     ];
     // Ordre des statuts sur le parcours (en_route se range avec « Chargé »).
-    const RANG = { recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
+    const RANG = { a_peser: 0, recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
     const ETATS = {
-      recu: ['REÇU AU BUREAU', 'gris'], entrepot: ['EN ENTREPÔT', 'gris'], charge: ['CHARGÉ', 'bleu'], en_route: ['EN ROUTE', 'bleu'],
+      a_peser: ['DÉPOSÉ — EN ATTENTE DE PESÉE', 'or'], recu: ['REÇU AU BUREAU', 'gris'], entrepot: ['EN ENTREPÔT', 'gris'], charge: ['CHARGÉ', 'bleu'], en_route: ['EN ROUTE', 'bleu'],
       arrive: ['ARRIVÉ', 'bleu'], a_retirer: ['PRÊT À RETIRER', 'vert'], retire: ['RETIRÉ', 'vert'], probleme: ['PROBLÈME — CONTACTEZ LE BUREAU', 'rouge'], annule: ['ANNULÉ', 'rouge']
     };
 
@@ -158,7 +158,7 @@
       const [libEtat, classeEtat] = ETATS[r.statut] || [String(r.statut).toUpperCase(), 'gris'];
       const rang = RANG[r.statut] ?? -1;
       const pas = ETAPES.map(([code, libelle], i) => {
-        const ev = [...r.parcours].reverse().find((p) => (code === 'charge' ? ['charge', 'en_route'] : [code]).includes(p.statut));
+        const ev = [...r.parcours].reverse().find((p) => (code === 'charge' ? ['charge', 'en_route'] : code === 'recu' ? ['recu', 'a_peser'] : [code]).includes(p.statut));
         const fait = ev || i <= rang;
         const quand = ev ? [date(ev.le), ev.lieu].filter(Boolean).join(' · ') : '';
         return `<li class="${fait ? 'fait' : ''} ${i === rang ? 'courant' : ''}"><span class="puce"></span><span class="pas"><strong>${esc(libelle)}</strong>${quand ? `<span>${esc(quand)}</span>` : ''}</span></li>`;

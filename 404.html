@@ -12,6 +12,8 @@
     // …/youmma-business/d/<jeton> → …/youmma-business/d/?j=<jeton> (page du chauffeur, livraison à signer) ;
     // …/youmma-business/c/<jeton> → …/youmma-business/c/?j=<jeton> (suivi public d'un colis) ;
     // …/youmma-business/p/<jeton> → …/youmma-business/p/?j=<jeton> (photos d'un colis prises au téléphone) ;
+    // …/youmma-business/m/<jeton> → …/youmma-business/m/?j=<jeton> (relevé d'un compte commerçant) ;
+    // …/youmma-business/s/<adresse> → …/youmma-business/s/?s=<adresse> (simulateur de prix d'un transitaire) ;
     // toute autre adresse → l'appli.
     (function () {
       var chemin = location.pathname;
@@ -21,8 +23,10 @@
       if (v) { location.replace(v[1] + 'v/?c=' + encodeURIComponent(v[2])); return; }
       var d = chemin.match(/^(.*?\/)d\/([A-Za-z0-9_-]{8,120})\/?$/);
       if (d) { location.replace(d[1] + 'd/?j=' + encodeURIComponent(d[2])); return; }
-      var c = chemin.match(/^(.*?\/)([cp])\/([A-Za-z0-9_-]{6,120})\/?$/);
+      var c = chemin.match(/^(.*?\/)([cpm])\/([A-Za-z0-9_-]{6,120})\/?$/);
       if (c) { location.replace(c[1] + c[2] + '/?j=' + encodeURIComponent(c[3])); return; }
+      var s = chemin.match(/^(.*?\/)s\/([A-Za-z0-9-]{3,60})\/?$/);
+      if (s) { location.replace(s[1] + 's/?s=' + encodeURIComponent(s[2].toLowerCase())); return; }
       var racine = chemin.match(/^(\/youmma-business\/)/);
       location.replace((racine ? racine[1] : '/') + location.hash);
     })();

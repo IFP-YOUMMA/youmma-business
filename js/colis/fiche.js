@@ -17,7 +17,7 @@ export const ETAPES = [
   ['recu', 'Reçu'], ['entrepot', 'En entrepôt'], ['charge', 'Chargé'], ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']
 ];
 const nomMode = (m) => MODES_PAIEMENT_COLIS.find(([x]) => x === m)?.[1] || m;
-const RANG = { recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
+const RANG = { a_peser: 0, recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
 
 /** La bascule est dans le seau public « colis » (elle s'affiche aussi sur le suivi). */
 const urlBascule = (chemin) => sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
@@ -65,6 +65,7 @@ export function afficherFicheColis(conteneur, id) {
           ${pastilleStatut(c.statut)}
         </header>
         <div class="col-fiche-actions">
+          ${c.statut === 'a_peser' ? `<a class="btn btn-primaire" href="#/peser/${encodeURIComponent(c.id)}">${iconeColis('balance', 18)} Peser ce carton</a>` : ''}
           ${c.statut === 'a_retirer' ? `<button type="button" class="btn btn-primaire" data-action="remettre">${iconeColis('colis', 18)} Remettre le colis</button>` : ''}
           <a class="btn btn-secondaire" href="#/colis/${encodeURIComponent(c.id)}/etiquette">${icone('imprimante', 17, 2)} Étiquettes</a>
           ${lien ? `<button type="button" class="btn btn-secondaire" data-action="copier">${icone('copier', 17, 2)} Lien de suivi</button>
@@ -96,7 +97,7 @@ export function afficherFicheColis(conteneur, id) {
           <div class="col-fiche-droite">
             <section class="carte col-bloc">
               <h2>Paiement</h2>
-              ${c.paye
+              ${c.statut === 'a_peser' ? '<div class="col-paiement"><span>Pas encore pesé</span><strong>Prix calculé à la pesée</strong></div>' : c.paye
                 ? `<div class="col-paiement paye"><span>Payé au départ</span><strong>${esc(montant(c.montant, c.devise))}</strong>${c.paye_mode ? `<span class="discret">${esc(nomMode(c.paye_mode))}</span>` : ''}</div>`
                 : `<div class="col-paiement a-payer"><span>À payer au retrait</span><strong>${esc(montant(c.du_montant, c.du_devise))}</strong>${c.du_devise !== c.devise ? `<span class="discret">soit ${esc(montant(c.montant, c.devise))} au départ, figé au dépôt</span>` : ''}</div>`}
               ${c.encaisse_montant ? `<p class="discret">Encaissé au retrait : ${esc(montant(c.encaisse_montant, c.du_devise))}${c.encaisse_mode ? ` · ${esc(nomMode(c.encaisse_mode))}` : ''}</p>` : ''}

@@ -9,7 +9,7 @@
  */
 import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
-import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, ouvrirModale } from '../utils.js';
+import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, ouvrirModale, copierTexte } from '../utils.js';
 import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO } from './commun.js';
 import { monterComptesClients } from './comptes.js';
 
@@ -29,11 +29,14 @@ export function monterReglagesColis(zone) {
   async function charger() {
     try {
       const b = etat.boutique.id;
-      const [agences, tarifs, taux] = await Promise.all([
+      const [agences, tarifs, taux, enLigne] = await Promise.all([
         chargerAgences({ forcer: true }),
         sb.from('tarifs_colis').select(COLONNES_TARIF).eq('boutique_id', b).order('ordre'),
-        sb.from('taux_change').select('de, vers, taux, maj_le').eq('boutique_id', b).order('maj_le', { ascending: false }).limit(1)
+        sb.from('taux_change').select('de, vers, taux, maj_le').eq('boutique_id', b).order('maj_le', { ascending: false }).limit(1),
+        // Le simulateur public (s/<slug>) utilise l'adresse de la boutique en ligne.
+        sb.from('boutiques_en_ligne').select('slug').eq('boutique_id', b).maybeSingle()
       ]);
+      s.slug = enLigne.data?.slug || null;
       if (tarifs.error) throw tarifs.error;
       s.agences = agences;
       s.tarifs = tarifs.data || [];
@@ -130,8 +133,12 @@ export function monterReglagesColis(zone) {
           <td class="droite">${x.capacite_kg ? `${formatNombre(x.capacite_kg)} kg` : '—'}</td>
           <td>${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-tarif="${esc(x.id)}">Modifier</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
         : `<p class="col-vide">${s.agences.length > 1 ? 'Aucun corridor. Ouvrez le premier : Dakar → Conakry par avion, par exemple.' : 'Ajoutez d’abord deux bureaux.'}</p>`}
+      ${s.slug ? `<div class="col-lien-simulateur"><span>Simulateur de prix pour vos clients : <a href="${esc(lienSimulateur())}" target="_blank" rel="noopener">${esc(lienSimulateur().replace(/^https?:///, ''))}</a></span>
+        <button type="button" class="btn btn-secondaire btn-petit" data-action="copier-simulateur">Copier le lien</button></div>` : '<p class="discret">Le simulateur de prix public utilise l’adresse de votre boutique en ligne : elle n’est pas encore choisie.</p>'}
       <p class="discret">Le diviseur volumétrique transforme le volume en kilos (6 000 pour l’avion, 5 000 pour la route et la mer) : un carton de 60 × 40 × 35 pèse 14 kg « en place » par avion. Le prix est toujours calculé par la base.</p>`;
   }
+
+  const lienSimulateur = () => new URL(`s/${s.slug}`, new URL('./', location.href.split('#')[0])).href;
 
   function modifierTarif(id) {
     const existant = s.tarifs.find((x) => x.id === id);
@@ -232,6 +239,7 @@ export function monterReglagesColis(zone) {
     if (b) modifierBureau(b.dataset.bureau);
     const t = e.target.closest('[data-tarif]');
     if (t) modifierTarif(t.dataset.tarif || null);
+    if (e.target.closest('[data-action="copier-simulateur"]')) toast(await copierTexte(lienSimulateur()) ? 'Lien du simulateur copié.' : 'Copie impossible.', 'succes');
     if (e.target.closest('[data-action="taux"]')) {
       const v = lireNombre(zone.querySelector('#col-taux-saisie').value);
       if (!v || v <= 0) { toast('Taux invalide.', 'erreur'); return; }

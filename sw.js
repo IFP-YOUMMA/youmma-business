@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v26';
+const VERSION_CACHE = 'yb-statique-v27';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -125,6 +125,12 @@ const FICHIERS_STATIQUES = [
   './js/colis/reglages.js',
   './c/index.html',
   './p/index.html',
+  // Étape 18 : transit (accueil des corridors, réception, pesée, comptes), relevé public m/ et simulateur s/
+  './js/colis/transit.js',
+  './js/colis/reception.js',
+  './js/colis/comptes.js',
+  './m/index.html',
+  './s/index.html',
   // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
   // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
   './js/detourage.js',
@@ -222,7 +228,7 @@ async function limiterImages(cache) {
  *  - panneau d'administration (admin/…) → admin/index.html (jamais l'appli) ;
  *  - vérification d'un document (v/…) → v/index.html (jamais l'appli) ;
  *  - page du chauffeur (d/…) → d/index.html (jamais l'appli) ;
- *  - suivi d'un colis (c/…) et photos au téléphone (p/…) → leur propre page (jamais l'appli) ;
+ *  - suivi d'un colis (c/…), photos au téléphone (p/…), relevé d'un compte (m/…), simulateur (s/…) → leur propre page ;
  *  - page d'impression (document.html) → elle-même si elle est en cache ;
  *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
  *  - autre navigation dans l'appli → index.html.
@@ -245,7 +251,7 @@ function repli(requete, url) {
     return requete.mode === 'navigate' ? caches.match('./d/index.html').then((r) => r || Response.error()) : Response.error();
   }
   // Suivi public d'un colis et photos prises au téléphone : leurs propres pages.
-  for (const dossier of ['c', 'p']) {
+  for (const dossier of ['c', 'p', 'm', 's']) {
     if (chemin === dossier || chemin.startsWith(`${dossier}/`)) {
       return requete.mode === 'navigate' ? caches.match(`./${dossier}/index.html`).then((r) => r || Response.error()) : Response.error();
     }

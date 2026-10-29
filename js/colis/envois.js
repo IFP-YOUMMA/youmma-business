@@ -128,6 +128,9 @@ function afficherEnvoi(conteneur, id) {
         const dep = agenceSelon(agences, r.depart);
         s.attente = (await api.liste({ filtre: 'attente', agence: dep?.id || null, limite: 200 }))
           .filter((c) => c.envoi === null && c.arrivee === r.arrivee.ville);
+        // Un carton « à peser » ne peut pas partir : on le montre à part, sans case à cocher.
+        s.aPeser = s.attente.filter((c) => c.statut === 'a_peser');
+        s.attente = s.attente.filter((c) => c.statut !== 'a_peser');
       } else s.attente = [];
       render();
     } catch (err) {
@@ -165,11 +168,12 @@ function afficherEnvoi(conteneur, id) {
         </header>
         <section class="col-kpis cinq no-print">
           ${kpi('Colis', formatNombre(nb), nb ? `${formatNombre(s.colis.reduce((x, c) => x + c.nb, 0))} cartons` : 'Ajoutez des colis')}
-          ${kpi('Poids total', poidsTexte(poidsTotal).replace(',00', ''), nb ? `moyenne ${poidsTexte(poidsTotal / nb).replace(',00', '')}` : '—')}
+          ${kpi('Poids taxable', poidsTexte(t.poids_taxable).replace(',00', ''), `${poidsTexte(poidsTotal).replace(',00', '')} sur la balance`)}
           ${kpi('Recette', esc(montant(recette, devise())), Number(t.a_encaisser) ? `dont ${esc(montant(t.a_encaisser, devise()))} à encaisser à l’arrivée` : 'tout est payé au départ')}
           ${kpi('Frais du voyage', esc(montant(frais, devise())), s.frais.map((f) => f.nom).slice(0, 3).join(', ').toLowerCase() || 'aucun frais saisi')}
           ${kpi('Bénéfice', esc(montant(benefice, devise())), recette ? `${Math.round((benefice / recette) * 100)} % de marge` : '', benefice < 0 ? 'texte-danger' : 'texte-succes')}
         </section>
+        ${e.capacite_kg ? remplissageHTML(e) : ''}
         <div class="col-envoi-grille no-print">
           <div class="col-envoi-gauche">
             <section class="carte col-manifeste">
@@ -186,8 +190,9 @@ function afficherEnvoi(conteneur, id) {
               <div class="col-carte-entete"><h2>Colis en attente à ${esc(dep?.ville || 'au départ')}</h2>
                 <button type="button" class="btn btn-secondaire btn-petit" data-action="ajouter" disabled>Ajouter à l’envoi</button></div>
               ${s.attente.length ? `<ul class="col-attente">${s.attente.map((c) => `<li><label><input type="checkbox" value="${esc(c.id)}">
-                <span class="col-num">${esc(c.numero)}</span><span>${esc(c.expediteur_nom)} → ${esc(c.destinataire_nom)}</span><span class="droite">${formatNombre(c.poids, 2)} kg</span></label></li>`).join('')}</ul>
+                <span class="col-num">${esc(c.numero)}</span><span>${esc(c.expediteur_nom)} → ${esc(c.destinataire_nom)}</span><span class="droite">${formatNombre(c.poids_facture ?? c.poids, 2)} kg</span></label></li>`).join('')}</ul>
                 <button type="button" class="btn-lien" data-action="tout-cocher">Tout cocher</button>` : '<p class="col-vide">Aucun colis en attente pour ce trajet.</p>'}
+              ${s.aPeser?.length ? `<p class="col-note-arrivee"><strong>${formatNombre(s.aPeser.length)} carton${s.aPeser.length > 1 ? 's' : ''} à peser</strong> ne peu${s.aPeser.length > 1 ? 'vent' : 't'} pas partir : ${s.aPeser.map((c) => `<a href="#/peser/${encodeURIComponent(c.id)}">${esc(c.numero)}</a>`).join(', ')}.</p>` : ''}
             </section>` : ''}
           </div>
           <div class="col-envoi-droite">
@@ -214,6 +219,13 @@ function afficherEnvoi(conteneur, id) {
         </div>
         ${manifesteImpression()}
       </div>`;
+  }
+
+  /** Remplissage du véhicule : poids taxable chargé sur la capacité (proportion pour la barre seulement). */
+  function remplissageHTML(e) {
+    const p = Math.min(100, Math.round((Number(e.resume.poids_taxable) / Number(e.capacite_kg)) * 100));
+    return `<section class="carte tr-remplissage col-remplissage-envoi ${p < 40 ? 'bas' : ''} no-print"><div class="tr-remplissage-tete"><span>Remplissage du véhicule · ${esc(poidsTexte(e.resume.poids_taxable).replace(',00', ''))} sur ${esc(poidsTexte(e.capacite_kg).replace(',00', ''))}</span><strong>${p} %</strong></div>
+      <span class="tr-barre" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p}%"></span></span>${p < 40 ? '<span class="discret">Moins de 40 % : appelez les clients qui ont des cartons à l’entrepôt.</span>' : ''}</section>`;
   }
 
   function fraisHTML() {
@@ -317,7 +329,13 @@ function afficherEnvoi(conteneur, id) {
       const ids = [...conteneur.querySelectorAll('.col-attente input:checked')].map((c) => c.value);
       if (!ids.length) return;
       boutonOccupe(bouton, true);
-      try { await api.dansEnvoi(id, ids); toast(`${ids.length} colis ajouté${ids.length > 1 ? 's' : ''} à l’envoi.`, 'succes'); charger(); } catch (err) { boutonOccupe(bouton, false); toast(messageErreur(err), 'erreur'); }
+      try {
+        // colis_dans_envoi refuse un carton non pesé : { traites, refuses_non_peses }.
+        const r = await api.dansEnvoi(id, ids);
+        if (r.refuses_non_peses) toast(`${formatNombre(r.traites)} colis ajouté${r.traites > 1 ? 's' : ''}. ${formatNombre(r.refuses_non_peses)} refusé${r.refuses_non_peses > 1 ? 's' : ''} : pas encore pesé${r.refuses_non_peses > 1 ? 's' : ''}. Pesez-les d’abord.`, 'erreur', 8000);
+        else toast(`${formatNombre(r.traites)} colis ajouté${r.traites > 1 ? 's' : ''} à l’envoi.`, 'succes');
+        charger();
+      } catch (err) { boutonOccupe(bouton, false); toast(messageErreur(err), 'erreur'); }
     }
     const retirer = e.target.closest('[data-retirer]');
     if (retirer) {

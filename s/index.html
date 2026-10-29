@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A3D33">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Combien coûte mon colis ? · YOUMMA Business</title>
+  <meta name="description" content="Le prix de votre colis avant de venir au bureau : poids, dimensions, avion ou route.">
+  <link rel="icon" href="../img/logo/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+  <style>
+    /* Simulateur public (maquette Simulateur) : corridors_publics(slug) pour les choix, simuler_prix pour le prix.
+       Le navigateur ne calcule rien : il affiche ce que la base renvoie. */
+    :root { --vert: #0F7B5F; --fonce: #0A3D33; --or: #F2B33D; --texte: #0E1F1A; --doux: #5B6B65; --trait: #E6ECE9; --fond: #F6F8F7; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: 'Manrope', system-ui, sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+    .entete { background: var(--fonce); color: #FFFFFF; }
+    .entete-dedans { max-width: 960px; margin: 0 auto; padding: 18px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .logo { width: 46px; height: 46px; border-radius: 12px; background: var(--or); color: #3A2600; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex: none; overflow: hidden; }
+    .logo img { width: 100%; height: 100%; object-fit: contain; background: #FFFFFF; }
+    .titres { flex: 1; min-width: 200px; }
+    .titres h1 { margin: 0; font-size: 21px; }
+    .titres span { font-size: 13px; color: #BFE0D3; }
+    .partager { min-height: 44px; padding: 0 14px; border-radius: 10px; border: none; background: rgba(255,255,255,.12); color: #FFFFFF; font: inherit; font-weight: 800; cursor: pointer; }
+    .page { max-width: 960px; margin: 0 auto; padding: 18px 16px 30px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+    .etiq { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); margin: 0 0 8px; }
+    .bloc { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .choix { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .choix.modes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .choix button { min-height: 60px; border-radius: 12px; border: 2px solid var(--trait); background: #FFFFFF; font: inherit; color: var(--texte); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; }
+    .choix button strong { font-size: 14px; }
+    .choix button span { font-size: 12px; color: var(--doux); font-variant-numeric: tabular-nums; }
+    .choix button[aria-pressed="true"] { border-color: var(--vert); background: #E3F2EC; }
+    .drap { font-size: 20px; line-height: 1; }
+    .champs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .champs.deux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #3A4A44; }
+    .unite { position: relative; display: block; }
+    .unite input { width: 100%; padding-right: 36px; }
+    .unite span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12.5px; color: var(--doux); }
+    input { min-height: 50px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font: inherit; font-size: 18px; font-weight: 700; color: var(--texte); background: #FFFFFF; font-variant-numeric: tabular-nums; }
+    input:focus { outline: none; border-color: var(--vert); box-shadow: 0 0 0 3px #E3F2EC; }
+    .aide { margin: 6px 0 0; font-size: 12.5px; color: var(--doux); }
+    .prix { background: var(--fonce); color: #FFFFFF; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px; }
+    .prix .etiq { color: #BFE0D3; }
+    .montant { font-size: 48px; font-weight: 800; color: var(--or); letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+    .montant small { font-size: 16px; color: #FFFFFF; letter-spacing: 0; }
+    .arrivee { font-weight: 800; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+    .detail { border-top: 1px solid rgba(255,255,255,.14); margin-top: 10px; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .detail div { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: #DCEBE5; font-variant-numeric: tabular-nums; }
+    .detail strong { color: #FFFFFF; }
+    .attente { color: #BFE0D3; font-size: 14px; }
+    .conseil { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: #FFF8E6; border: 1px solid #F2D9A0; color: #6B4E00; font-size: 13.5px; line-height: 1.55; }
+    .whatsapp { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border-radius: 12px; background: var(--vert); color: #FFFFFF; font-weight: 800; text-decoration: none; }
+    .mention { text-align: center; font-size: 12.5px; color: var(--doux); margin: 10px 0 0; }
+    .erreur { padding: 14px; border-radius: 12px; background: #FDECEC; color: #A51C1C; font-weight: 700; }
+    .introuvable { max-width: 520px; margin: 40px auto; padding: 0 16px; text-align: center; color: var(--doux); }
+    .pied { text-align: center; font-size: 12px; color: var(--doux); padding: 8px 16px 20px; }
+    @media (max-width: 760px) { .page { grid-template-columns: minmax(0, 1fr); } .montant { font-size: 40px; } }
+  </style>
+</head>
+<body>
+  <div id="simulateur"><p class="introuvable">Chargement…</p></div>
+  <footer class="pied">Simulateur propulsé par <strong>YOUMMA Business</strong></footer>
+  <noscript><p style="padding:24px">Cette page a besoin de JavaScript.</p></noscript>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-simulateur' }
+    });
+    const racine = document.getElementById('simulateur');
+    const slug = (new URLSearchParams(location.search).get('s') || location.pathname.match(/\/s\/([a-z0-9-]{3,60})\/?$/i)?.[1] || '').trim().toLowerCase();
+    const MODES = { avion: 'Avion', route: 'Route', bateau: 'Bateau' };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: dec }).replace(/[  ]/g, ' ');
+    const devise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
+    const lire = (v) => { const n = Number(String(v || '').replace(/\s/g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+    const jourLong = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${iso}T12:00:00`)); } catch { return ''; } };
+
+    function introuvable(message) {
+      racine.innerHTML = `<div class="introuvable"><h1 style="font-size:20px;color:#0E1F1A">Simulateur introuvable</h1><p>${esc(message)}</p></div>`;
+    }
+
+    function monter({ corridors, entreprise }) {
+      document.title = `Combien coûte mon colis ? · ${entreprise.nom}`;
+      const origines = [...new Map(corridors.map((c) => [c.depart, c])).values()];
+      const destinations = [...new Set(corridors.map((c) => c.vers))];
+      const s = { depart: origines[0].depart, arrivee: null, mode: null, resultat: null, jeton: 0 };
+      const corridorsDe = () => corridors.filter((c) => c.depart === s.depart && (!s.arrivee || c.arrivee === s.arrivee));
+      const choisirDefauts = () => {
+        const liste = corridors.filter((c) => c.depart === s.depart);
+        if (!liste.some((c) => c.arrivee === s.arrivee)) s.arrivee = liste[0].arrivee;
+        const modes = liste.filter((c) => c.arrivee === s.arrivee);
+        if (!modes.some((c) => c.mode === s.mode)) s.mode = modes[0].mode;
+      };
+      choisirDefauts();
+
+      racine.innerHTML = `
+        <header class="entete"><div class="entete-dedans">
+          <span class="logo">${entreprise.logo_url ? `<img src="${esc(entreprise.logo_url)}" alt="">` : esc(String(entreprise.nom).split(/\s+/).map((m) => m[0]).join('').slice(0, 2).toUpperCase())}</span>
+          <span class="titres"><h1>Combien coûte mon colis ?</h1><span>${esc(entreprise.nom)} · ${esc(origines.map((o) => o.ville).join(', '))} vers ${esc(destinations.join(', '))}</span></span>
+          <button type="button" class="partager" data-action="partager">Partager ce lien</button>
+        </div></header>
+        <main class="page">
+          <section>
+            <div class="bloc"><span class="etiq">D’où part votre colis ?</span><div class="choix" data-zone="origines"></div></div>
+            <div class="bloc" data-zone="bloc-arrivee" hidden><span class="etiq">Vers où ?</span><div class="choix" data-zone="arrivees"></div></div>
+            <div class="bloc"><span class="etiq">Comment ?</span><div class="choix modes" data-zone="modes"></div></div>
+            <div class="bloc"><div class="champs deux">
+              <label>Poids sur la balance<span class="unite"><input id="sm-poids" inputmode="decimal" placeholder="0"><span>kg</span></span></label>
+              <label>Nombre de colis<input id="sm-nb" type="number" inputmode="numeric" min="1" step="1" value="1"></label>
+            </div></div>
+            <div class="bloc"><span class="etiq" data-ref="titre-dimensions">Les dimensions du carton</span><div class="champs">
+              <label>Longueur<span class="unite"><input id="sm-l" inputmode="numeric" placeholder="—"><span>cm</span></span></label>
+              <label>Largeur<span class="unite"><input id="sm-la" inputmode="numeric" placeholder="—"><span>cm</span></span></label>
+              <label>Hauteur<span class="unite"><input id="sm-h" inputmode="numeric" placeholder="—"><span>cm</span></span></label>
+            </div>
+            <p class="aide">Si vous ne connaissez pas les dimensions, laissez vide : nous calculerons au poids seul, et le prix sera ajusté à la pesée.</p></div>
+          </section>
+          <section>
+            <div class="prix" data-zone="prix" aria-live="polite"></div>
+            <p class="conseil" data-zone="conseil" hidden></p>
+            <a class="whatsapp" data-zone="whatsapp" target="_blank" rel="noopener" hidden>Écrire au bureau sur WhatsApp</a>
+            <p class="mention">Prix indicatif, hors taxes de douane. Le prix exact est confirmé à la pesée, à l’entrepôt.</p>
+          </section>
+        </main>`;
+      const zone = (n) => racine.querySelector(`[data-zone="${n}"]`);
+
+      function renderChoix() {
+        zone('origines').innerHTML = origines.map((o) => `<button type="button" data-depart="${esc(o.depart)}" aria-pressed="${o.depart === s.depart}"><span class="drap" title="${esc(o.pays)}">${esc(o.drapeau || o.pays)}</span><strong>${esc(o.ville)}</strong></button>`).join('');
+        const arrivees = [...new Map(corridors.filter((c) => c.depart === s.depart).map((c) => [c.arrivee, c])).values()];
+        zone('bloc-arrivee').hidden = arrivees.length < 2;
+        zone('arrivees').innerHTML = arrivees.map((c) => `<button type="button" data-arrivee="${esc(c.arrivee)}" aria-pressed="${c.arrivee === s.arrivee}"><strong>${esc(c.vers)}</strong></button>`).join('');
+        zone('modes').innerHTML = corridorsDe().map((c) => `<button type="button" data-mode="${esc(c.mode)}" aria-pressed="${c.mode === s.mode}"><strong>${esc(MODES[c.mode] || c.mode)} · ${nombre(c.delai_jours)} jours</strong><span>${nombre(c.prix_kg)} ${c.devise === 'XOF' ? 'F' : esc(devise(c.devise))} / kg</span></button>`).join('');
+      }
+
+      function lireSaisie() {
+        const dims = [lire(racine.querySelector('#sm-l').value), lire(racine.querySelector('#sm-la').value), lire(racine.querySelector('#sm-h').value)];
+        const nb = Math.max(1, Math.round(Number(racine.querySelector('#sm-nb').value) || 1));
+        racine.querySelector('[data-ref="titre-dimensions"]').textContent = nb > 1 ? `Les dimensions d’UN carton (sur ${nb})` : 'Les dimensions du carton';
+        return { poids: lire(racine.querySelector('#sm-poids').value), nb, dims: dims.every(Boolean) ? dims : [null, null, null] };
+      }
+
+      function renderPrix(r, m) {
+        if (!r) { zone('prix').innerHTML = '<span class="etiq">Votre prix</span><p class="attente">Indiquez le poids pour voir le prix.</p>'; zone('conseil').hidden = true; zone('whatsapp').hidden = true; return; }
+        const c = r.calcul;
+        zone('prix').innerHTML = `
+          <span class="etiq">Votre prix</span>
+          <span class="montant">${nombre(r.total)} <small>${esc(devise(r.devise))}</small></span>
+          ${r.devise_arrivee && r.devise_arrivee !== r.devise ? `<span class="arrivee">ou ${nombre(r.total_arrivee)} ${esc(devise(r.devise_arrivee))} à l’arrivée</span>` : ''}
+          <div class="detail">
+            <div><span>Poids sur la balance</span><strong>${nombre(c.poids_reel, 2)} kg</strong></div>
+            <div><span>Poids volumétrique</span><strong>${c.poids_volumetrique != null ? `${nombre(c.poids_volumetrique, 2)} kg` : 'dimensions non saisies'}</strong></div>
+            <div><span>Poids facturé</span><strong>${nombre(r.poids_facture, 2)} kg</strong></div>
+            <div><span>Délai</span><strong>${nombre(r.delai_jours)} jours</strong></div>
+            ${r.prochain_depart ? `<div><span>Prochain départ</span><strong>${esc(jourLong(r.prochain_depart))}</strong></div>` : ''}
+          </div>`;
+        zone('conseil').hidden = !r.conseil;
+        zone('conseil').textContent = r.conseil || '';
+        const corridor = corridorsDe().find((x) => x.mode === s.mode);
+        const tel = String(entreprise.telephone || '').replace(/\D/g, '');
+        const message = `Bonjour, je voudrais envoyer un colis de ${corridor.ville} vers ${corridor.vers} par ${(MODES[s.mode] || s.mode).toLowerCase()} : ${nombre(m.poids, 2)} kg${m.nb > 1 ? ` en ${m.nb} cartons` : ''}${m.dims[0] ? `, ${m.dims.join(' × ')} cm` : ''}. Le simulateur indique ${nombre(r.total)} ${devise(r.devise)}${r.total_arrivee && r.devise_arrivee !== r.devise ? ` (${nombre(r.total_arrivee)} ${devise(r.devise_arrivee)} à l’arrivée)` : ''}.`;
+        zone('whatsapp').hidden = !tel;
+        if (tel) zone('whatsapp').href = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
+      }
+
+      let minuteur = null;
+      function recalculer() {
+        clearTimeout(minuteur);
+        minuteur = setTimeout(async () => {
+          const m = lireSaisie();
+          const jeton = ++s.jeton;
+          if (!m.poids) { renderPrix(null); return; }
+          const { data, error } = await sb.rpc('simuler_prix', { p_slug: slug, p_depart: s.depart, p_arrivee: s.arrivee, p_mode: s.mode, p_poids: m.poids, p_longueur: m.dims[0], p_largeur: m.dims[1], p_hauteur: m.dims[2], p_nb: m.nb });
+          if (jeton !== s.jeton) return;
+          if (error || !data || data.introuvable) { zone('prix').innerHTML = '<p class="erreur">Prix indisponible pour ce choix. Écrivez au bureau.</p>'; return; }
+          renderPrix(data, m);
+        }, 300);
+      }
+
+      racine.addEventListener('click', async (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.depart) { s.depart = b.dataset.depart; choisirDefauts(); renderChoix(); recalculer(); }
+        if (b.dataset.arrivee) { s.arrivee = b.dataset.arrivee; choisirDefauts(); renderChoix(); recalculer(); }
+        if (b.dataset.mode) { s.mode = b.dataset.mode; renderChoix(); recalculer(); }
+        if (b.dataset.action === 'partager') {
+          const donnees = { title: `Combien coûte mon colis ? · ${entreprise.nom}`, url: location.href.split('#')[0] };
+          try {
+            if (navigator.share) await navigator.share(donnees);
+            else { await navigator.clipboard.writeText(donnees.url); b.textContent = 'Lien copié'; setTimeout(() => { b.textContent = 'Partager ce lien'; }, 2000); }
+          } catch { /* partage annulé */ }
+        }
+      });
+      racine.addEventListener('input', recalculer);
+      renderChoix();
+      renderPrix(null);
+    }
+
+    if (!slug) introuvable('Il manque le nom de l’entreprise dans l’adresse.');
+    else {
+      try {
+        const { data, error } = await sb.rpc('corridors_publics', { p_slug: slug });
+        if (error) throw error;
+        if (!data || data.introuvable || !data.corridors?.length) introuvable('Cette adresse ne correspond à aucune entreprise de transport. Vérifiez le lien qu’on vous a envoyé.');
+        else monter(data);
+      } catch { introuvable('Connexion impossible. Réessayez dans un instant.'); }
+    }
+  </script>
+</body>
+</html>

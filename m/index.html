@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A3D33">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Mon compte · YOUMMA Business</title>
+  <link rel="icon" href="../img/logo/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+  <style>
+    /* Relevé public d'un compte commerçant (maquette CompteClient) : un seul fichier, aucune session Supabase.
+       Le titre de la page ne contient jamais le nom du client, et la page n'est pas indexée. */
+    :root { --vert: #0F7B5F; --fonce: #0A3D33; --or: #F2B33D; --texte: #0E1F1A; --doux: #5B6B65; --trait: #E6ECE9; --fond: #F6F8F7; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: 'Manrope', system-ui, sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+    .page { max-width: 560px; margin: 0 auto; padding-bottom: 28px; }
+    .entete { background: var(--fonce); color: #FFFFFF; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .qui { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 40px; height: 40px; border-radius: 10px; background: var(--or); color: #3A2600; display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
+    .qui strong { display: block; font-size: 16px; }
+    .qui span { font-size: 12.5px; color: #BFE0D3; }
+    .numero { border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .numero-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .etiq { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #BFE0D3; }
+    .code { font-size: 34px; font-weight: 800; letter-spacing: .04em; color: var(--or); font-variant-numeric: tabular-nums; }
+    .numero p { margin: 0; font-size: 13.5px; color: #DCEBE5; }
+    .numero p strong { color: #FFFFFF; }
+    .copier { min-height: 44px; padding: 0 14px; border-radius: 10px; border: none; background: rgba(255,255,255,.14); color: #FFFFFF; font: inherit; font-weight: 800; cursor: pointer; }
+    .montrer { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: #DCEBE5; }
+    .montrer svg { width: 76px; height: 76px; flex: none; border-radius: 8px; }
+    .corps { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .compteurs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .compteur { background: #FFFFFF; border: 1px solid var(--trait); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; }
+    .compteur strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+    .compteur span { font-size: 12.5px; color: var(--doux); }
+    .section-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 6px 0 -4px; }
+    .section-tete h2 { margin: 0; font-size: 16px; }
+    .section-tete span { font-size: 12.5px; color: var(--doux); font-variant-numeric: tabular-nums; }
+    .carte { background: #FFFFFF; border: 1px solid var(--trait); border-radius: 14px; padding: 12px; }
+    .carton { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+    .carton.choisi { border-color: var(--vert); box-shadow: 0 0 0 2px #E3F2EC; }
+    .vignette { width: 56px; height: 56px; border-radius: 10px; background: #DCE5E1; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--doux); font-size: 11px; }
+    .vignette img { width: 100%; height: 100%; object-fit: cover; }
+    .carton-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .carton-textes strong { font-size: 14.5px; }
+    .carton-textes span { font-size: 12.5px; color: var(--doux); }
+    .poids { font-size: 13px; color: var(--texte); font-variant-numeric: tabular-nums; }
+    .pastille { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+    .pastille.pese { background: #E3F2EC; color: #0A5A45; }
+    .pastille.a-peser { background: #FFF4DC; color: #7A4A00; }
+    .pastille.demande { background: var(--vert); color: #FFFFFF; }
+    .case { width: 22px; height: 22px; accent-color: var(--vert); }
+    .partir { width: 100%; min-height: 64px; border: none; border-radius: 14px; background: var(--vert); color: #FFFFFF; font: inherit; text-align: left; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+    .partir:disabled { background: #9DBFB2; cursor: default; }
+    .partir strong { display: block; font-size: 16px; }
+    .partir span { font-size: 13px; color: #DCEBE5; font-variant-numeric: tabular-nums; }
+    .note { margin: -6px 2px 0; font-size: 12.5px; color: var(--doux); }
+    .route-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .route-tete strong { font-variant-numeric: tabular-nums; }
+    .etat { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #E6EEFB; color: #1D4E7A; }
+    .barre { display: block; height: 6px; border-radius: 99px; background: #E6ECE9; margin: 10px 0 8px; overflow: hidden; }
+    .barre > span { display: block; height: 100%; background: var(--vert); border-radius: 99px; }
+    .petit { font-size: 12.5px; color: var(--doux); }
+    .retirer { background: #E8F5EF; border-color: #A9D7B9; }
+    .retirer .route-tete strong:last-child { color: #0A5A45; }
+    .pret { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--vert); color: #FFFFFF; }
+    .vide { color: var(--doux); font-size: 13.5px; }
+    form { display: flex; flex-direction: column; gap: 12px; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
+    input[type=text], input:not([type]) { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font: inherit; font-size: 16px; color: var(--texte); background: #FFFFFF; }
+    .bouton { min-height: 48px; border-radius: 12px; border: none; background: var(--vert); color: #FFFFFF; font: inherit; font-weight: 800; cursor: pointer; }
+    .erreur { padding: 12px 14px; border-radius: 12px; background: #FDECEC; color: #A51C1C; font-weight: 700; font-size: 14px; }
+    .pied { text-align: center; font-size: 12px; color: var(--doux); padding: 18px 16px 8px; }
+    .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fonce); color: #FFFFFF; padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 5; }
+  </style>
+</head>
+<body>
+  <main class="page" id="compte"><div class="corps"><p class="vide">Chargement de votre compte…</p></div></main>
+  <footer class="pied">Suivi propulsé par <strong>YOUMMA Business</strong></footer>
+  <noscript><p style="padding:24px">Cette page a besoin de JavaScript.</p></noscript>
+  <script type="module">
+    // mon_compte(p_jeton) et compte_par_code(p_code, p_tel4) : lecture publique du relevé d'un compte commerçant.
+    // demander_depart(p_jeton, p_colis, p_annuler) : la cliente demande le départ de ses cartons pesés (ou l'annule).
+    // Aucun poids ni prix calculé ici : les totaux affichés sont la somme des montants déjà calculés par la base,
+    // une monnaie à la fois.
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+    import { svgQr } from '../js/qr.js';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-compte' }
+    });
+    let racine = document.getElementById('compte');
+    /** Nœud neuf à chaque affichage : les écouteurs de l'affichage précédent disparaissent avec l'ancien. */
+    const neuf = () => { const n = racine.cloneNode(false); racine.replaceWith(n); racine = n; };
+    const jeton = (new URLSearchParams(location.search).get('j') || location.pathname.match(/\/m\/([A-Za-z0-9_-]{6,120})\/?$/)?.[1] || '').trim();
+    const INTROUVABLE = 'Ce numéro ne correspond à aucun compte. Vérifiez avec le bureau.';
+    const ENTREPOT = ['a_peser', 'recu', 'entrepot'];
+    const EN_ROUTE = ['charge', 'en_route', 'arrive'];
+    const AVANCE = { charge: 25, en_route: 60, arrive: 90 };
+    const ETAT = { charge: 'Chargé', en_route: 'En route', arrive: 'Arrivé' };
+
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: dec }).replace(/[  ]/g, ' ');
+    const devise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
+    const jour = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(new Date(iso)); } catch { return ''; } };
+    const initiales = (n) => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]).join('').toUpperCase();
+    const photo = (chemin) => (chemin ? sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl : null);
+    const toast = (t) => { const z = document.createElement('div'); z.className = 'toast'; z.textContent = t; document.body.append(z); setTimeout(() => z.remove(), 3000); };
+
+    function formulaire(message = '') {
+      neuf();
+      racine.innerHTML = `
+        <header class="entete"><div class="qui"><span class="avatar">YB</span><span><strong>Mon compte d’expéditeur</strong><span>Vos cartons, de l’entrepôt jusqu’au retrait</span></span></div></header>
+        <div class="corps">
+          <form class="carte" novalidate>
+            ${message ? `<div class="erreur" role="alert">${esc(message)}</div>` : ''}
+            <label>Votre numéro d’expéditeur<input name="code" autocomplete="off" autocapitalize="characters" placeholder="GN-1042" required></label>
+            <label>4 derniers chiffres de votre téléphone<input name="tel4" inputmode="numeric" maxlength="4" placeholder="0004" required></label>
+            <button class="bouton" type="submit">Voir mon compte</button>
+          </form>
+        </div>`;
+      const f = racine.querySelector('form');
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const code = f.code.value.trim().toUpperCase();
+        const tel4 = f.tel4.value.replace(/\D/g, '').slice(-4);
+        if (!code || tel4.length !== 4) { formulaire('Saisissez votre numéro et les 4 derniers chiffres.'); return; }
+        f.querySelector('button').disabled = true;
+        try {
+          const { data, error } = await sb.rpc('compte_par_code', { p_code: code, p_tel4: tel4 });
+          if (error) throw error;
+          if (!data || data.introuvable) { formulaire(INTROUVABLE); return; }
+          neuf();
+          afficher(data, null);
+        } catch { formulaire('Connexion impossible. Réessayez dans un instant.'); }
+      });
+    }
+
+    function afficher(r, jetonCompte) {
+      const entrepot = r.colis.filter((c) => ENTREPOT.includes(c.statut));
+      const route = r.colis.filter((c) => EN_ROUTE.includes(c.statut));
+      const retirer = r.colis.filter((c) => c.statut === 'a_retirer');
+      const peses = entrepot.filter((c) => c.statut !== 'a_peser');
+      const nonPeses = entrepot.filter((c) => c.statut === 'a_peser');
+      const choisis = new Set(peses.filter((c) => !c.pret_depart).map((c) => c.id));
+      const departs = [...new Set(entrepot.map((c) => c.depart))];
+
+      const carton = (c) => {
+        const pese = c.statut !== 'a_peser';
+        const etat = !pese ? '<span class="pastille a-peser">À peser</span>' : c.pret_depart ? '<span class="pastille demande">Départ demandé</span>' : '<span class="pastille pese">Pesé</span>';
+        return `<li class="carte carton" data-carton="${esc(c.id)}">
+          <span class="vignette">${pese && photo(c.photo_bascule) ? `<img src="${esc(photo(c.photo_bascule))}" alt="" loading="lazy">` : 'photo'}</span>
+          <span class="carton-textes"><strong>${esc(c.contenu)}</strong>
+            <span>${pese ? 'Reçu' : 'Déposé'} le ${esc(jour(c.recu_le))}${c.recu_de ? ` · ${esc(c.recu_de)}` : ''}${c.dimensions ? ` · ${esc(c.dimensions)}` : pese ? '' : ' · à mesurer'}</span>
+            <span class="poids">${pese ? `${esc(nombre(c.poids, 2))} kg réel · <strong>${esc(nombre(c.poids_facture, 2))} kg taxable</strong>` : '— réel · <strong>— taxable</strong>'}</span></span>
+          ${etat}</li>`;
+      };
+
+      racine.innerHTML = `
+        <header class="entete">
+          <div class="qui"><span class="avatar">${esc(initiales(r.nom))}</span><span><strong>${esc(r.nom)}</strong><span>${esc(r.ville || '')} · client de ${esc(r.entreprise.nom)}</span></span></div>
+          <div class="numero">
+            <span class="etiq">Votre numéro d’expéditeur</span>
+            <div class="numero-ligne"><span class="code">${esc(r.code)}</span><button type="button" class="copier" data-action="copier">Copier</button></div>
+            <p>Donnez ce numéro à vos fournisseurs de Dakar, d’Abidjan ou de Bamako. Ils déposent à notre entrepôt <strong>sans que vous soyez là</strong>, et vous le voyez ici tout de suite.</p>
+            <div class="montrer">${svgQr(r.code, { titre: `Numéro ${r.code}`, niveau: 'Q', marge: 2, couleur: '#0A3D33' })}<span>Au bureau, montrez ce code : l’employé le scanne et retrouve votre compte.</span></div>
+          </div>
+        </header>
+        <div class="corps">
+          <div class="compteurs">
+            <div class="compteur"><strong>${nombre(entrepot.length)}</strong><span>à l’entrepôt</span></div>
+            <div class="compteur"><strong>${nombre(route.length)}</strong><span>en route</span></div>
+            <div class="compteur"><strong>${nombre(retirer.length)}</strong><span>à retirer</span></div>
+          </div>
+
+          <div class="section-tete"><h2>À l’entrepôt${departs.length === 1 ? ` de ${esc(departs[0])}` : ''}</h2><span>${esc(nombre(r.resume.kg_entrepot, 2))} kg taxables</span></div>
+          ${entrepot.length ? `<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px">${entrepot.map(carton).join('')}</ul>` : '<p class="vide">Rien à l’entrepôt pour l’instant. Dès qu’un fournisseur dépose un carton à votre numéro, il apparaît ici.</p>'}
+          ${peses.length && jetonCompte ? `
+            <button type="button" class="partir" data-action="partir" ${choisis.size ? '' : 'disabled'}><span><strong>Faire partir mes cartons</strong><span data-ref="total"></span></span><span aria-hidden="true">›</span></button>
+            ${peses.some((c) => c.pret_depart) ? '<button type="button" class="copier" style="background:#FFFFFF;color:#0A3D33;border:1px solid #E6ECE9" data-action="annuler">Annuler ma demande de départ</button>' : ''}` : ''}
+          ${peses.length && !jetonCompte ? '<p class="note">Pour faire partir vos cartons, ouvrez le lien reçu par SMS.</p>' : ''}
+          ${nonPeses.length ? `<p class="note">${nonPeses.map((c) => `Le carton « ${esc(c.contenu)} »`).join(', ')} n’${nonPeses.length > 1 ? 'ont' : 'a'} pas encore été pesé${nonPeses.length > 1 ? 's' : ''} : ${nonPeses.length > 1 ? 'ils partiront' : 'il partira'} au prochain départ si la pesée est faite avant.</p>` : ''}
+
+          ${route.length ? `<div class="section-tete"><h2>En route${route[0] ? ` vers ${esc(r.retrait?.ville || '')}` : ''}</h2></div>
+            ${route.map((c) => `<div class="carte"><div class="route-tete"><strong>${esc(c.numero)}</strong><span class="etat">${esc(ETAT[c.statut])}</span>
+              <span class="petit">${c.envoi?.arrivee_prevue ? `Arrivée prévue ${esc(jour(c.envoi.arrivee_prevue))}` : ''}</span></div>
+              <span class="barre"><span style="width:${AVANCE[c.statut]}%"></span></span>
+              <span class="petit">${esc(c.contenu)}${c.envoi ? ` · envoi ${esc(c.envoi.numero)}` : ''}</span></div>`).join('')}` : ''}
+
+          ${retirer.length ? `<div class="section-tete"><h2>À retirer</h2></div>
+            ${retirer.map((c) => `<div class="carte retirer"><div class="route-tete"><strong>${esc(c.numero)} <span class="pret">Prêt</span></strong><strong>${c.paye ? 'Payé' : `${esc(nombre(c.du_montant))} ${esc(devise(c.du_devise))}`}</strong></div>
+              <p class="petit" style="margin:8px 0 0">${esc(r.retrait?.nom || 'Bureau de retrait')}${r.retrait?.adresse ? `, ${esc(r.retrait.adresse)}` : ''}.${r.retrait?.horaires ? ` Ouvert ${esc(r.retrait.horaires)}.` : ''} Munissez-vous d’une pièce d’identité.</p></div>`).join('')}` : ''}
+        </div>`;
+
+      const total = () => {
+        const z = racine.querySelector('[data-ref="total"]');
+        if (!z) return;
+        const lignes = peses.filter((c) => choisis.has(c.id));
+        // Somme des montants déjà calculés par la base, regroupés par monnaie (jamais deux monnaies additionnées).
+        const parDevise = {};
+        lignes.forEach((c) => { parDevise[c.devise] = (parDevise[c.devise] || 0) + Number(c.montant); });
+        const kg = lignes.reduce((x, c) => x + Number(c.poids_facture), 0);
+        z.textContent = lignes.length ? `${nombre(kg, 2)} kg taxables · ${Object.entries(parDevise).map(([d, m]) => `${nombre(m)} ${devise(d)}`).join(' + ')}` : 'Cochez les cartons pesés à faire partir';
+        racine.querySelector('[data-action="partir"]').disabled = !lignes.length;
+      };
+      // Choix des cartons pesés (cliquer une carte la coche ou la décoche) ; les non pesés ne se cochent pas.
+      peses.filter((c) => !c.pret_depart).forEach((c) => racine.querySelector(`[data-carton="${c.id}"]`)?.classList.toggle('choisi', choisis.has(c.id)));
+      total();
+
+      racine.addEventListener('click', async (e) => {
+        const a = e.target.closest('[data-action]')?.dataset.action;
+        const ligne = e.target.closest('[data-carton]');
+        if (ligne && jetonCompte && peses.some((c) => c.id === ligne.dataset.carton && !c.pret_depart)) {
+          if (choisis.has(ligne.dataset.carton)) choisis.delete(ligne.dataset.carton); else choisis.add(ligne.dataset.carton);
+          ligne.classList.toggle('choisi', choisis.has(ligne.dataset.carton));
+          total();
+        }
+        if (a === 'copier') { try { await navigator.clipboard.writeText(r.code); toast('Numéro copié.'); } catch { toast(r.code); } }
+        if (a === 'partir' || a === 'annuler') {
+          const ids = a === 'partir' ? [...choisis] : peses.filter((c) => c.pret_depart).map((c) => c.id);
+          e.target.closest('button').disabled = true;
+          try {
+            const { error } = await sb.rpc('demander_depart', { p_jeton: jetonCompte, p_colis: ids, p_annuler: a === 'annuler' });
+            if (error) throw error;
+            toast(a === 'partir' ? 'Demande envoyée : vos cartons partent au prochain départ.' : 'Demande de départ annulée.');
+            charger();
+          } catch { toast('Connexion impossible. Réessayez.'); e.target.closest('button').disabled = false; }
+        }
+      });
+    }
+
+    async function charger() {
+      try {
+        const { data, error } = await sb.rpc('mon_compte', { p_jeton: jeton });
+        if (error) throw error;
+        if (!data || data.introuvable) { formulaire(INTROUVABLE); return; }
+        neuf();
+        afficher(data, jeton);
+      } catch { formulaire('Connexion impossible. Réessayez dans un instant.'); }
+    }
+
+    if (!jeton) formulaire(); else charger();
+  </script>
+</body>
+</html>
