@@ -109,7 +109,7 @@ export function afficherTransit(conteneur) {
   function renderTaux(t) {
     zone('taux').innerHTML = `<h2>Les taux du jour</h2>${t.taux.length ? `<ul class="tr-taux-liste">${t.taux.map((x) => {
       const jours = Math.floor((Date.now() - new Date(x.maj_le).getTime()) / 864e5);
-      return `<li><span>1 ${esc(nomDevise(x.de))}</span><strong>${esc(formatNombre(x.taux, 4).replace(/,?0+$/, ''))} ${esc(nomDevise(x.vers))}</strong><span class="${jours > 7 ? 'texte-danger' : 'discret'}">${jours > 7 ? `il y a ${jours} jours` : `à jour · ${esc(formatDate(x.maj_le, 'jourMois'))}`}</span></li>`;
+      return `<li><span>1 ${esc(nomDevise(x.de))}</span><strong>${esc(formatNombre(x.taux, 4))} ${esc(nomDevise(x.vers))}</strong><span class="${jours > 7 ? 'texte-danger' : 'discret'}">${jours > 7 ? `il y a ${jours} jours` : `à jour · ${esc(formatDate(x.maj_le, 'jourMois'))}`}</span></li>`;
     }).join('')}</ul>` : '<p class="col-vide">Aucun taux. Réglez-le dans Réglages.</p>'}
       <p class="discret">Un taux oublié, c’est de l’argent perdu sur chaque colis payé à l’arrivée. <a class="col-lien" href="#/parametres">Changer un taux</a></p>`;
   }

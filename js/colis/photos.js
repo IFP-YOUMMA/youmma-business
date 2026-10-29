@@ -46,7 +46,7 @@ export function monterPhotos(zone, { surChangement = () => {}, demandees = ['bas
 
   zone.innerHTML = `
     <div class="col-photos-entete"><h3>${demandees.length > 1 ? 'Les deux photos' : esc(QUOI[demandees[0]].titre)}</h3><span class="col-obligatoire">${demandees.length > 1 ? 'OBLIGATOIRES' : 'OBLIGATOIRE'}</span></div>
-    <div class="col-photos-grille">
+    <div class="col-photos-grille ${demandees.length > 1 ? '' : 'seule'}">
       ${Object.entries(QUOI).filter(([q]) => demandees.includes(q)).map(([q, d]) => `
         <div class="col-photo" data-photo="${q}">
           <div class="col-photo-apercu" data-ref="apercu-${q}">${iconeColis(q === 'bascule' ? 'balance' : 'colis', 34)}</div>
@@ -73,7 +73,7 @@ export function monterPhotos(zone, { surChangement = () => {}, demandees = ['bas
           <input type="file" accept="image/*" data-fichier="auto" class="sr-only"></label>
       </div>
     </div>`}
-    <p class="col-rappel-photos">Les deux photos sont obligatoires : le colis ne peut pas être enregistré sans elles.</p>`;
+    <p class="col-rappel-photos">${demandees.length > 1 ? 'Les deux photos sont obligatoires : le colis ne peut pas être enregistré sans elles.' : 'La photo de la bascule est obligatoire : elle prouve le poids au client.'}</p>`;
   const ref = (n) => zone.querySelector(`[data-ref="${n}"]`);
 
   function afficher(quoi) {

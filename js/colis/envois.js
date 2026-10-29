@@ -60,7 +60,8 @@ export function afficherEnvois(conteneur, params) {
 async function ouvrirNouvelEnvoi() {
   const agences = await chargerAgences();
   const dep = agences.find((a) => a.devise === 'XOF') || agences[0];
-  const arr = agences.find((a) => a.id !== dep?.id);
+  // Arrivée par défaut : un bureau d'une autre monnaie (Dakar → Conakry), pas un autre bureau de départ (Abidjan).
+  const arr = agences.find((a) => a.devise !== dep?.devise) || agences.find((a) => a.id !== dep?.id);
   const options = (choisi) => agences.map((a) => `<option value="${a.id}" ${a.id === choisi?.id ? 'selected' : ''}>${esc(a.ville || a.nom)}</option>`).join('');
   const { el, fermer } = ouvrirModale({
     titre: 'Nouvel envoi',
@@ -127,7 +128,8 @@ function afficherEnvoi(conteneur, id) {
         // Colis en attente au bureau de départ, pour la même ville d'arrivée, pas encore dans un envoi (mes_colis : villes en texte).
         const dep = agenceSelon(agences, r.depart);
         s.attente = (await api.liste({ filtre: 'attente', agence: dep?.id || null, limite: 200 }))
-          .filter((c) => c.envoi === null && c.arrivee === r.arrivee.ville);
+          // Même mode que l'envoi : un colis payé pour l'avion ne part pas en camion (les cartons à peser n'ont pas encore de mode).
+          .filter((c) => c.envoi === null && c.arrivee === r.arrivee.ville && (c.mode === r.mode || c.statut === 'a_peser'));
         // Un carton « à peser » ne peut pas partir : on le montre à part, sans case à cocher.
         s.aPeser = s.attente.filter((c) => c.statut === 'a_peser');
         s.attente = s.attente.filter((c) => c.statut !== 'a_peser');

@@ -484,3 +484,5 @@
 }
 .col-lien-simulateur { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: #F1F5F3; font-size: 13.5px; overflow-wrap: anywhere; }
 .col-remplissage-envoi { padding: 14px 16px; }
+.tr-afaire h2, .tr-taux h2 { font-size: 16px; font-weight: 800; margin: 0; }
+.col-photos-grille.seule { grid-template-columns: minmax(0, 1fr); }

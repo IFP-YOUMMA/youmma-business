@@ -133,7 +133,7 @@ export function monterReglagesColis(zone) {
           <td class="droite">${x.capacite_kg ? `${formatNombre(x.capacite_kg)} kg` : '—'}</td>
           <td>${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-tarif="${esc(x.id)}">Modifier</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
         : `<p class="col-vide">${s.agences.length > 1 ? 'Aucun corridor. Ouvrez le premier : Dakar → Conakry par avion, par exemple.' : 'Ajoutez d’abord deux bureaux.'}</p>`}
-      ${s.slug ? `<div class="col-lien-simulateur"><span>Simulateur de prix pour vos clients : <a href="${esc(lienSimulateur())}" target="_blank" rel="noopener">${esc(lienSimulateur().replace(/^https?:///, ''))}</a></span>
+      ${s.slug ? `<div class="col-lien-simulateur"><span>Simulateur de prix pour vos clients : <a href="${esc(lienSimulateur())}" target="_blank" rel="noopener">${esc(lienSimulateur().replace(/^https?:\/\//, ''))}</a></span>
         <button type="button" class="btn btn-secondaire btn-petit" data-action="copier-simulateur">Copier le lien</button></div>` : '<p class="discret">Le simulateur de prix public utilise l’adresse de votre boutique en ligne : elle n’est pas encore choisie.</p>'}
       <p class="discret">Le diviseur volumétrique transforme le volume en kilos (6 000 pour l’avion, 5 000 pour la route et la mer) : un carton de 60 × 40 × 35 pèse 14 kg « en place » par avion. Le prix est toujours calculé par la base.</p>`;
   }
