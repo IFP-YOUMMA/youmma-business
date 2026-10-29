@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v25';
+const VERSION_CACHE = 'yb-statique-v26';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -112,10 +112,9 @@ const FICHIERS_STATIQUES = [
   './d/index.html',
   './css/chauffeur.css',
   './js/chauffeur.js',
-  // Étape 16 : logistique de colis (écrans, étiquettes, codes-barres et QR maison), suivi public c/ et photos p/
+  // Étape 16 : logistique de colis (écrans, étiquettes), suivi public c/ et photos p/ ; codes-barres partagés (16b)
   './css/colis.css',
-  './js/lib/code128.js',
-  './js/lib/qr.js',
+  './js/codes-barres.js',
   './js/colis/commun.js',
   './js/colis/photos.js',
   './js/colis/nouveau.js',

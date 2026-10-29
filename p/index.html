@@ -38,7 +38,9 @@
   <div class="pied">YOUMMA Business</div>
   <script type="module">
     // session_photo(p_jeton) dit si le lien vit encore ; chaque photo compressée (1280 px, JPEG 0,7, < 200 Ko) part dans
-    // le bucket « colis », dossier sessions/<jeton>/, puis deposer_photo_session(p_jeton, p_quoi, p_chemin) prévient l'ordinateur.
+    // son seau, dossier sessions/<jeton>/ : la bascule dans « colis » (public, elle s'affiche sur le suivi), le contenu dans
+    // « bons » (privé : l'intérieur du carton ne doit jamais être public). Puis deposer_photo_session(p_jeton, p_quoi, p_chemin)
+    // prévient l'ordinateur, avec le chemin préfixé du seau (« colis/sessions/… », « bons/sessions/… »).
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
     import { chargerCanvas, redimensionner, encoder } from '../js/images/traitement.js';
@@ -49,6 +51,7 @@
     const racine = document.getElementById('session');
     const jeton = (new URLSearchParams(location.search).get('j') || location.pathname.match(/\/p\/([A-Za-z0-9_-]{6,120})\/?$/)?.[1] || '').trim();
     const EXPIRE = 'Ce lien a expiré. Demandez un nouveau QR code sur l’ordinateur.';
+    const SEAU = { bascule: 'colis', contenu: 'bons' };
     const QUOI = { bascule: ['Sur la bascule', 'Le colis et l’afficheur sur la même photo.'], contenu: ['Le contenu', 'Carton ouvert, avant fermeture.'] };
     const faites = {};
 
@@ -82,9 +85,9 @@
         const petit = redimensionner(c, { cote: Math.min(1280, Math.max(c.width, c.height)) });
         const { blob } = await encoder(petit, { qualite: 0.7, tailleMax: 200 * 1024, forcer: 'jpeg' });
         const chemin = `sessions/${jeton}/${quoi}-${Date.now()}.jpg`;
-        const { error: e1 } = await sb.storage.from('colis').upload(chemin, blob, { contentType: 'image/jpeg', upsert: false });
+        const { error: e1 } = await sb.storage.from(SEAU[quoi]).upload(chemin, blob, { contentType: 'image/jpeg', upsert: false });
         if (e1) throw e1;
-        const { error: e2 } = await sb.rpc('deposer_photo_session', { p_jeton: jeton, p_quoi: quoi, p_chemin: chemin });
+        const { error: e2 } = await sb.rpc('deposer_photo_session', { p_jeton: jeton, p_quoi: quoi, p_chemin: `${SEAU[quoi]}/${chemin}` });
         if (e2) throw e2;
         faites[quoi] = true;
         bloc.classList.add('faite');

@@ -1,11 +1,9 @@
 /**
- * colis/commun.js — Logistique de colis Dakar ⇄ Guinée (étape 16) : appels à la base, formats, libellés.
+ * colis/commun.js — Logistique de colis Dakar ⇄ Guinée (étapes 16 et 16b) : appels à la base, formats, libellés.
  *
- * Toutes les fonctions de la base passent par ici (un seul endroit à ajuster si une signature change).
- * Signatures vérifiées sur la base (noms des paramètres) : tarif_colis, tableau_colis, mes_colis, suivi_interne,
- * changer_statut_colis, retirer_colis, colis_dans_envoi, partir_envoi, arriver_envoi, frais_envoi, detail_envoi,
- * modifier_taux, ouvrir_session_photo, session_photo, deposer_photo_session, suivi_colis, suivi_par_numero.
- * SUPPOSÉES (non vérifiables sans la base) : enregistrer_colis et creer_envoi — voir plus bas.
+ * Toutes les fonctions de la base passent par ici, avec les noms de paramètres exacts de la base (étape 16b).
+ * Les réponses sont lues telles que la base les décrit, sans nom de champ de rechange : un champ manquant
+ * doit se voir, pas être masqué.
  *
  * Règles : aucun prix calculé ici (tarif_colis et montants figés dans le colis), jamais de FCFA + GNF additionnés,
  * le jeton du lien de suivi ne vient que de enregistrer_colis ou de suivi_interne.
@@ -14,9 +12,8 @@ import { sb } from '../supabase.js';
 import { etat } from '../state.js';
 import { formatNombre, formatDate, esc } from '../utils.js';
 
+/** Une fonction qui renvoie une ligne peut arriver en tableau d'un élément selon sa déclaration SQL. */
 export const premiere = (d) => (Array.isArray(d) ? d[0] : d) ?? null;
-/** Première valeur définie parmi plusieurs noms de champ (la réponse de la base peut nommer un peu autrement). */
-export const champ = (o, ...cles) => { for (const c of cles) if (o?.[c] !== undefined && o?.[c] !== null) return o[c]; return undefined; };
 
 async function rpc(nom, params) {
   const { data, error } = await sb.rpc(nom, params);
@@ -28,12 +25,12 @@ async function rpc(nom, params) {
 
 export const api = {
   tableau: () => rpc('tableau_colis', { p_boutique: etat.boutique.id }).then(premiere),
-  liste: ({ filtre = null, agence = null, recherche = null, limite = 50 } = {}) =>
-    rpc('mes_colis', { p_boutique: etat.boutique.id, p_filtre: filtre, p_agence: agence, p_recherche: recherche || null, p_limite: limite })
-      .then((d) => (Array.isArray(d) ? d : champ(d, 'colis', 'lignes') || [])),
+  liste: ({ filtre = null, agence = null, recherche = null, limite = 100 } = {}) =>
+    rpc('mes_colis', { p_boutique: etat.boutique.id, p_filtre: filtre, p_agence: agence, p_recherche: recherche || null, p_limite: limite }).then((d) => d || []),
   tarif: ({ depart, arrivee, mode, poids, supplements = [] }) =>
     rpc('tarif_colis', { p_boutique: etat.boutique.id, p_depart: depart, p_arrivee: arrivee, p_mode: mode, p_poids: poids, p_supplements: supplements }).then(premiere),
   fiche: (id) => rpc('suivi_interne', { p_colis: id }).then(premiere),
+  /** probleme et annule exigent une note (sinon MOTIF_REQUIS). */
   statut: (id, statut, note = null, lieu = null) => rpc('changer_statut_colis', { p_colis: id, p_statut: statut, p_note: note, p_lieu: lieu }),
   retirer: (id, { recuPar, piece, montant = null, mode = null, signature = null }) =>
     rpc('retirer_colis', { p_colis: id, p_recu_par: recuPar, p_piece: piece, p_montant: montant, p_mode: mode, p_signature: signature }).then(premiere),
@@ -45,23 +42,18 @@ export const api = {
   taux: (de, vers, taux) => rpc('modifier_taux', { p_boutique: etat.boutique.id, p_de: de, p_vers: vers, p_taux: taux }),
   sessionPhoto: () => rpc('ouvrir_session_photo', { p_boutique: etat.boutique.id }).then(premiere),
   lireSessionPhoto: (jeton) => rpc('session_photo', { p_jeton: jeton }).then(premiere),
-
-  /**
-   * SUPPOSÉ : les noms des paramètres de enregistrer_colis ne sont pas lisibles par l'API publique ; ils suivent les
-   * colonnes de la table colis (expediteur_nom, destinataire_tel, valeur_declaree, paye, paye_mode…) et tarif_colis
-   * (p_depart, p_arrivee, p_mode, p_poids, p_supplements). À ajuster ici si la base les nomme autrement.
-   */
   enregistrer: (c) => rpc('enregistrer_colis', {
     p_boutique: etat.boutique.id, p_depart: c.depart, p_arrivee: c.arrivee, p_mode: c.mode,
-    p_expediteur_nom: c.expediteurNom, p_expediteur_tel: c.expediteurTel, p_destinataire_nom: c.destinataireNom, p_destinataire_tel: c.destinataireTel,
-    p_contenu: c.contenu, p_contenu_douane: c.contenuDouane || null, p_poids: c.poids, p_nb_colis: c.nbColis, p_valeur_declaree: c.valeurDeclaree ?? null,
-    p_supplements: c.supplements, p_paye: c.paye, p_paye_mode: c.payeMode || null, p_photo_bascule: c.photoBascule, p_photo_contenu: c.photoContenu
+    p_exp_nom: c.expediteurNom, p_exp_tel: c.expediteurTel, p_dest_nom: c.destinataireNom, p_dest_tel: c.destinataireTel,
+    p_contenu: c.contenu, p_contenu_douane: c.contenuDouane || null, p_nb: c.nbColis, p_poids: c.poids,
+    p_valeur: c.valeurDeclaree ?? null, p_supplements: c.supplements, p_photo_bascule: c.photoBascule, p_photo_contenu: c.photoContenu,
+    p_paye: c.paye, p_paye_mode: c.payeMode || null, p_note: null
   }).then(premiere),
-  /** SUPPOSÉ également (mêmes raisons) : colonnes de la table envois. */
   creerEnvoi: (e) => rpc('creer_envoi', {
-    p_boutique: etat.boutique.id, p_depart: e.depart, p_arrivee: e.arrivee, p_mode: e.mode, p_reference: e.reference || null,
+    p_boutique: etat.boutique.id, p_mode: e.mode, p_depart: e.depart, p_arrivee: e.arrivee,
     p_transporteur: e.transporteur || null, p_chauffeur: e.chauffeur || null, p_chauffeur_tel: e.chauffeurTel || null,
-    p_immatriculation: e.immatriculation || null, p_depart_prevu: e.departPrevu || null, p_arrivee_prevue: e.arriveePrevue || null
+    p_immat: e.immatriculation || null, p_reference: e.reference || null,
+    p_depart_prevu: e.departPrevu || null, p_arrivee_prevue: e.arriveePrevue || null
   }).then(premiere)
 };
 
@@ -80,12 +72,13 @@ export function chargerAgences({ forcer = false } = {}) {
   }
   return agencesPromesse;
 }
-/** Agence par id, par code ou objet déjà complet. */
-export function agenceDe(agences, ref) {
-  if (!ref) return null;
-  if (typeof ref === 'object') return ref.id ? agences.find((a) => a.id === ref.id) || ref : ref;
-  return agences.find((a) => a.id === ref || a.code === ref) || null;
-}
+/** Bureau par id (tables, formulaires). */
+export const agenceDe = (agences, id) => agences.find((a) => a.id === id) || null;
+/**
+ * Bureau complet à partir d'un objet de réponse { nom, ville, drapeau… } (suivi_interne, detail_envoi) :
+ * même nom, sinon même ville. L'objet de la réponse reste la référence s'il n'y a pas de bureau correspondant.
+ */
+export const agenceSelon = (agences, o) => (o ? agences.find((a) => a.nom === o.nom) || agences.find((a) => a.ville === o.ville) || o : null);
 /** Code pays à 2 lettres (SN, GN) : le drapeau en émoji ne s'affiche pas sur tous les ordinateurs. */
 export const codePays = (a) => (a?.pays && String(a.pays).length <= 3 ? String(a.pays).toUpperCase().slice(0, 2) : /s[ée]n[ée]gal/i.test(a?.pays || '') ? 'SN' : /guin/i.test(a?.pays || '') ? 'GN' : (a?.devise === 'XOF' ? 'SN' : 'GN'));
 
@@ -139,7 +132,7 @@ export const pastilleStatut = (statut) => {
   const s = STATUTS[statut] || { libelle: statut || '—', classe: 'gris' };
   return `<span class="col-statut ${s.classe}">${esc(s.libelle)}</span>`;
 };
-export const MODES = { avion: { libelle: 'Avion', icone: 'avion' }, route: { libelle: 'Route', icone: 'camion' } };
+export const MODES = { avion: { libelle: 'Avion', icone: 'avion' }, route: { libelle: 'Route', icone: 'camion' }, bateau: { libelle: 'Bateau', icone: 'bateau' } };
 export const MODES_PAIEMENT_COLIS = [['especes', 'Espèces'], ['orange_money', 'Orange Money'], ['wave', 'Wave'], ['mtn_momo', 'MoMo']];
 
 /** Icônes propres au métier (traits 1,7, jamais remplies). */
@@ -150,7 +143,8 @@ export function iconeColis(nom, taille = 18) {
     colis: 'M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10',
     fleche: 'M4 12h14M13 6l6 6-6 6',
     balance: 'M4 20h16M6 20V9h12v11M9 9V6h6v3',
-    photo: 'M4 7h3l2-3h6l2 3h3v12H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'
+    photo: 'M4 7h3l2-3h6l2 3h3v12H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    bateau: 'M3 17l2 3h14l2-3zM5 17V11h14v6M8 11V7h8v4M12 7V3'
   }[nom] || '';
   return `<svg width="${taille}" height="${taille}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }

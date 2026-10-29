@@ -13,6 +13,7 @@ import {
   copierTexte, normaliserTelephone
 } from './utils.js';
 import { aModule } from './modules.js';
+import { chargerJsBarcode } from './codes-barres.js';
 import { ouvrirOutilImage } from './images/outil.js';
 import { envoyerLogoAnnexe } from './images/envoi.js';
 import {
@@ -21,8 +22,6 @@ import {
 
 const SEP = '\u0001';
 const cleCase = (t, c) => `${t}${SEP}${c}`;
-/** JsBarcode 3.11.6 (licence MIT) copié dans js/vendor et mis en cache par sw.js : étiquettes imprimables hors connexion. */
-const JSBARCODE = new URL('./vendor/JsBarcode.all.min.js', import.meta.url).href;
 
 /** Grilles de tailles (id, boutique_id, nom, tailles, ordre) : YOUMMA (boutique_id null, par ordre) puis celles de la boutique. */
 async function chargerGrilles() {
@@ -516,20 +515,7 @@ export async function ouvrirGrilleMouvement(produit, type, apres = () => {}) {
    Étiquettes A4 (Code 128)
    ========================================================================= */
 
-let promesseJsBarcode = null;
-function chargerJsBarcode() {
-  if (window.JsBarcode) return Promise.resolve(window.JsBarcode);
-  if (!promesseJsBarcode) {
-    promesseJsBarcode = new Promise((ok, ko) => {
-      const script = document.createElement('script');
-      script.src = JSBARCODE;
-      script.onload = () => (window.JsBarcode ? ok(window.JsBarcode) : ko(new Error('JsBarcode indisponible')));
-      script.onerror = () => { promesseJsBarcode = null; ko(new Error('Impossible de charger le générateur de codes-barres : rechargez l’appli une fois avec internet.')); };
-      document.head.appendChild(script);
-    });
-  }
-  return promesseJsBarcode;
-}
+// Chargement de JsBarcode : js/codes-barres.js (partagé avec les étiquettes des colis).
 
 /** Préchargement (fiche d'un modèle ouverte) : les étiquettes restent imprimables si la connexion tombe ensuite. */
 export function prechargerEtiquettes() {

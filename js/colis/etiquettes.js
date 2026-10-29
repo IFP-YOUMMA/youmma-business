@@ -5,37 +5,40 @@
  *  - A4 « bordereau » : le REÇU DE L'EXPÉDITEUR, avec le montant et une souche détachable ; il ne se colle pas.
  *  - A6 « autocollante » et planche A4 de 4 : le dessin qui se colle sur le carton — SANS AUCUN MONTANT
  *    (une pastille « À PAYER AU RETRAIT » ou « PAYÉ AU DÉPART », le montant se voit par le QR / le suivi).
- * Code-barres : le numéro sans tirets (Code 128 B). QR : l'adresse complète du suivi. Tout est dessiné ici
- * (js/lib), sans dépendance : l'impression marche hors ligne.
+ * Code-barres : le numéro sans tirets (Code 128, js/codes-barres.js). QR : l'adresse complète du suivi (js/qr.js),
+ * correction d'erreur Q et zone calme de 4 modules. Les deux générateurs sont ceux déjà utilisés par l'appli
+ * (js/vendor), mis en cache : l'impression marche hors ligne.
  */
 import { etat } from '../state.js';
 import { esc, icone, messageErreur, formatDate, initiales } from '../utils.js';
-import { svgCode128 } from '../lib/code128.js';
-import { svgQr } from '../lib/qr.js';
+import { chargerJsBarcode, svgCode128 } from '../codes-barres.js';
+import { svgQr } from '../qr.js';
 import {
-  api, chargerAgences, agenceDe, codePays, champ, formatTel, montant, numeroSansTirets, iconeColis, lienSuivi, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, agenceSelon, codePays, formatTel, montant, numeroSansTirets, iconeColis, lienSuivi, MODES, MODES_PAIEMENT_COLIS
 } from './commun.js';
+
+/** QR des étiquettes : noir sur blanc, niveau Q (rattrape un pli, une trace, une impression pâle), zone calme 4. */
+const qrEtiquette = (lien, titre) => svgQr(lien, { titre, niveau: 'Q', marge: 4, couleur: '#000000' });
 
 const ONGLETS = [['a4', 'Bordereau A4'], ['planche', 'Planche de 4'], ['a6', 'Étiquette A6']];
 
-/** Données de l'étiquette à partir de suivi_interne (tolère de petites variations de noms). */
-export function donneesEtiquette(r, agences) {
-  const c = r?.colis || r || {};
-  const envoi = r?.envoi || c.envoi || null;
+/**
+ * Données de l'étiquette à partir de suivi_interne : depart et arrivee sont des objets { nom, ville, drapeau, devise },
+ * expediteur et destinataire des objets { nom, tel }. Le jeton vient de suivi_interne, sinon de enregistrer_colis
+ * (gardé dans sessionStorage juste après l'enregistrement).
+ */
+export function donneesEtiquette(c, agences) {
   const local = (() => { try { return JSON.parse(sessionStorage.getItem(`yb_colis_${c.id}`) || 'null'); } catch { return null; } })();
-  const depart = agenceDe(agences, champ(c, 'agence_depart', 'depart', 'depart_id'));
-  const arrivee = agenceDe(agences, champ(c, 'agence_arrivee', 'arrivee', 'arrivee_id'));
   return {
-    id: c.id, numero: c.numero || '', cree: c.created_at, mode: c.mode, statut: c.statut,
-    depart, arrivee,
-    expNom: champ(c, 'expediteur_nom', 'expediteur') || '', expTel: champ(c, 'expediteur_tel') || '',
-    destNom: champ(c, 'destinataire_nom', 'destinataire') || '', destTel: champ(c, 'destinataire_tel') || '',
-    contenu: c.contenu || '', douane: c.contenu_douane || c.contenu || '',
-    poids: Number(champ(c, 'poids_facture', 'poids')) || 0, poidsPese: Number(c.poids) || 0, nb: Number(c.nb_colis) || 1,
-    montant: Number(c.montant) || 0, devise: c.devise, duMontant: champ(c, 'du_montant'), duDevise: champ(c, 'du_devise'),
+    id: c.id, numero: c.numero, cree: c.created_at, mode: c.mode, statut: c.statut,
+    depart: agenceSelon(agences, c.depart), arrivee: agenceSelon(agences, c.arrivee),
+    expNom: c.expediteur.nom, expTel: c.expediteur.tel, destNom: c.destinataire.nom, destTel: c.destinataire.tel,
+    contenu: c.contenu, douane: c.contenu_douane || c.contenu,
+    poids: Number(c.poids_facture), poidsPese: Number(c.poids), nb: Number(c.nb_colis),
+    montant: Number(c.montant), devise: c.devise, duMontant: c.du_montant, duDevise: c.du_devise,
     paye: Boolean(c.paye), payeMode: c.paye_mode,
-    vehicule: envoi ? (champ(envoi, 'immatriculation', 'reference', 'numero') || '') : '',
-    lien: lienSuivi(champ(r, 'lien') || local?.lien, champ(r, 'jeton') || local?.jeton)
+    vehicule: c.envoi ? [c.envoi.numero, c.envoi.immatriculation].filter(Boolean).join(' · ') : '',
+    lien: lienSuivi(local?.lien, c.jeton || local?.jeton)
   };
 }
 
@@ -44,7 +47,7 @@ const bureau = (a) => (a?.nom && a.nom !== a.ville ? a.nom : `Bureau de ${a?.vil
 const lienCourt = (l) => String(l || '').replace(/^https?:\/\//, '');
 const telAgence = (a) => (a?.telephone ? `${a.ville || a.nom} ${formatTel(a.telephone)}` : '');
 const logo = () => (etat.boutique.logo_url ? `<img src="${esc(etat.boutique.logo_url)}" alt="">` : `<span>${esc(initiales(etat.boutique.nom))}</span>`);
-const libVehicule = (d) => (d.mode === 'avion' ? 'Vol' : 'Camion');
+const libVehicule = (d) => ({ avion: 'Vol', bateau: 'Navire' }[d.mode] || 'Camion');
 
 /** Bandeau du trajet : pays + ville, flèche, icône du mode, flèche. */
 function bandeau(d, grand = false) {
@@ -87,7 +90,7 @@ export function etiquetteA6(d) {
       </div>
       <div class="et-signature"><span class="et-etiquette">SIGNATURE À LA REMISE</span><span class="et-trait"></span></div>
       <footer class="et-pied">
-        <span class="et-qr">${d.lien ? svgQr(d.lien, { titre: 'QR du suivi du colis' }) : ''}</span>
+        <span class="et-qr">${d.lien ? qrEtiquette(d.lien, 'QR du suivi du colis') : ''}</span>
         <span class="et-pied-textes"><strong>${esc(etat.boutique.nom)}</strong>
           <span>${esc(telAgence(d.depart))}</span><span>${esc(telAgence(d.arrivee))}</span>
           <span class="et-suivi">Suivi : ${esc(lienCourt(d.lien))}</span></span>
@@ -115,7 +118,7 @@ export function bordereauA4(d, reglages = {}) {
       <div class="et-a4-codes">
         <div class="et-a4-numero"><span class="et-etiquette">NUMÉRO DU COLIS</span><strong>${esc(d.numero)}</strong>
           <span class="et-barres">${svgCode128(numeroSansTirets(d.numero), { hauteur: 56 })}</span><span class="et-chiffres">${esc(numeroSansTirets(d.numero).split('').join(' '))}</span></div>
-        <div class="et-a4-qr"><span class="et-qr">${d.lien ? svgQr(d.lien, { titre: 'QR du suivi du colis' }) : ''}</span><strong>Scannez pour voir tout le colis</strong><span class="et-discret">${esc(lienCourt(d.lien))}</span></div>
+        <div class="et-a4-qr"><span class="et-qr">${d.lien ? qrEtiquette(d.lien, 'QR du suivi du colis') : ''}</span><strong>Scannez pour voir tout le colis</strong><span class="et-discret">${esc(lienCourt(d.lien))}</span></div>
       </div>
       <div class="et-a4-parties">
         ${bloc('EXPÉDITEUR', d.expNom, d.expTel, `Déposé au ${bureau(d.depart)}`, `${ville(d.depart)} — ${nomPays(d.depart)}`)}
@@ -126,7 +129,7 @@ export function bordereauA4(d, reglages = {}) {
         <div><span class="et-etiquette">POIDS</span><strong>${esc(String(d.poids).replace('.', ','))} kg</strong>${d.poidsPese && d.poidsPese < d.poids ? `<span class="et-discret">${esc(String(d.poidsPese).replace('.', ','))} kg pesés</span>` : ''}</div>
         <div><span class="et-etiquette">COLIS</span><strong>${d.nb > 1 ? `${d.nb} cartons` : '1 / 1'}</strong></div>
         <div><span class="et-etiquette">MODE</span><strong>${esc(MODES[d.mode]?.libelle || '')}</strong></div>
-        <div><span class="et-etiquette">VOL / CAMION</span><strong>${esc(d.vehicule || 'à l’envoi')}</strong></div>
+        <div><span class="et-etiquette">ENVOI</span><strong>${esc(d.vehicule || 'à l’envoi')}</strong></div>
       </div>
       <div class="et-a4-bas">
         <div class="et-a4-montant ${aPayer ? 'a-payer' : 'paye'}">
@@ -143,7 +146,7 @@ export function bordereauA4(d, reglages = {}) {
           <span class="et-discret">${esc(d.expNom)} → ${esc(d.destNom)} · ${esc(String(d.poids).replace('.', ','))} kg · ${esc(MODES[d.mode]?.libelle || '')} · ${esc(formatDate(d.cree, 'court'))}</span>
           <strong class="et-souche-montant">${aPayer ? `À payer au retrait : ${esc(montant(du.montant, du.devise))}` : `Payé au départ : ${esc(montant(d.montant, d.devise))}`}</strong></div>
         <span class="et-barres petit">${svgCode128(numeroSansTirets(d.numero), { hauteur: 40 })}</span>
-        <span class="et-qr petit">${d.lien ? svgQr(d.lien, { titre: 'QR du suivi' }) : ''}</span>
+        <span class="et-qr petit">${d.lien ? qrEtiquette(d.lien, 'QR du suivi') : ''}</span>
       </div>
     </article>`;
 }
@@ -183,7 +186,7 @@ export function afficherEtiquettes(conteneur, id, params) {
 
   (async () => {
     try {
-      const [r, agences] = await Promise.all([api.fiche(id), chargerAgences()]);
+      const [r, agences] = await Promise.all([api.fiche(id), chargerAgences(), chargerJsBarcode()]);
       if (!conteneur.isConnected) return;
       d = donneesEtiquette(r, agences);
       render();

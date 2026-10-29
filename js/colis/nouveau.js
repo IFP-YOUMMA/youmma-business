@@ -7,10 +7,12 @@
  * → photos montées → enregistrer_colis → écran d'étiquette directement (pas de confirmation intermédiaire).
  * Aucun prix n'est inventé ici : le total vient de tarif_colis ; le montant à l'arrivée est figé par la base.
  */
+import { sb } from '../supabase.js';
+import { etat } from '../state.js';
 import { naviguer } from '../router.js';
 import { esc, icone, toast, boutonOccupe, messageErreur, differer, lireNombre, formatNombre } from '../utils.js';
 import {
-  api, chargerAgences, codePays, champ, normaliserTel, montant, nomDevise, iconeColis, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, codePays, normaliserTel, montant, nomDevise, iconeColis, MODES, MODES_PAIEMENT_COLIS
 } from './commun.js';
 import { monterPhotos } from './photos.js';
 
@@ -26,8 +28,8 @@ export function afficherNouveauColis(conteneur) {
     try {
       const [agences, tableau] = await Promise.all([chargerAgences(), api.tableau().catch(() => null)]);
       s.agences = agences.filter((a) => a.actif !== false);
-      s.taux = champ(tableau?.taux || {}, 'taux') ?? champ(tableau || {}, 'taux');
-      if (typeof s.taux === 'object') s.taux = champ(s.taux, 'taux');
+      // tableau_colis.taux : [{ de, vers, taux, maj_le }] ; celui de FCFA vers GNF sert à l'aperçu « à l'arrivée ».
+      s.taux = tableau?.taux.find((x) => x.de === 'XOF' && x.vers === 'GNF')?.taux ?? null;
     } catch (err) {
       conteneur.innerHTML = `<div class="page"><p class="bloc-erreur">${esc(messageErreur(err))}</p></div>`;
       return;
@@ -131,18 +133,21 @@ export function afficherNouveauColis(conteneur) {
 
   /* ---------------- Tarifs */
 
-  /** Prix au kilo et délai de chaque mode (sous les boutons Avion / Route). */
+  /**
+   * Prix au kilo et délai de chaque mode (sous les boutons), lus dans la grille tarifs_colis du trajet : un mode sans
+   * tarif actif (souvent le bateau) n'est pas proposé. Le prix du colis, lui, vient toujours de tarif_colis.
+   */
   async function chargerTarifsModes() {
+    const { data, error } = await sb.from('tarifs_colis').select('mode, prix_kg, delai_jours, devise, supplements')
+      .eq('boutique_id', etat.boutique.id).eq('agence_depart', s.depart.id).eq('agence_arrivee', s.arrivee.id).eq('actif', true);
+    const lignes = error ? [] : data;
     for (const mode of Object.keys(MODES)) {
+      const t = lignes.find((x) => x.mode === mode) || null;
+      s.tarifs[mode] = t;
       const z = ref(`mode-${mode}`);
-      try {
-        const t = await api.tarif({ depart: s.depart.id, arrivee: s.arrivee.id, mode, poids: 1, supplements: [] });
-        s.tarifs[mode] = t;
-        if (z) z.textContent = t ? `${formatNombre(t.prix_kg)} ${t.devise === 'XOF' ? 'F' : nomDevise(t.devise)}/kg · ${t.delai_jours} jour${t.delai_jours > 1 ? 's' : ''}` : 'Pas de tarif';
-      } catch {
-        s.tarifs[mode] = null;
-        if (z) z.textContent = 'Pas de tarif';
-      }
+      if (z) z.textContent = t ? `${formatNombre(t.prix_kg)} ${t.devise === 'XOF' ? 'F' : nomDevise(t.devise)}/kg · ${t.delai_jours} jour${t.delai_jours > 1 ? 's' : ''}` : 'Pas de tarif';
+      const bouton = conteneur.querySelector(`[data-mode="${mode}"]`);
+      if (bouton) bouton.hidden = !t && mode !== s.mode;
     }
     recalculer();
   }
@@ -195,15 +200,15 @@ export function afficherNouveauColis(conteneur) {
    */
   function montantArrivee(t) {
     if (!t || !s.arrivee || s.arrivee.devise === t.devise) return t ? { montant: t.total, devise: t.devise } : null;
-    const donne = champ(t, 'du_montant', 'montant_arrivee', 'total_arrivee');
-    if (donne !== undefined) return { montant: donne, devise: champ(t, 'du_devise', 'devise_arrivee') || s.arrivee.devise };
+    if (t.du_montant != null) return { montant: t.du_montant, devise: t.du_devise };
     if (!s.taux) return null;
     return { montant: Math.round(Number(t.total) * Number(s.taux)), devise: s.arrivee.devise };
   }
 
   function renderSupplements(t) {
+    // Suppléments du trajet : ceux renvoyés par tarif_colis, sinon ceux de la grille (avant la saisie du poids).
     const base = t || s.tarifs[s.mode];
-    const possibles = base?.supplements_possibles || [];
+    const possibles = (t ? t.supplements_possibles : s.tarifs[s.mode]?.supplements) || [];
     const z = ref('supplements');
     if (!possibles.length) { z.innerHTML = ''; return; }
     if (z.dataset.signature === JSON.stringify(possibles)) return;

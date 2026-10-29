@@ -38,10 +38,13 @@ export function dessinerQr(ctx, texte, x, y, cote, { couleur = '#0A3D33', fond =
   }
 }
 
-/** QR code en SVG (impression nette à toute taille). */
-export function svgQr(texte, { couleur = '#0A3D33', titre = 'QR code' } = {}) {
-  const { taille, noir } = matriceQr(texte);
-  const marge = 2;
+/**
+ * QR code en SVG (impression nette à toute taille) : modules sur coordonnées entières, crispEdges, fond blanc.
+ * niveau : correction d'erreur (M par défaut ; Q pour les étiquettes de colis, qui se plient et se salissent).
+ * marge : zone calme blanche en modules (4 selon la norme ; 2 sur les reçus et documents existants).
+ */
+export function svgQr(texte, { couleur = '#0A3D33', titre = 'QR code', niveau = 'M', marge = 2 } = {}) {
+  const { taille, noir } = matriceQr(texte, niveau);
   const total = taille + marge * 2;
   let chemin = '';
   for (let l = 0; l < taille; l++) {

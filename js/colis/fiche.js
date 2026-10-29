@@ -1,6 +1,6 @@
 /**
  * colis/fiche.js — Fiche d'un colis (étape 16), #/colis/<id> : parcours en 6 étapes et registre complet
- * (colis_evenements, jamais effacé), les deux photos, les montants figés, changer le statut (« problème » et
+ * (suivi_interne.parcours, jamais effacé), les deux photos (le contenu par URL signée de 60 s seulement), les montants figés, changer le statut (« problème » et
  * « annulé » exigent un motif ; un colis retiré est fermé), réimprimer l'étiquette, envoyer le lien de suivi,
  * et « Remettre le colis » (retirer_colis : qui retire, pièce d'identité, montant pré-rempli si non payé,
  * signature au doigt) suivi d'un reçu imprimable. Le SMS à l'expéditeur part tout seul (base).
@@ -8,7 +8,7 @@
 import { sb } from '../supabase.js';
 import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, copierTexte, confirmer } from '../utils.js';
 import {
-  api, chargerAgences, agenceDe, champ, formatTel, montant, pastilleStatut, iconeColis, lienSuivi, dateHeure, STATUTS, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, agenceSelon, formatTel, montant, pastilleStatut, iconeColis, lienSuivi, dateHeure, STATUTS, MODES, MODES_PAIEMENT_COLIS
 } from './commun.js';
 import { imprimerColis } from './etiquettes.js';
 
@@ -16,30 +16,32 @@ import { imprimerColis } from './etiquettes.js';
 export const ETAPES = [
   ['recu', 'Reçu'], ['entrepot', 'En entrepôt'], ['charge', 'Chargé'], ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']
 ];
+const nomMode = (m) => MODES_PAIEMENT_COLIS.find(([x]) => x === m)?.[1] || m;
 const RANG = { recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
 
-/** URL d'une photo : bascule (bucket public colis), contenu (bucket privé bons → lien signé 10 min). */
-async function urlPhoto(chemin, prive) {
-  if (!chemin) return null;
-  if (/^https?:/.test(chemin)) return chemin;
-  // Photo prise par la session téléphone : déposée dans colis/sessions/…
-  if (!prive || chemin.startsWith('sessions/')) return sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
-  const { data } = await sb.storage.from('bons').createSignedUrl(chemin, 600);
-  return data?.signedUrl || null;
+/** La bascule est dans le seau public « colis » (elle s'affiche aussi sur le suivi). */
+const urlBascule = (chemin) => sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
+/**
+ * Le contenu est dans le seau privé « bons » : jamais d'URL publique, une URL signée de 60 s,
+ * redemandée à chaque ouverture en grand (comme les bons de livraison de l'étape 13).
+ */
+async function urlContenu(chemin) {
+  const { data, error } = await sb.storage.from('bons').createSignedUrl(chemin, 60);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export function afficherFicheColis(conteneur, id) {
-  const s = { r: null, c: null, agences: [], evenements: [] };
+  const s = { c: null, agences: [], evenements: [] };
   conteneur.innerHTML = `<div class="page page-colis-fiche"><div class="squelette" style="height:420px"></div></div>`;
 
   async function charger() {
     try {
       const [r, agences] = await Promise.all([api.fiche(id), chargerAgences()]);
       if (!conteneur.isConnected) return;
-      s.r = r || {};
-      s.c = s.r.colis || s.r;
+      s.c = r;
       s.agences = agences;
-      s.evenements = (champ(s.r, 'evenements', 'parcours', 'historique') || []).slice().sort((a, b) => String(a.created_at || a.le).localeCompare(String(b.created_at || b.le)));
+      s.evenements = r.parcours.slice().sort((a, b) => String(a.le).localeCompare(String(b.le)));
       render();
     } catch (err) {
       conteneur.innerHTML = `<div class="page"><p class="bloc-erreur">${esc(messageErreur(err))}</p><a class="btn btn-secondaire" href="#/colis">Retour aux colis</a></div>`;
@@ -48,12 +50,11 @@ export function afficherFicheColis(conteneur, id) {
 
   function render() {
     const c = s.c;
-    const dep = agenceDe(s.agences, champ(c, 'agence_depart', 'depart'));
-    const arr = agenceDe(s.agences, champ(c, 'agence_arrivee', 'arrivee'));
-    const envoi = s.r.envoi || c.envoi || null;
+    const dep = agenceSelon(s.agences, c.depart);
+    const arr = agenceSelon(s.agences, c.arrivee);
+    const envoi = c.envoi;
     const ferme = ['retire', 'annule'].includes(c.statut);
-    const lien = lienSuivi(champ(s.r, 'lien'), champ(s.r, 'jeton'));
-    const du = champ(c, 'du_montant');
+    const lien = lienDuColis();
     const rang = RANG[c.statut] ?? -1;
     const quand = (statut) => s.evenements.filter((e) => e.statut === statut || (statut === 'charge' && e.statut === 'en_route')).at(-1);
     conteneur.innerHTML = `
@@ -67,7 +68,7 @@ export function afficherFicheColis(conteneur, id) {
           ${c.statut === 'a_retirer' ? `<button type="button" class="btn btn-primaire" data-action="remettre">${iconeColis('colis', 18)} Remettre le colis</button>` : ''}
           <a class="btn btn-secondaire" href="#/colis/${encodeURIComponent(c.id)}/etiquette">${icone('imprimante', 17, 2)} Étiquettes</a>
           ${lien ? `<button type="button" class="btn btn-secondaire" data-action="copier">${icone('copier', 17, 2)} Lien de suivi</button>
-            <a class="btn btn-whatsapp" href="https://wa.me/${esc(String(c.destinataire_tel || '').replace(/\D/g, ''))}?text=${encodeURIComponent(`Bonjour, voici le suivi de votre colis ${c.numero} : ${lien}`)}" target="_blank" rel="noopener">${icone('whatsapp', 17, 2)} Envoyer au destinataire</a>` : ''}
+            <a class="btn btn-whatsapp" href="https://wa.me/${esc(String(c.destinataire.tel || '').replace(/\D/g, ''))}?text=${encodeURIComponent(`Bonjour, voici le suivi de votre colis ${c.numero} : ${lien}`)}" target="_blank" rel="noopener">${icone('whatsapp', 17, 2)} Envoyer au destinataire</a>` : ''}
           ${ferme ? '' : '<button type="button" class="btn btn-secondaire" data-action="statut">Changer le statut</button>'}
         </div>
         <div class="col-fiche-grille">
@@ -77,18 +78,18 @@ export function afficherFicheColis(conteneur, id) {
               <ol class="col-parcours">${ETAPES.map(([code, libelle], i) => {
                 const ev = quand(code);
                 const fait = i <= rang && !['probleme', 'annule'].includes(c.statut) ? true : Boolean(ev);
-                return `<li class="${fait ? 'fait' : ''} ${i === rang ? 'courant' : ''}"><span class="col-puce"></span><span><strong>${esc(libelle)}</strong>${ev ? `<span>${esc(dateHeure(ev.created_at || ev.le))}${ev.lieu ? ` · ${esc(ev.lieu)}` : ''}</span>` : ''}</span></li>`;
+                return `<li class="${fait ? 'fait' : ''} ${i === rang ? 'courant' : ''}"><span class="col-puce"></span><span><strong>${esc(libelle)}</strong>${ev ? `<span>${esc(dateHeure(ev.le))}${ev.lieu ? ` · ${esc(ev.lieu)}` : ''}</span>` : ''}</span></li>`;
               }).join('')}</ol>
-              ${['probleme', 'annule'].includes(c.statut) ? `<p class="col-alerte-statut">${icone('alerte', 16, 2)} ${esc(STATUTS[c.statut].libelle)} : ${esc(c.motif || s.evenements.at(-1)?.note || '')}</p>` : ''}
+              ${['probleme', 'annule'].includes(c.statut) ? `<p class="col-alerte-statut">${icone('alerte', 16, 2)} ${esc(STATUTS[c.statut].libelle)} : ${esc(s.evenements.at(-1)?.note || '')}</p>` : ''}
               <details class="col-registre"><summary>Registre complet (${s.evenements.length})</summary>
-                <ul>${s.evenements.map((e) => `<li><span>${esc(dateHeure(e.created_at || e.le))}</span><strong>${esc(STATUTS[e.statut]?.libelle || e.statut)}</strong>${e.lieu ? `<span>${esc(e.lieu)}</span>` : ''}${e.note ? `<span class="discret">${esc(e.note)}</span>` : ''}${e.par_nom ? `<span class="discret">par ${esc(e.par_nom)}</span>` : ''}</li>`).join('') || '<li class="discret">Aucun évènement.</li>'}</ul></details>
+                <ul>${s.evenements.map((e) => `<li><span>${esc(dateHeure(e.le))}</span><strong>${esc(STATUTS[e.statut]?.libelle || e.statut)}</strong>${e.lieu ? `<span>${esc(e.lieu)}</span>` : ''}${e.note ? `<span class="discret">${esc(e.note)}</span>` : ''}${e.par ? `<span class="discret">par ${esc(e.par)}</span>` : ''}</li>`).join('') || '<li class="discret">Aucun évènement.</li>'}</ul></details>
             </section>
             <section class="carte col-bloc">
               <h2>Les deux photos</h2>
               ${c.photos_effacees ? '<p class="discret">Les photos ne sont plus conservées (plus d’un mois après le retrait).</p>' : `
               <div class="col-photos-fiche">
                 <figure><a data-ref="lien-bascule" target="_blank" rel="noopener"><img data-ref="photo-bascule" alt="Le colis sur la bascule"></a><figcaption>Sur la bascule · visible sur le suivi</figcaption></figure>
-                <figure><a data-ref="lien-contenu" target="_blank" rel="noopener"><img data-ref="photo-contenu" alt="Le contenu du colis"></a><figcaption>Le contenu · bureau seulement</figcaption></figure>
+                <figure><a data-ref="lien-contenu" href="#" data-action="voir-contenu"><img data-ref="photo-contenu" alt="Le contenu du colis"></a><figcaption>Le contenu · bureau seulement</figcaption></figure>
               </div>`}
             </section>
           </div>
@@ -96,20 +97,21 @@ export function afficherFicheColis(conteneur, id) {
             <section class="carte col-bloc">
               <h2>Paiement</h2>
               ${c.paye
-                ? `<div class="col-paiement paye"><span>Payé au départ</span><strong>${esc(montant(c.montant, c.devise))}</strong>${c.paye_mode ? `<span class="discret">${esc(MODES_PAIEMENT_COLIS.find(([m]) => m === c.paye_mode)?.[1] || c.paye_mode)}${c.paye_le ? ` · ${esc(formatDate(c.paye_le, 'court'))}` : ''}</span>` : ''}</div>`
-                : `<div class="col-paiement a-payer"><span>À payer au retrait</span><strong>${esc(montant(du ?? c.montant, champ(c, 'du_devise') || c.devise))}</strong>${du !== undefined && champ(c, 'du_devise') !== c.devise ? `<span class="discret">soit ${esc(montant(c.montant, c.devise))} au départ, figé au dépôt</span>` : ''}</div>`}
+                ? `<div class="col-paiement paye"><span>Payé au départ</span><strong>${esc(montant(c.montant, c.devise))}</strong>${c.paye_mode ? `<span class="discret">${esc(nomMode(c.paye_mode))}</span>` : ''}</div>`
+                : `<div class="col-paiement a-payer"><span>À payer au retrait</span><strong>${esc(montant(c.du_montant, c.du_devise))}</strong>${c.du_devise !== c.devise ? `<span class="discret">soit ${esc(montant(c.montant, c.devise))} au départ, figé au dépôt</span>` : ''}</div>`}
+              ${c.encaisse_montant ? `<p class="discret">Encaissé au retrait : ${esc(montant(c.encaisse_montant, c.du_devise))}${c.encaisse_mode ? ` · ${esc(nomMode(c.encaisse_mode))}` : ''}</p>` : ''}
               ${c.statut === 'retire' ? `<p class="discret">Retiré le ${esc(dateHeure(c.retire_le))}${c.recu_par ? ` par ${esc(c.recu_par)}` : ''}.</p>` : ''}
             </section>
             <section class="carte col-bloc">
               <h2>Le colis</h2>
               <dl class="col-infos">
-                <div><dt>Expéditeur</dt><dd><strong>${esc(c.expediteur_nom || '')}</strong><span>${esc(formatTel(c.expediteur_tel, { indicatif: true }))}</span></dd></div>
-                <div><dt>Destinataire</dt><dd><strong>${esc(c.destinataire_nom || '')}</strong><span>${esc(formatTel(c.destinataire_tel, { indicatif: true }))}</span><span class="discret">Retrait : ${esc(arr?.nom || arr?.ville || '')}</span></dd></div>
+                <div><dt>Expéditeur</dt><dd><strong>${esc(c.expediteur.nom)}</strong><span>${esc(formatTel(c.expediteur.tel, { indicatif: true }))}</span></dd></div>
+                <div><dt>Destinataire</dt><dd><strong>${esc(c.destinataire.nom)}</strong><span>${esc(formatTel(c.destinataire.tel, { indicatif: true }))}</span><span class="discret">Retrait : ${esc(arr?.nom || arr?.ville || '')}</span></dd></div>
                 <div><dt>Contenu</dt><dd>${esc(c.contenu || '')}${c.contenu_douane && c.contenu_douane !== c.contenu ? `<span class="discret">Douane : ${esc(c.contenu_douane)}</span>` : ''}</dd></div>
                 <div><dt>Poids</dt><dd>${formatNombre(c.poids, 2)} kg pesés${Number(c.poids_facture) > Number(c.poids) ? ` · facturé ${formatNombre(c.poids_facture, 2)} kg` : ''}</dd></div>
-                <div><dt>Nombre de colis</dt><dd>${formatNombre(c.nb_colis || 1)}</dd></div>
+                <div><dt>Nombre de colis</dt><dd>${formatNombre(c.nb_colis)}</dd></div>
                 ${c.valeur_declaree ? `<div><dt>Valeur déclarée</dt><dd>${esc(montant(c.valeur_declaree, c.devise))}</dd></div>` : ''}
-                <div><dt>Envoi</dt><dd>${envoi ? `<a href="#/envois/${encodeURIComponent(envoi.id || c.envoi_id)}">${esc(champ(envoi, 'numero', 'reference') || 'Voir l’envoi')}${champ(envoi, 'immatriculation') ? ` · ${esc(envoi.immatriculation)}` : ''}</a>` : c.envoi_id ? `<a href="#/envois/${encodeURIComponent(c.envoi_id)}">Voir l’envoi</a>` : '<span class="discret">Pas encore dans un envoi</span>'}</dd></div>
+                <div><dt>Envoi</dt><dd>${envoi ? `<a href="#/envois/${encodeURIComponent(envoi.id)}">${esc([envoi.numero, envoi.reference].filter(Boolean).join(' · '))}</a>` : '<span class="discret">Pas encore dans un envoi</span>'}</dd></div>
               </dl>
             </section>
           </div>
@@ -117,9 +119,23 @@ export function afficherFicheColis(conteneur, id) {
         <section class="col-recu-impression" data-zone="recu" hidden></section>
       </div>`;
     if (!c.photos_effacees) {
-      urlPhoto(c.photo_bascule, false).then((u) => { const img = conteneur.querySelector('[data-ref="photo-bascule"]'); if (u && img) { img.src = u; img.parentElement.href = u; } });
-      urlPhoto(c.photo_contenu, true).then((u) => { const img = conteneur.querySelector('[data-ref="photo-contenu"]'); if (u && img) { img.src = u; img.parentElement.href = u; } });
+      if (c.photo_bascule) {
+        const u = urlBascule(c.photo_bascule);
+        conteneur.querySelector('[data-ref="photo-bascule"]').src = u;
+        conteneur.querySelector('[data-ref="lien-bascule"]').href = u;
+      }
+      if (c.photo_contenu) {
+        urlContenu(c.photo_contenu).then((u) => { const img = conteneur.querySelector('[data-ref="photo-contenu"]'); if (img) img.src = u; })
+          .catch(() => { const fig = conteneur.querySelector('[data-ref="photo-contenu"]')?.closest('figure'); if (fig) fig.querySelector('figcaption').textContent = 'Le contenu · photo illisible pour l’instant'; });
+      }
     }
+  }
+
+  /** Lien de suivi : jeton de suivi_interne, sinon celui gardé à l'enregistrement (enregistrer_colis). */
+  function lienDuColis() {
+    let local = null;
+    try { local = JSON.parse(sessionStorage.getItem(`yb_colis_${s.c.id}`) || 'null'); } catch { /* facultatif */ }
+    return lienSuivi(local?.lien, s.c.jeton || local?.jeton);
   }
 
   /* ---------------- Changer le statut */
@@ -157,14 +173,14 @@ export function afficherFicheColis(conteneur, id) {
 
   function remettre() {
     const c = s.c;
-    const du = champ(c, 'du_montant') ?? c.montant;
-    const devise = champ(c, 'du_devise') || c.devise;
+    const du = c.du_montant;
+    const devise = c.du_devise;
     const { el, fermer } = ouvrirModale({
       titre: `Remettre ${c.numero}`,
       variante: 'large',
       contenu: `<form class="form-modale" novalidate>
         <div class="rangee-champs">
-          <div class="champ"><label for="rem-nom">Qui retire</label><input id="rem-nom" class="input" maxlength="80" value="${esc(c.destinataire_nom || '')}" required></div>
+          <div class="champ"><label for="rem-nom">Qui retire</label><input id="rem-nom" class="input" maxlength="80" value="${esc(c.destinataire.nom)}" required></div>
           <div class="champ"><label for="rem-piece">Pièce d’identité</label><input id="rem-piece" class="input" maxlength="60" placeholder="Ex. CNI 123456789" required></div>
         </div>
         ${c.paye ? '<p class="col-paiement paye"><span>Déjà payé au départ</span><strong>Rien à encaisser</strong></p>' : `
@@ -218,8 +234,8 @@ export function afficherFicheColis(conteneur, id) {
       <strong class="col-recu-titre">Reçu de remise</strong>
       <span>${esc(c.numero)} · ${esc(formatDate(new Date(), 'complet'))}</span>
       <span>Remis à <strong>${esc(recuPar)}</strong> (${esc(piece)})</span>
-      <span>${esc(c.contenu || '')} · ${formatNombre(c.poids_facture || c.poids, 2)} kg</span>
-      <strong>${m ? `Encaissé : ${esc(montant(m, devise))} · ${esc(MODES_PAIEMENT_COLIS.find(([x]) => x === mode)?.[1] || '')}` : 'Payé au départ : rien encaissé'}</strong>
+      <span>${esc(c.contenu)} · ${formatNombre(c.poids_facture, 2)} kg</span>
+      <strong>${m ? `Encaissé : ${esc(montant(m, devise))} · ${esc(nomMode(mode))}` : 'Payé au départ : rien encaissé'}</strong>
       <span class="discret">Logiciel YOUMMA Business</span></article>`;
     const { el, fermer } = ouvrirModale({
       titre: 'Colis remis',
@@ -233,7 +249,16 @@ export function afficherFicheColis(conteneur, id) {
     const a = e.target.closest('[data-action]')?.dataset.action;
     if (a === 'statut') changerStatut();
     if (a === 'remettre') remettre();
-    if (a === 'copier') toast(await copierTexte(lienSuivi(champ(s.r, 'lien'), champ(s.r, 'jeton'))) ? 'Lien de suivi copié.' : 'Copie impossible.', 'succes');
+    if (a === 'copier') toast(await copierTexte(lienDuColis()) ? 'Lien de suivi copié.' : 'Copie impossible.', 'succes');
+    if (a === 'voir-contenu') {
+      e.preventDefault();
+      // URL signée neuve à chaque ouverture : celle de l'aperçu a pu expirer (60 s).
+      // Fenêtre ouverte tout de suite (pendant le clic, sinon le navigateur la bloque), remplie quand l'URL arrive.
+      const fenetre = window.open('', '_blank');
+      if (fenetre) fenetre.opener = null;
+      try { const u = await urlContenu(s.c.photo_contenu); if (fenetre) fenetre.location = u; else window.open(u, '_blank', 'noopener'); }
+      catch (err) { fenetre?.close(); toast(messageErreur(err), 'erreur'); }
+    }
   });
   charger();
 }

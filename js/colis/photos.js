@@ -5,7 +5,8 @@
  *    visible sur le lien de suivi) ;
  *  - « Le contenu » : carton ouvert avant fermeture → bucket privé « bons » (visible par le bureau seulement).
  * Téléphone : <input capture="environment">, aperçu immédiat. Ordinateur : trois voies, dans cet ordre —
- *   1. scanner un QR avec le téléphone (ouvrir_session_photo ; le téléphone dépose dans colis/sessions/<jeton>/ ;
+ *   1. scanner un QR avec le téléphone (ouvrir_session_photo ; le téléphone dépose la bascule dans
+ *      colis/sessions/<jeton>/ et le contenu dans bons/sessions/<jeton>/ — jamais dans le seau public ;
  *      l'ordinateur relit session_photo toutes les 2 s) ; le lien meurt au bout de 10 minutes ;
  *   2. la caméra de l'ordinateur (getUserMedia) ; 3. choisir un fichier.
  * Compression comme pour les produits : côté long 1280 px, JPEG qualité 0,7, cible < 200 Ko (3G).
@@ -14,8 +15,8 @@ import { sb } from '../supabase.js';
 import { etat } from '../state.js';
 import { esc, icone, toast, ouvrirModale } from '../utils.js';
 import { chargerCanvas, redimensionner, encoder } from '../images/traitement.js';
-import { svgQr } from '../lib/qr.js';
-import { api, champ, iconeColis } from './commun.js';
+import { svgQr } from '../qr.js';
+import { api, iconeColis } from './commun.js';
 
 const QUOI = {
   bascule: { titre: 'Sur la bascule', aide: 'Le colis et l’afficheur sur la même photo.', reprendre: 'Reprendre la bascule' },
@@ -75,7 +76,8 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
     const p = s[quoi];
     const tuile = zone.querySelector(`[data-photo="${quoi}"]`);
     tuile.classList.toggle('faite', Boolean(p));
-    ref(`apercu-${quoi}`).innerHTML = p ? `<img src="${esc(p.url)}" alt="${esc(QUOI[quoi].titre)}">` : iconeColis(quoi === 'bascule' ? 'balance' : 'colis', 34);
+    ref(`apercu-${quoi}`).innerHTML = p?.url ? `<img src="${esc(p.url)}" alt="${esc(QUOI[quoi].titre)}">`
+      : p ? `<span class="col-photo-recue">${icone('valide', 30, 2.4)}<span>Reçue du téléphone</span></span>` : iconeColis(quoi === 'bascule' ? 'balance' : 'colis', 34);
     ref(`titre-${quoi}`).innerHTML = p ? `${icone('valide', 15, 2.6)} ${esc(QUOI[quoi].titre)}` : esc(QUOI[quoi].titre);
     ref(`libelle-${quoi}`).textContent = p ? QUOI[quoi].reprendre : (telephone ? 'Prendre la photo' : 'Choisir un fichier');
     surChangement(Boolean(s.bascule && s.contenu));
@@ -104,7 +106,7 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
       ref('expire').textContent = 'Lien indisponible. Utilisez la caméra ou un fichier.';
       return;
     }
-    ref('qr').innerHTML = svgQr(s.session.lien, { titre: 'QR code à scanner avec le téléphone' });
+    ref('qr').innerHTML = svgQr(s.session.lien, { titre: 'QR code à scanner avec le téléphone', niveau: 'Q', marge: 4, couleur: '#000000' });
     ref('lien').textContent = s.session.lien.replace(/^https?:\/\//, '');
     const compte = () => {
       const reste = Math.max(0, s.session.fin - Date.now());
@@ -132,15 +134,34 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
     let r;
     try { r = await api.lireSessionPhoto(s.session.jeton); } catch { return; }
     if (!r || r.expiree) return;
+    // Chemins déposés par le téléphone, préfixés du seau : « colis/sessions/… » (bascule), « bons/sessions/… » (contenu).
     for (const quoi of ['bascule', 'contenu']) {
-      const chemin = champ(r, quoi, `photo_${quoi}`, `chemin_${quoi}`);
+      const chemin = r[quoi];
       if (chemin && s[quoi]?.chemin !== chemin) {
-        const url = sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
-        s[quoi] = { chemin, url, source: 'session' };
+        s[quoi] = { chemin, url: null, source: 'session' };
         afficher(quoi);
+        apercuSession(quoi, chemin);
       }
     }
     if (s.bascule?.source === 'session' && s.contenu?.source === 'session') clearInterval(s.minuteur);
+  }
+
+  /**
+   * Aperçu d'une photo venue du téléphone : la bascule par son URL publique, le contenu par une URL signée de 60 s
+   * (seau privé). Si la lecture est refusée, la tuile reste cochée « reçue » sans image : la photo est bien là.
+   */
+  async function apercuSession(quoi, chemin) {
+    const [seau, ...reste] = chemin.split('/');
+    const dans = reste.join('/');
+    let url = null;
+    if (seau === 'colis') url = sb.storage.from('colis').getPublicUrl(dans).data.publicUrl;
+    else {
+      const { data } = await sb.storage.from('bons').createSignedUrl(dans, 60);
+      url = data?.signedUrl || null;
+    }
+    if (!url || s[quoi]?.chemin !== chemin) return;
+    s[quoi].url = url;
+    afficher(quoi);
   }
 
   /* ---------------- Caméra de l'ordinateur */

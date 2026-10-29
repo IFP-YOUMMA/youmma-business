@@ -90,7 +90,8 @@
   <noscript><p style="padding:24px">Cette page a besoin de JavaScript pour afficher le suivi.</p></noscript>
   <script type="module">
     // Lecture seule par les fonctions publiques suivi_colis(p_jeton) et suivi_par_numero(p_numero, p_tel4).
-    // Les noms renvoyés sont déjà masqués par la base ; on affiche tel quel.
+    // Les noms renvoyés sont déjà masqués par la base et a_payer est déjà écrit avec sa monnaie (« 1 421 000 GNF ») :
+    // on affiche tel quel. Seule la photo de la bascule existe ici ; celle du contenu n'est jamais publique.
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
 
@@ -102,9 +103,8 @@
     const INTROUVABLE = 'Ce numéro ne correspond à aucun colis. Vérifiez avec le bureau.';
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const champ = (o, ...cles) => { for (const c of cles) if (o?.[c] !== undefined && o?.[c] !== null && o?.[c] !== '') return o[c]; return undefined; };
     const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: dec }).replace(/[  ]/g, ' ');
-    const devise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
+    const jour = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(new Date(iso)); } catch { return ''; } };
     const date = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h '); } catch { return ''; } };
     const chiffres = (t) => String(t || '').replace(/\D/g, '');
 
@@ -119,16 +119,9 @@
       arrive: ['ARRIVÉ', 'bleu'], a_retirer: ['PRÊT À RETIRER', 'vert'], retire: ['RETIRÉ', 'vert'], probleme: ['PROBLÈME — CONTACTEZ LE BUREAU', 'rouge'], annule: ['ANNULÉ', 'rouge']
     };
 
-    const agence = (r, cote) => {
-      const a = champ(r, cote, `agence_${cote}`);
-      if (a && typeof a === 'object') return a;
-      return { nom: champ(r, `${cote}_nom`, `nom_${cote}`) || a || '', ville: champ(r, `ville_${cote}`, `${cote}_ville`) || '', code: champ(r, `code_${cote}`) || '' };
-    };
-    const urlPhoto = (chemin) => {
-      if (!chemin) return null;
-      if (/^https?:/.test(chemin)) return chemin;
-      return sb.storage.from('colis').getPublicUrl(String(chemin).replace(/^colis\//, '')).data.publicUrl;
-    };
+    const MODES = { avion: 'Avion ✈', route: 'Route 🚚', bateau: 'Bateau ⛴' };
+    /** La photo de la bascule est dans le seau public « colis » ; null quand elle a été effacée (un mois après le retrait). */
+    const urlBascule = (chemin) => sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
 
     function formulaire(message = '') {
       racine.innerHTML = `
@@ -161,76 +154,66 @@
     }
 
     function afficher(r) {
-      const dep = agence(r, 'depart'), arr = agence(r, 'arrivee');
-      const statut = champ(r, 'statut') || 'recu';
-      const [libEtat, classeEtat] = ETATS[statut] || [String(statut).toUpperCase(), 'gris'];
-      const parcours = Array.isArray(champ(r, 'parcours', 'evenements')) ? champ(r, 'parcours', 'evenements') : [];
-      const rang = RANG[statut] ?? -1;
+      const { depart: dep, arrivee: arr, entreprise } = r;
+      const [libEtat, classeEtat] = ETATS[r.statut] || [String(r.statut).toUpperCase(), 'gris'];
+      const rang = RANG[r.statut] ?? -1;
       const pas = ETAPES.map(([code, libelle], i) => {
-        const ev = [...parcours].reverse().find((p) => (code === 'charge' ? ['charge', 'en_route'] : [code]).includes(p.statut));
+        const ev = [...r.parcours].reverse().find((p) => (code === 'charge' ? ['charge', 'en_route'] : [code]).includes(p.statut));
         const fait = ev || i <= rang;
-        const quand = ev ? [date(champ(ev, 'le', 'date', 'created_at')), champ(ev, 'lieu')].filter(Boolean).join(' · ') : '';
+        const quand = ev ? [date(ev.le), ev.lieu].filter(Boolean).join(' · ') : '';
         return `<li class="${fait ? 'fait' : ''} ${i === rang ? 'courant' : ''}"><span class="puce"></span><span class="pas"><strong>${esc(libelle)}</strong>${quand ? `<span>${esc(quand)}</span>` : ''}</span></li>`;
       }).join('');
-      const photo = urlPhoto(champ(r, 'photo_bascule', 'photo'));
-      const effacees = Boolean(r.photos_effacees);
-      const du = champ(r, 'a_payer', 'du_montant', 'reste_a_payer');
-      const montantDu = typeof du === 'object' ? champ(du, 'montant') : du;
-      const deviseDu = typeof du === 'object' ? champ(du, 'devise') : champ(r, 'du_devise', 'devise_arrivee') || arr.devise || 'GNF';
-      const paye = Boolean(r.paye) || !(Number(montantDu) > 0);
-      const bureau = champ(r, 'bureau', 'agence_retrait') || arr;
-      const telBureau = chiffres(champ(bureau, 'whatsapp', 'telephone') || champ(r, 'telephone_bureau', 'whatsapp'));
-      const villeBureau = champ(bureau, 'ville', 'nom') || 'Conakry';
-      const numero = champ(r, 'numero') || '';
-      const nomBoutique = champ(r, 'boutique', 'boutique_nom', 'agence_nom') || dep.nom || 'Transport de colis';
-      const logo = champ(r, 'logo', 'logo_url');
-      const msg = `Bonjour, je suis le destinataire du colis ${numero}.`;
+      const photo = r.photo_bascule ? urlBascule(r.photo_bascule) : null;
+      const telBureau = chiffres(arr.telephone || entreprise.telephone);
+      const msg = `Bonjour, je suis le destinataire du colis ${r.numero}.`;
       const ligne = (dt, dd) => (dd === undefined || dd === null || dd === '' ? '' : `<div><dt>${esc(dt)}</dt><dd>${esc(dd)}</dd></div>`);
-      const mode = champ(r, 'mode') === 'avion' ? 'Avion ✈' : champ(r, 'mode') === 'route' ? 'Route 🚚' : '';
+      const arriveDeja = ['arrive', 'a_retirer', 'retire'].includes(r.statut);
 
       racine.innerHTML = `
         <header class="entete">
-          <div class="agence"><span class="logo">${logo ? `<img src="${esc(logo)}" alt="">` : esc(String(nomBoutique).slice(0, 1).toUpperCase())}</span>
-            <span><strong>${esc(nomBoutique)}</strong><span>Transport de colis</span></span></div>
-          <div class="trajet">${dep.code ? `<span class="pays">${esc(dep.code)}</span>` : ''}${esc(dep.ville || dep.nom)} <span class="fl">→</span> ${arr.code ? `<span class="pays">${esc(arr.code)}</span>` : ''}${esc(arr.ville || arr.nom)}${mode ? ` · ${esc(mode)}` : ''}</div>
+          <div class="agence"><span class="logo">${entreprise.logo_url ? `<img src="${esc(entreprise.logo_url)}" alt="">` : esc(String(entreprise.nom).slice(0, 1).toUpperCase())}</span>
+            <span><strong>${esc(entreprise.nom)}</strong><span>Transport de colis</span></span></div>
+          <div class="trajet">${esc(dep.drapeau || '')} ${esc(dep.ville)} <span class="fl">→</span> ${esc(arr.drapeau || '')} ${esc(arr.ville)}${MODES[r.mode] ? ` · ${esc(MODES[r.mode])}` : ''}</div>
         </header>
         <div class="corps">
           <section class="carte">
             <span class="etiq">Colis</span>
-            <span class="numero">${esc(numero)}</span>
+            <span class="numero">${esc(r.numero)}</span>
             <span class="etat ${classeEtat}">${esc(libEtat)}</span>
-            ${statut === 'probleme' && champ(r, 'motif') ? `<span class="petit">${esc(r.motif)}</span>` : ''}
+            ${!arriveDeja && r.arrivee_prevue ? `<span class="petit">Arrivée prévue le ${esc(jour(r.arrivee_prevue))}</span>` : ''}
+            ${r.retire_le ? `<span class="petit">Retiré le ${esc(date(r.retire_le))}</span>` : ''}
           </section>
           <section class="carte"><h2>Parcours</h2><ol class="parcours">${pas}</ol></section>
           <section class="carte">
             <h2>Pesée au départ</h2>
-            ${effacees || !photo ? '<p class="petit" style="margin:0">La photo n’est plus conservée.</p>' : `
+            ${!photo ? '<p class="petit" style="margin:0">La photo n’est plus conservée.</p>' : `
               <a class="photo" href="${esc(photo)}" data-grand><img src="${esc(photo)}" alt="Le colis sur la bascule" loading="lazy"></a>
+              ${r.pese_le ? `<span class="petit">Pesé le ${esc(date(r.pese_le))}</span>` : ''}
               <button class="bouton" type="button" data-grand>Voir la photo en grand</button>`}
           </section>
           <section class="carte">
             <h2>Le colis</h2>
             <dl>
-              ${ligne('Expéditeur', champ(r, 'expediteur', 'expediteur_nom'))}
-              ${ligne('Destinataire', champ(r, 'destinataire', 'destinataire_nom'))}
-              ${ligne('Contenu', champ(r, 'contenu'))}
-              ${ligne('Poids', champ(r, 'poids') !== undefined ? `${nombre(r.poids, 2)} kg` : undefined)}
-              ${ligne('Nombre de colis', champ(r, 'nb_colis'))}
+              ${ligne('Expéditeur', r.expediteur)}
+              ${ligne('Destinataire', r.destinataire)}
+              ${ligne('Contenu', r.contenu)}
+              ${ligne('Poids', `${nombre(r.poids, 2)} kg`)}
+              ${ligne('Nombre de colis', r.nb_colis)}
             </dl>
           </section>
-          ${statut === 'retire' ? '' : `
-          <section class="payer ${paye ? 'ok' : 'du'}">
-            <span class="etiq" style="color:inherit">${paye ? 'Transport payé au départ' : 'À payer au retrait'}</span>
-            ${paye ? '<strong>Rien à payer</strong>' : `<strong>${nombre(montantDu)} ${esc(devise(deviseDu))}</strong><span>Espèces, Orange Money ou MTN MoMo au bureau.</span>`}
+          ${r.statut === 'retire' ? '' : `
+          <section class="payer ${r.paye ? 'ok' : 'du'}">
+            <span class="etiq" style="color:inherit">${r.paye ? 'Transport payé au départ' : 'À payer au retrait'}</span>
+            ${r.paye ? '<strong>Rien à payer</strong>' : `<strong>${esc(r.a_payer)}</strong><span>Espèces, Orange Money ou MTN MoMo au bureau.</span>`}
           </section>`}
           <section class="carte">
             <h2>Bureau de retrait</h2>
             <dl>
-              ${ligne('Bureau', champ(bureau, 'nom'))}
-              ${ligne('Adresse', champ(bureau, 'adresse'))}
-              ${ligne('Horaires', champ(bureau, 'horaires'))}
+              ${ligne('Bureau', arr.nom)}
+              ${ligne('Adresse', arr.adresse)}
+              ${ligne('Horaires', arr.horaires)}
             </dl>
-            ${telBureau ? `<a class="bouton wa" href="https://wa.me/${esc(telBureau)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Écrire au bureau de ${esc(villeBureau)}</a>` : ''}
+            ${telBureau ? `<a class="bouton wa" href="https://wa.me/${esc(telBureau)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Écrire au bureau de ${esc(arr.ville)}</a>` : ''}
           </section>
         </div>`;
       racine.querySelectorAll('[data-grand]').forEach((b) => b.addEventListener('click', (e) => {
