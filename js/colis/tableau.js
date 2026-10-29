@@ -12,8 +12,9 @@ import { api, chargerAgences, montant, nomDevise, pastilleStatut, iconeColis, MO
 /** Taux XOF → GNF parmi tableau_colis.taux (le premier sinon). */
 const tauxPrincipal = (liste) => liste.find((x) => x.de === 'XOF' && x.vers === 'GNF') || liste[0] || null;
 
-export function afficherColisTableau(conteneur) {
-  const s = { tableau: null, agences: [], onglet: 'tous', recherche: '', jeton: 0 };
+export function afficherColisTableau(conteneur, params) {
+  // #/colis?filtre=a_peser (depuis « À faire aujourd'hui »), #/colis?q=… (recherche de l'accueil du transit).
+  const s = { tableau: null, agences: [], onglet: params?.get('filtre') || 'tous', recherche: params?.get('q') || '', jeton: 0 };
   conteneur.innerHTML = `
     <div class="page page-colis">
       <header class="col-entete">
@@ -38,6 +39,7 @@ export function afficherColisTableau(conteneur) {
     </div>`;
   const zone = (n) => conteneur.querySelector(`[data-zone="${n}"]`);
   const ref = (n) => conteneur.querySelector(`[data-ref="${n}"]`);
+  ref('recherche').value = s.recherche;
   ref('recherche').focus({ preventScroll: true });
 
   /* ---------------- Chiffres */
@@ -68,7 +70,7 @@ export function afficherColisTableau(conteneur) {
 
   const ONGLETS = () => {
     const dep = s.agences.find((a) => a.devise === 'XOF') || s.agences[0];
-    return [['tous', 'Tous', null], ['attente', `À ${dep?.ville || 'au départ'}`, 'attente'], ['en_route', 'En route', 'en_route'], ['a_retirer', 'À retirer', 'a_retirer'], ['probleme', 'Problème', 'probleme']];
+    return [['tous', 'Tous', null], ['a_peser', 'À peser', 'a_peser'], ['attente', `À ${dep?.ville || 'au départ'}`, 'attente'], ['en_route', 'En route', 'en_route'], ['a_retirer', 'À retirer', 'a_retirer'], ['probleme', 'Problème', 'probleme']];
   };
   function renderOnglets() {
     zone('onglets').innerHTML = ONGLETS().map(([c, l]) => `<button type="button" class="col-onglet ${c === s.onglet && !s.recherche ? 'actif' : ''}" data-onglet="${c}" aria-pressed="${c === s.onglet}">${esc(l)}</button>`).join('');
@@ -77,6 +79,8 @@ export function afficherColisTableau(conteneur) {
   /** Ligne de mes_colis : depart et arrivee sont des villes ; dort est vrai au-delà de 7 jours en « à retirer ». */
   function ligne(c) {
     // Montant figé dans le colis : payé (montant au départ) ou à payer à l'arrivée (montant dû, en monnaie d'arrivée).
+    // Carton déposé sans pesée : ni poids ni prix tant qu'il n'est pas pesé.
+    if (c.statut === 'a_peser') return ligneAPeser(c);
     const affiche = c.paye ? montant(c.montant, c.devise) : montant(c.du_montant, c.du_devise);
     return `<tr data-colis="${esc(c.id)}">
       <td><a class="col-num" href="#/colis/${encodeURIComponent(c.id)}">${esc(c.numero)}</a></td>
@@ -85,6 +89,17 @@ export function afficherColisTableau(conteneur) {
       <td class="col-mode-cell">${iconeColis(MODES[c.mode]?.icone || 'colis', 16)} ${esc(MODES[c.mode]?.libelle || c.mode)}</td>
       <td>${pastilleStatut(c.statut)}${c.statut === 'a_retirer' && c.dort ? '<span class="col-dort">dort ici depuis plus de 7 jours</span>' : ''}</td>
       <td class="droite"><strong class="col-chiffre">${esc(affiche)}</strong><span class="col-sous">${c.paye ? 'payé' : 'à l’arrivée'}</span></td>
+    </tr>`;
+  }
+
+  function ligneAPeser(c) {
+    return `<tr data-colis="${esc(c.id)}">
+      <td><a class="col-num" href="#/colis/${encodeURIComponent(c.id)}">${esc(c.numero)}</a></td>
+      <td><strong>${esc(c.compte ? `${c.compte} · ${c.expediteur_nom}` : c.expediteur_nom)}</strong><span class="col-sous">${c.recu_de ? `déposé par ${esc(c.recu_de)}` : ''}</span></td>
+      <td class="droite">—</td>
+      <td class="col-mode-cell">—</td>
+      <td>${pastilleStatut(c.statut)}</td>
+      <td class="droite"><a class="btn btn-primaire btn-petit" href="#/peser/${encodeURIComponent(c.id)}">Peser</a></td>
     </tr>`;
   }
 

@@ -22,10 +22,13 @@ import {
  */
 export const SECTIONS = [
   { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'tableau_de_bord' },
-  // Étape 16 — logistique de colis (activité « logistique » seulement).
-  { route: 'colis', libelle: 'Colis', icone: 'colis', active: true, module: 'colis' },
-  { groupe: 'Envoi de colis', route: 'nouveau-colis', libelle: 'Nouveau colis', icone: 'plus', active: true, module: 'colis' },
-  { groupe: 'Envoi de colis', route: 'envois', libelle: 'Envois', icone: 'camion', active: true, module: 'envois' },
+  // Étapes 16 et 18 — logistique et transit (activité « logistique » seulement).
+  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'colis' },
+  { groupe: 'Expéditions', route: 'colis', libelle: 'Colis', icone: 'colis', active: true, module: 'colis' },
+  { groupe: 'Expéditions', route: 'recevoir', libelle: 'Recevoir', icone: 'entree', active: true, module: 'colis', routes: ['recevoir', 'peser'] },
+  { groupe: 'Expéditions', route: 'nouveau-colis', libelle: 'Nouveau colis', icone: 'plus', active: true, module: 'colis' },
+  { groupe: 'Expéditions', route: 'envois', libelle: 'Envois', icone: 'camion', active: true, module: 'envois' },
+  { groupe: 'Expéditions', route: 'comptes', libelle: 'Comptes clients', icone: 'client', active: true, module: 'colis' },
   { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'], module: 'caisse' },
   { groupe: 'Vente', route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer', module: 'devis', badgeDevis: true },
   { groupe: 'Vente', route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true, module: 'boutique_en_ligne' },
@@ -63,12 +66,12 @@ const ONGLETS = [
   { route: 'stock', libelle: 'Stock', icone: 'stock', vocab: true },
   { route: 'clients', libelle: 'Clients', icone: 'clients' }
 ];
-/** Barre du bas d'une boutique de logistique : Colis, Envois, Messages ; bouton rond « Nouveau colis ». */
+/** Barre du bas d'une boutique de logistique : Aujourd'hui, Colis, Envois, Comptes ; bouton rond « Recevoir » (étape 18). */
 const ONGLETS_LOGISTIQUE = [
+  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison' },
   { route: 'colis', libelle: 'Colis', icone: 'colis' },
   { route: 'envois', libelle: 'Envois', icone: 'camion' },
-  { route: 'messages', libelle: 'Messages', icone: 'sms' },
-  { route: 'parametres', libelle: 'Réglages', icone: 'parametres' }
+  { route: 'comptes', libelle: 'Comptes', icone: 'client' }
 ];
 const onglets = () => (estLogistique() ? ONGLETS_LOGISTIQUE : ONGLETS);
 /** Sections accessibles depuis « Plus » (celles absentes de la barre du bas). */
@@ -83,9 +86,9 @@ function barreBasHTML() {
         </button>`;
 }
 const boutonRondHTML = () => (estLogistique()
-  ? `${icone('plus', 18, 2.8)}<span>Nouveau colis</span>`
+  ? `${icone('plus', 18, 2.8)}<span>Recevoir</span>`
   : `${icone('plus', 18, 2.8)}<span>Vendre</span>`);
-const lienBoutonRond = () => (estLogistique() ? '#/nouveau-colis' : '#/caisse?vendre=1');
+const lienBoutonRond = () => (estLogistique() ? '#/recevoir' : '#/caisse?vendre=1');
 
 /* ------------------------------------------------------------ Coquille */
 

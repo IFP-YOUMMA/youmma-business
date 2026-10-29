@@ -27,8 +27,16 @@ export const api = {
   tableau: () => rpc('tableau_colis', { p_boutique: etat.boutique.id }).then(premiere),
   liste: ({ filtre = null, agence = null, recherche = null, limite = 100 } = {}) =>
     rpc('mes_colis', { p_boutique: etat.boutique.id, p_filtre: filtre, p_agence: agence, p_recherche: recherche || null, p_limite: limite }).then((d) => d || []),
-  tarif: ({ depart, arrivee, mode, poids, supplements = [] }) =>
-    rpc('tarif_colis', { p_boutique: etat.boutique.id, p_depart: depart, p_arrivee: arrivee, p_mode: mode, p_poids: poids, p_supplements: supplements }).then(premiere),
+  /**
+   * Prix d'un colis (étape 18 : dimensions d'UN carton et nombre de cartons ; sans dimensions, au poids seul).
+   * Le détail du poids taxable revient sous la clé calcul : { base, diviseur, minimum_kg, poids_reel, volume_cm3,
+   * poids_taxable, poids_volumetrique }.
+   */
+  tarif: ({ depart, arrivee, mode, poids, supplements = [], longueur = null, largeur = null, hauteur = null, nb = null }) =>
+    rpc('tarif_colis', {
+      p_boutique: etat.boutique.id, p_depart: depart, p_arrivee: arrivee, p_mode: mode, p_poids: poids, p_supplements: supplements,
+      p_longueur: longueur, p_largeur: largeur, p_hauteur: hauteur, p_nb: nb
+    }).then(premiere),
   fiche: (id) => rpc('suivi_interne', { p_colis: id }).then(premiere),
   /** probleme et annule exigent une note (sinon MOTIF_REQUIS). */
   statut: (id, statut, note = null, lieu = null) => rpc('changer_statut_colis', { p_colis: id, p_statut: statut, p_note: note, p_lieu: lieu }),
@@ -54,8 +62,42 @@ export const api = {
     p_transporteur: e.transporteur || null, p_chauffeur: e.chauffeur || null, p_chauffeur_tel: e.chauffeurTel || null,
     p_immat: e.immatriculation || null, p_reference: e.reference || null,
     p_depart_prevu: e.departPrevu || null, p_arrivee_prevue: e.arriveePrevue || null
+  }).then(premiere),
+
+  /* ---------- Étape 18 : transit, comptes commerçants, poids taxable ---------- */
+
+  /** Une ligne par corridor (tarifs_colis) : en_attente, a_peser, kg_attente, kg_prets, capacite, prochain… */
+  corridors: () => rpc('tableau_corridors', { p_boutique: etat.boutique.id }).then((d) => d || []),
+  /** Comptes commerçants par numéro (GN-1042), nom ou téléphone : { id, code, nom, ville, telephone, entrepot, kg }. */
+  chercherCompte: (texte) => rpc('chercher_compte', { p_boutique: etat.boutique.id, p_texte: texte }).then((d) => d || []),
+  /** Renvoie le compte EXISTANT si le téléphone est déjà connu (même écrit autrement) : on ne lit que son id. */
+  creerCompte: ({ nom, tel, ville = null, agence = null, tel2 = null }) =>
+    rpc('creer_compte_client', { p_boutique: etat.boutique.id, p_nom: nom, p_tel: tel, p_ville: ville, p_agence: agence, p_tel2: tel2 }).then(premiere),
+  /** Fiche d'un compte : code, lien du relevé, resume { entrepot, kg_entrepot, en_route, a_retirer, du_gnf }, agence_retrait… */
+  compteFiche: (id) => rpc('compte_fiche', { p_compte: id }).then(premiere),
+  /** Dépôt sans pesée (le fournisseur dépose et repart) : colis « a_peser », photo du dépôt dans le seau privé bons. */
+  deposer: (c) => rpc('deposer_marchandise', {
+    p_boutique: etat.boutique.id, p_compte: c.compte, p_depart: c.depart, p_contenu: c.contenu, p_photo_depot: c.photoDepot,
+    p_nb: c.nb, p_recu_de: c.recuDe || null, p_note: c.note || null
+  }).then(premiere),
+  /** Pesée d'un carton déposé : la base calcule le prix, passe le colis en « entrepot » et prévient le client. */
+  peser: (id, c) => rpc('peser_colis', {
+    p_colis: id, p_mode: c.mode, p_poids: c.poids, p_longueur: c.longueur, p_largeur: c.largeur, p_hauteur: c.hauteur, p_nb: c.nb,
+    p_photo_bascule: c.photoBascule, p_supplements: c.supplements || [], p_valeur: c.valeur ?? null, p_contenu_douane: c.contenuDouane || null
+  }).then(premiere),
+  /** Réception complète (pesée et deux photos tout de suite) au nom d'un compte commerçant. */
+  recevoir: (c) => rpc('recevoir_marchandise', {
+    p_boutique: etat.boutique.id, p_compte: c.compte, p_depart: c.depart, p_mode: c.mode, p_contenu: c.contenu,
+    p_contenu_douane: c.contenuDouane || null, p_nb: c.nb, p_poids: c.poids, p_longueur: c.longueur, p_largeur: c.largeur, p_hauteur: c.hauteur,
+    p_valeur: c.valeur ?? null, p_supplements: c.supplements || [], p_photo_bascule: c.photoBascule, p_photo_contenu: c.photoContenu,
+    p_recu_de: c.recuDe || null, p_note: c.note || null
   }).then(premiere)
 };
+
+/** Jours de départ des corridors (tarifs_colis.jours_depart) : ISO, 1 = lundi … 7 = dimanche. */
+export const JOURS_ISO = [[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Jeu'], [5, 'Ven'], [6, 'Sam'], [7, 'Dim']];
+/** Pourquoi ce poids est facturé (calcul.base de tarif_colis, simuler_prix, poids_taxable). */
+export const BASES = { balance: 'le poids sur la balance', volume: 'la place prise (volume)', minimum: 'le minimum du corridor' };
 
 /* ------------------------------------------------------------ Bureaux (agences) */
 
@@ -118,6 +160,7 @@ export const dateHeure = (d) => (d ? `${formatDate(d, 'court')} · ${formatDate(
 /* ------------------------------------------------------------ Statuts */
 
 export const STATUTS = {
+  a_peser: { libelle: 'À peser', classe: 'or' },
   recu: { libelle: 'Reçu', classe: 'gris' },
   entrepot: { libelle: 'En entrepôt', classe: 'gris' },
   charge: { libelle: 'Chargé', classe: 'bleu' },

@@ -2,13 +2,19 @@
  * colis/reglages.js — Réglages de l'activité « logistique » (étape 16), dans Paramètres : trois panneaux de gérant.
  *  - Mes bureaux (table agences) : code, ville, drapeau, adresse, téléphone, horaires, monnaie. Le code devient
  *    non modifiable dès qu'un colis existe pour ce bureau (il est dans les numéros déjà imprimés).
- *  - Mes tarifs (table tarifs_colis) : par trajet et par mode, prix au kilo, minimum, frais fixes, délai, suppléments.
+ *  - Mes corridors (table tarifs_colis, étape 18) : un corridor = un bureau de départ + un bureau d'arrivée + un mode.
+ *    Prix au kilo, prix au m³, minimum, diviseur volumétrique, délai, jours de départ (ISO 1 = lundi), capacité.
+ *  - Mes comptes clients (étape 18) : voir comptes.js.
  *  - Le taux du jour (modifier_taux) : 1 FCFA = x GNF, date de mise à jour, rappel au-delà de 7 jours.
  */
 import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
 import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, ouvrirModale } from '../utils.js';
-import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES } from './commun.js';
+import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO } from './commun.js';
+import { monterComptesClients } from './comptes.js';
+
+const DIVISEUR_DEFAUT = { avion: 6000, route: 5000, bateau: 5000 };
+const COLONNES_TARIF = 'id, nom, agence_depart, agence_arrivee, mode, prix_kg, prix_m3, minimum_kg, frais_fixe, diviseur, delai_jours, jours_depart, capacite_kg, devise, supplements, actif, ordre';
 
 export function monterReglagesColis(zone) {
   const gerant = estGerant();
@@ -16,7 +22,8 @@ export function monterReglagesColis(zone) {
   zone.innerHTML = `
     <section class="carte col-reglage" data-zone="bureaux"><span class="squelette" style="height:140px"></span></section>
     <section class="carte col-reglage" data-zone="tarifs"><span class="squelette" style="height:140px"></span></section>
-    <section class="carte col-reglage" data-zone="taux"><span class="squelette" style="height:80px"></span></section>`;
+    <section class="carte col-reglage" data-zone="taux"><span class="squelette" style="height:80px"></span></section>
+    <section class="carte col-reglage" data-zone="comptes"></section>`;
   const sous = (n) => zone.querySelector(`[data-zone="${n}"]`);
 
   async function charger() {
@@ -24,7 +31,7 @@ export function monterReglagesColis(zone) {
       const b = etat.boutique.id;
       const [agences, tarifs, taux] = await Promise.all([
         chargerAgences({ forcer: true }),
-        sb.from('tarifs_colis').select('id, agence_depart, agence_arrivee, mode, prix_kg, minimum_kg, frais_fixe, delai_jours, devise, supplements, actif').eq('boutique_id', b),
+        sb.from('tarifs_colis').select(COLONNES_TARIF).eq('boutique_id', b).order('ordre'),
         sb.from('taux_change').select('de, vers, taux, maj_le').eq('boutique_id', b).order('maj_le', { ascending: false }).limit(1)
       ]);
       if (tarifs.error) throw tarifs.error;
@@ -35,6 +42,7 @@ export function monterReglagesColis(zone) {
       s.avecColis = new Set(comptes.filter(([, n]) => n > 0).map(([id]) => id));
       if (!zone.isConnected) return;
       renderBureaux(); renderTarifs(); renderTaux();
+      if (!s.comptesMontes) { s.comptesMontes = true; monterComptesClients(sous('comptes'), { titre: 'Mes comptes clients' }); }
     } catch (err) {
       zone.innerHTML = `<p class="bloc-erreur">${esc(messageErreur(err))}</p>`;
     }
@@ -100,46 +108,62 @@ export function monterReglagesColis(zone) {
     });
   }
 
-  /* ---------------- Tarifs */
+  /* ---------------- Corridors */
+
+  const ville = (id) => s.agences.find((x) => x.id === id)?.ville || '—';
+  const joursTexte = (j) => (j?.length ? JOURS_ISO.filter(([n]) => j.includes(n)).map(([, l]) => l).join(' · ') : 'à la demande');
 
   function renderTarifs() {
-
-    const trajets = [];
-    s.agences.forEach((d) => s.agences.forEach((a) => { if (d.id !== a.id) trajets.push([d, a]); }));
     sous('tarifs').innerHTML = `
-      <h2>Mes tarifs</h2>
-      ${trajets.map(([d, a]) => `<div class="col-trajet-tarifs"><h3>${esc(d.ville)} → ${esc(a.ville)}</h3>
-        <div class="tableau-cadre"><table class="col-tableau">
-          <thead><tr><th>Mode</th><th class="droite">Prix au kilo</th><th class="droite">Minimum</th><th class="droite">Frais fixes</th><th class="droite">Délai</th><th>Suppléments</th><th></th></tr></thead>
-          <tbody>${Object.entries(MODES).map(([m, lib]) => {
-            const t = s.tarifs.find((x) => x.agence_depart === d.id && x.agence_arrivee === a.id && x.mode === m);
-            const dev = t?.devise || d.devise;
-            return `<tr><td><strong>${esc(lib.libelle)}</strong></td>
-              ${t ? `<td class="droite">${formatNombre(t.prix_kg)} ${esc(nomDevise(dev))}</td><td class="droite">${formatNombre(t.minimum_kg, 2)} kg</td><td class="droite">${formatNombre(t.frais_fixe)}</td><td class="droite">${t.delai_jours} j</td>
-              <td>${(t.supplements || []).map((x) => `${esc(x.nom)} +${formatNombre(x.montant)}`).join(', ') || '—'}</td>` : '<td colspan="5" class="discret">Pas de tarif</td>'}
-              <td>${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-tarif="${esc(d.id)}|${esc(a.id)}|${m}">${t ? 'Modifier' : 'Ajouter'}</button>` : ''}</td></tr>`;
-          }).join('')}</tbody></table></div></div>`).join('') || '<p class="col-vide">Ajoutez d’abord deux bureaux.</p>'}
-      <p class="discret">Le prix d’un colis est toujours calculé par la base à partir de ces tarifs.</p>`;
-
+      <div class="col-carte-entete"><h2>Mes corridors</h2>${gerant && s.agences.length > 1 ? '<button type="button" class="btn btn-secondaire btn-petit" data-tarif="">+ Ouvrir un corridor</button>' : ''}</div>
+      <p class="discret">Un corridor, c’est un bureau de départ, un bureau d’arrivée et un mode (avion, route ou bateau), avec ses prix et ses jours de départ.</p>
+      ${s.tarifs.length ? `<div class="tableau-cadre"><table class="col-tableau col-corridors">
+        <thead><tr><th>Corridor</th><th class="droite">Prix / kg</th><th class="droite">Prix / m³</th><th class="droite">Minimum</th><th class="droite">Diviseur</th><th class="droite">Délai</th><th>Départs</th><th class="droite">Capacité</th><th></th></tr></thead>
+        <tbody>${s.tarifs.map((x) => `<tr class="${x.actif ? '' : 'col-inactif'}">
+          <td><strong>${esc(x.nom || `${ville(x.agence_depart)} → ${ville(x.agence_arrivee)}`)}</strong><span class="col-sous">${esc(ville(x.agence_depart))} → ${esc(ville(x.agence_arrivee))} · ${esc(MODES[x.mode]?.libelle || x.mode)}${x.actif ? '' : ' · fermé'}</span></td>
+          <td class="droite">${formatNombre(x.prix_kg)} ${esc(nomDevise(x.devise))}</td>
+          <td class="droite">${x.prix_m3 ? formatNombre(x.prix_m3) : '—'}</td>
+          <td class="droite">${formatNombre(x.minimum_kg, 2)} kg</td>
+          <td class="droite">${x.diviseur ? formatNombre(x.diviseur) : '—'}</td>
+          <td class="droite">${x.delai_jours ?? '—'} j</td>
+          <td>${esc(joursTexte(x.jours_depart))}</td>
+          <td class="droite">${x.capacite_kg ? `${formatNombre(x.capacite_kg)} kg` : '—'}</td>
+          <td>${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-tarif="${esc(x.id)}">Modifier</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="col-vide">${s.agences.length > 1 ? 'Aucun corridor. Ouvrez le premier : Dakar → Conakry par avion, par exemple.' : 'Ajoutez d’abord deux bureaux.'}</p>`}
+      <p class="discret">Le diviseur volumétrique transforme le volume en kilos (6 000 pour l’avion, 5 000 pour la route et la mer) : un carton de 60 × 40 × 35 pèse 14 kg « en place » par avion. Le prix est toujours calculé par la base.</p>`;
   }
 
-  function modifierTarif(cle) {
-    const [dep, arr, mode] = cle.split('|');
-    const d = s.agences.find((a) => a.id === dep);
-    const t = s.tarifs.find((x) => x.agence_depart === dep && x.agence_arrivee === arr && x.mode === mode) || { prix_kg: '', minimum_kg: 1, frais_fixe: 0, delai_jours: mode === 'avion' ? 3 : 12, devise: d?.devise || 'XOF', supplements: [] };
+  function modifierTarif(id) {
+    const existant = s.tarifs.find((x) => x.id === id);
+    const t = existant || { nom: '', agence_depart: s.agences[0]?.id, agence_arrivee: s.agences[1]?.id, mode: 'avion', prix_kg: '', prix_m3: null, minimum_kg: 1, frais_fixe: 0, diviseur: 6000, delai_jours: 3, jours_depart: [], capacite_kg: null, supplements: [], actif: true };
     let sup = (t.supplements || []).map((x) => ({ ...x }));
+    const options = (choisi) => s.agences.map((a) => `<option value="${a.id}" ${a.id === choisi ? 'selected' : ''}>${esc(a.ville || a.nom)}</option>`).join('');
     const { el, fermer } = ouvrirModale({
-      titre: `Tarif ${MODES[mode].libelle.toLowerCase()} · ${d?.ville || ''} → ${s.agences.find((a) => a.id === arr)?.ville || ''}`,
+      titre: existant ? `Corridor ${existant.nom || ''}` : 'Ouvrir un corridor',
       variante: 'large',
       contenu: `<form class="form-modale" novalidate>
         <div class="rangee-champs">
-          <div class="champ"><label for="tf-prix">Prix au kilo (${esc(nomDevise(t.devise))})</label><input id="tf-prix" class="input" inputmode="numeric" value="${esc(String(t.prix_kg ?? ''))}"></div>
-          <div class="champ"><label for="tf-min">Minimum facturable (kg)</label><input id="tf-min" class="input" inputmode="decimal" value="${esc(String(t.minimum_kg ?? ''))}"></div>
-          <div class="champ"><label for="tf-fixe">Frais fixes</label><input id="tf-fixe" class="input" inputmode="numeric" value="${esc(String(t.frais_fixe ?? 0))}"></div>
-          <div class="champ"><label for="tf-delai">Délai (jours)</label><input id="tf-delai" class="input" type="number" min="1" value="${esc(String(t.delai_jours ?? ''))}"></div>
+          <div class="champ"><label for="tf-dep">Départ</label><select id="tf-dep" class="input" ${existant ? 'disabled' : ''}>${options(t.agence_depart)}</select></div>
+          <div class="champ"><label for="tf-arr">Arrivée</label><select id="tf-arr" class="input" ${existant ? 'disabled' : ''}>${options(t.agence_arrivee)}</select></div>
+          <div class="champ"><label for="tf-mode">Mode</label><select id="tf-mode" class="input" ${existant ? 'disabled' : ''}>${Object.entries(MODES).map(([m, x]) => `<option value="${m}" ${m === t.mode ? 'selected' : ''}>${esc(x.libelle)}</option>`).join('')}</select></div>
         </div>
+        <div class="champ"><label for="tf-nom">Nom affiché</label><input id="tf-nom" class="input" maxlength="80" value="${esc(t.nom || '')}" placeholder="Ex. Dakar → Conakry · avion"></div>
+        <div class="rangee-champs">
+          <div class="champ"><label for="tf-prix">Prix au kilo</label><input id="tf-prix" class="input" inputmode="numeric" value="${esc(String(t.prix_kg ?? ''))}"></div>
+          <div class="champ"><label for="tf-m3">Prix au m³ (facultatif)</label><input id="tf-m3" class="input" inputmode="numeric" value="${esc(String(t.prix_m3 ?? ''))}"></div>
+          <div class="champ"><label for="tf-min">Minimum facturable (kg)</label><input id="tf-min" class="input" inputmode="decimal" value="${esc(String(t.minimum_kg ?? ''))}"></div>
+        </div>
+        <div class="rangee-champs">
+          <div class="champ"><label for="tf-div">Diviseur volumétrique</label><input id="tf-div" class="input" inputmode="numeric" value="${esc(String(t.diviseur ?? ''))}"><small class="aide">6 000 avion · 5 000 route et mer</small></div>
+          <div class="champ"><label for="tf-delai">Délai (jours)</label><input id="tf-delai" class="input" type="number" min="1" value="${esc(String(t.delai_jours ?? ''))}"></div>
+          <div class="champ"><label for="tf-cap">Capacité du véhicule (kg)</label><input id="tf-cap" class="input" inputmode="numeric" value="${esc(String(t.capacite_kg ?? ''))}"></div>
+          <div class="champ"><label for="tf-fixe">Frais fixes</label><input id="tf-fixe" class="input" inputmode="numeric" value="${esc(String(t.frais_fixe ?? 0))}"></div>
+        </div>
+        <fieldset class="col-jours"><legend class="etiquette">Jours de départ</legend>
+          ${JOURS_ISO.map(([n, l]) => `<label class="puce-jour"><input type="checkbox" value="${n}" ${(t.jours_depart || []).includes(n) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
         <span class="etiquette">Suppléments</span><div data-ref="sup"></div>
         <button type="button" class="btn-ajout-pointille" data-action="ajouter-sup">+ Ajouter un supplément</button>
+        <label class="col-case"><input type="checkbox" id="tf-actif" ${t.actif ? 'checked' : ''}> Corridor ouvert</label>
         <p class="erreur-form" role="alert" hidden></p>
         <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
       </form>`
@@ -149,25 +173,40 @@ export function monterReglagesColis(zone) {
       el.querySelector('[data-ref="sup"]').innerHTML = sup.map((x, i) => `<div class="col-frais-ligne" data-sup="${i}"><input class="input" data-c="nom" value="${esc(x.nom)}" placeholder="Ex. Téléphone"><input class="input droite" data-c="montant" inputmode="numeric" value="${x.montant ? esc(String(x.montant)) : ''}" placeholder="0"><button type="button" class="btn-icone" data-retirer-sup="${i}" aria-label="Retirer">×</button></div>`).join('');
     };
     rendreSup();
+    // Nouveau corridor : le diviseur suit le mode tant qu'on ne l'a pas changé à la main.
+    el.querySelector('#tf-mode').addEventListener('change', (e) => { if (!existant) el.querySelector('#tf-div').value = DIVISEUR_DEFAUT[e.target.value]; });
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-action="ajouter-sup"]')) { lireSup(); sup.push({ nom: '', montant: 0 }); rendreSup(); }
-      const r = e.target.closest('[data-retirer-sup]');
-      if (r) { lireSup(); sup.splice(Number(r.dataset.retirerSup), 1); rendreSup(); }
+      const rs = e.target.closest('[data-retirer-sup]');
+      if (rs) { lireSup(); sup.splice(Number(rs.dataset.retirerSup), 1); rendreSup(); }
     });
     el.querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       lireSup();
       const z = el.querySelector('.erreur-form');
-      const prix = lireNombre(el.querySelector('#tf-prix').value);
-      const min = lireNombre(el.querySelector('#tf-min').value);
-      const delai = Number(el.querySelector('#tf-delai').value);
-      if (!prix || prix <= 0 || min === null || min < 0 || !delai) { z.textContent = 'Prix, minimum et délai sont obligatoires.'; z.hidden = false; return; }
-      const ligne = { prix_kg: prix, minimum_kg: min, frais_fixe: lireNombre(el.querySelector('#tf-fixe').value) || 0, delai_jours: delai, supplements: sup.filter((x) => x.nom && x.montant > 0) };
+      const v = (sel) => el.querySelector(sel).value;
+      const dep = v('#tf-dep');
+      const arr = v('#tf-arr');
+      const mode = v('#tf-mode');
+      const prix = lireNombre(v('#tf-prix'));
+      const min = lireNombre(v('#tf-min'));
+      const div = lireNombre(v('#tf-div'));
+      const delai = Number(v('#tf-delai'));
+      if (dep === arr) { z.textContent = 'Le départ et l’arrivée doivent être deux bureaux différents.'; z.hidden = false; return; }
+      if (!prix || prix <= 0 || min === null || min < 0 || !div || div <= 0 || !delai) { z.textContent = 'Prix au kilo, minimum, diviseur et délai sont obligatoires.'; z.hidden = false; return; }
+      if (!existant && s.tarifs.some((x) => x.agence_depart === dep && x.agence_arrivee === arr && x.mode === mode)) { z.textContent = 'Ce corridor existe déjà : modifiez-le dans la liste.'; z.hidden = false; return; }
+      const ligne = {
+        nom: v('#tf-nom').trim() || null, prix_kg: prix, prix_m3: lireNombre(v('#tf-m3')) || null, minimum_kg: min, diviseur: Math.round(div), delai_jours: delai,
+        capacite_kg: lireNombre(v('#tf-cap')) || null, frais_fixe: lireNombre(v('#tf-fixe')) || 0,
+        jours_depart: [...el.querySelectorAll('.col-jours input:checked')].map((c) => Number(c.value)),
+        supplements: sup.filter((x) => x.nom && x.montant > 0), actif: el.querySelector('#tf-actif').checked
+      };
       boutonOccupe(el.querySelector('[type=submit]'), true);
-      const r = t.id ? await sb.from('tarifs_colis').update(ligne).eq('id', t.id)
-        : await sb.from('tarifs_colis').insert({ ...ligne, boutique_id: etat.boutique.id, agence_depart: dep, agence_arrivee: arr, mode, devise: t.devise, actif: true });
-      if (r.error) { boutonOccupe(el.querySelector('[type=submit]'), false); z.textContent = messageErreur(r.error); z.hidden = false; return; }
-      fermer(); toast('Tarif enregistré.', 'succes'); charger();
+      const devise = s.agences.find((a) => a.id === dep)?.devise || 'XOF';
+      const res = existant ? await sb.from('tarifs_colis').update(ligne).eq('id', existant.id)
+        : await sb.from('tarifs_colis').insert({ ...ligne, boutique_id: etat.boutique.id, agence_depart: dep, agence_arrivee: arr, mode, devise, ordre: s.tarifs.length + 1 });
+      if (res.error) { boutonOccupe(el.querySelector('[type=submit]'), false); z.textContent = messageErreur(res.error); z.hidden = false; return; }
+      fermer(); toast('Corridor enregistré.', 'succes'); charger();
     });
   }
 
@@ -192,7 +231,7 @@ export function monterReglagesColis(zone) {
     const b = e.target.closest('[data-bureau]');
     if (b) modifierBureau(b.dataset.bureau);
     const t = e.target.closest('[data-tarif]');
-    if (t) modifierTarif(t.dataset.tarif);
+    if (t) modifierTarif(t.dataset.tarif || null);
     if (e.target.closest('[data-action="taux"]')) {
       const v = lireNombre(zone.querySelector('#col-taux-saisie').value);
       if (!v || v <= 0) { toast('Taux invalide.', 'erreur'); return; }

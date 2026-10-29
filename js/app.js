@@ -35,11 +35,14 @@ import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
 import { afficherEtiquettes } from './colis/etiquettes.js';
 import { afficherEnvois } from './colis/envois.js';
+import { afficherTransit } from './colis/transit.js';
+import { afficherComptes } from './colis/comptes.js';
+import { afficherReception, afficherPesee } from './colis/reception.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
 const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
-/** Accueil : « Colis » pour une boutique de logistique (étape 16), « Aujourd'hui » sinon. */
-const routeAccueil = () => (estLogistique() ? 'colis' : 'aujourdhui');
+/** Accueil : « Aujourd'hui » du transit pour une boutique de logistique (étape 18), « Aujourd'hui » du commerce sinon. */
+const routeAccueil = () => (estLogistique() ? 'transit' : 'aujourdhui');
 /** #/colis (tableau), #/colis/<id> (fiche), #/colis/<id>/etiquette (étiquettes). */
 function afficherColis(conteneur, params) {
   const id = params.get('id');
@@ -100,7 +103,12 @@ const ROUTES = {
   // Étape 16 — logistique de colis : accueil, nouveau colis, fiche, étiquettes, envois groupés.
   colis: { vue: afficherColis },
   'nouveau-colis': { vue: afficherNouveauColis },
-  envois: { vue: afficherEnvois }
+  envois: { vue: afficherEnvois },
+  // Étape 18 — transit : accueil des corridors, réception au nom d'un compte, pesée au téléphone, comptes commerçants.
+  transit: { vue: afficherTransit },
+  recevoir: { vue: afficherReception },
+  peser: { vue: (conteneur, params) => afficherPesee(conteneur, params.get('id')) },
+  comptes: { vue: afficherComptes }
 };
 SECTIONS.filter((section) => !section.active).forEach((section) => {
   ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
@@ -133,8 +141,8 @@ function resoudre() {
     chargerModules(etat.boutique.id, { annoncer: false }).then(() => resoudre());
     return undefined;
   }
-  // Boutique de logistique : « Aujourd'hui » devient « Colis » (sans message).
-  if (!route.publique && !route.horsShell && etat.boutique && estLogistique() && nom === 'aujourdhui') return naviguer('colis', { remplacer: true });
+  // Boutique de logistique : « Aujourd'hui » devient celui du transit (sans message).
+  if (!route.publique && !route.horsShell && etat.boutique && estLogistique() && nom === 'aujourdhui') return naviguer('transit', { remplacer: true });
   // Écran d'un module masqué (lien ancien, favori) : retour à l'accueil avec le message.
   if (!route.publique && !route.horsShell && accesRoute(nom) === 'refuse') {
     toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000);
@@ -164,7 +172,7 @@ window.addEventListener('modules:change', () => {
   if (!etat.boutique || !document.querySelector('.shell')) return;
   const nom = lireRoute().nom.split('/')[0];
   if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer(routeAccueil(), { remplacer: true }); return; }
-  if (nom === 'aujourdhui' || nom === 'colis') resoudre();
+  if (nom === 'aujourdhui' || nom === 'colis' || nom === 'transit') resoudre();
   // Option payée ou terminée pendant qu'on regarde la boutique en ligne : onglets ↔ page d'activation.
   else if (nom === 'boutique-en-ligne' && (accesRoute(nom) === 'option') !== Boolean(document.querySelector('.page-option'))) resoudre();
 });

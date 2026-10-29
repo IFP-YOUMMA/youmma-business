@@ -36,14 +36,18 @@ export async function compresserPhoto(source) {
  * Monte le bloc « Les deux photos » dans `zone`. surChangement(pret) est appelé à chaque photo.
  * Renvoie { pret(), envoyer() → { bascule, contenu, envoyes }, nettoyer(envoyes), arreter() }.
  */
-export function monterPhotos(zone, { surChangement = () => {} } = {}) {
+/**
+ * Étape 18 : `demandees` limite les photos affichées et exigées (la pesée d'un carton déjà déposé ne demande que la
+ * bascule) ; pret(liste) et envoyer(liste) acceptent une liste plus courte (le dépôt sans pesée n'exige que le contenu).
+ */
+export function monterPhotos(zone, { surChangement = () => {}, demandees = ['bascule', 'contenu'] } = {}) {
   const s = { bascule: null, contenu: null, session: null, minuteur: null, compteur: null, flux: null };
   const telephone = surTelephone();
 
   zone.innerHTML = `
-    <div class="col-photos-entete"><h3>Les deux photos</h3><span class="col-obligatoire">OBLIGATOIRES</span></div>
+    <div class="col-photos-entete"><h3>${demandees.length > 1 ? 'Les deux photos' : esc(QUOI[demandees[0]].titre)}</h3><span class="col-obligatoire">${demandees.length > 1 ? 'OBLIGATOIRES' : 'OBLIGATOIRE'}</span></div>
     <div class="col-photos-grille">
-      ${Object.entries(QUOI).map(([q, d]) => `
+      ${Object.entries(QUOI).filter(([q]) => demandees.includes(q)).map(([q, d]) => `
         <div class="col-photo" data-photo="${q}">
           <div class="col-photo-apercu" data-ref="apercu-${q}">${iconeColis(q === 'bascule' ? 'balance' : 'colis', 34)}</div>
           <div class="col-photo-textes"><strong data-ref="titre-${q}">${esc(d.titre)}</strong><span>${esc(d.aide)}</span></div>
@@ -75,12 +79,13 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
   function afficher(quoi) {
     const p = s[quoi];
     const tuile = zone.querySelector(`[data-photo="${quoi}"]`);
+    if (!tuile) return;
     tuile.classList.toggle('faite', Boolean(p));
     ref(`apercu-${quoi}`).innerHTML = p?.url ? `<img src="${esc(p.url)}" alt="${esc(QUOI[quoi].titre)}">`
       : p ? `<span class="col-photo-recue">${icone('valide', 30, 2.4)}<span>Reçue du téléphone</span></span>` : iconeColis(quoi === 'bascule' ? 'balance' : 'colis', 34);
     ref(`titre-${quoi}`).innerHTML = p ? `${icone('valide', 15, 2.6)} ${esc(QUOI[quoi].titre)}` : esc(QUOI[quoi].titre);
     ref(`libelle-${quoi}`).textContent = p ? QUOI[quoi].reprendre : (telephone ? 'Prendre la photo' : 'Choisir un fichier');
-    surChangement(Boolean(s.bascule && s.contenu));
+    surChangement(demandees.every((q) => s[q]));
   }
 
   async function prendre(quoi, source) {
@@ -135,7 +140,7 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
     try { r = await api.lireSessionPhoto(s.session.jeton); } catch { return; }
     if (!r || r.expiree) return;
     // Chemins déposés par le téléphone, préfixés du seau : « colis/sessions/… » (bascule), « bons/sessions/… » (contenu).
-    for (const quoi of ['bascule', 'contenu']) {
+    for (const quoi of demandees) {
       const chemin = r[quoi];
       if (chemin && s[quoi]?.chemin !== chemin) {
         s[quoi] = { chemin, url: null, source: 'session' };
@@ -143,7 +148,7 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
         apercuSession(quoi, chemin);
       }
     }
-    if (s.bascule?.source === 'session' && s.contenu?.source === 'session') clearInterval(s.minuteur);
+    if (demandees.every((q) => s[q]?.source === 'session')) clearInterval(s.minuteur);
   }
 
   /**
@@ -174,8 +179,7 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
       variante: 'large',
       contenu: `<video class="col-video" autoplay playsinline muted></video>
         <div class="modale-actions">
-          <button type="button" class="btn btn-secondaire" data-prendre="bascule">${icone('photo', 17, 2)} Photo de la bascule</button>
-          <button type="button" class="btn btn-secondaire" data-prendre="contenu">${icone('photo', 17, 2)} Photo du contenu</button>
+          ${demandees.map((q) => `<button type="button" class="btn btn-secondaire" data-prendre="${q}">${icone('photo', 17, 2)} Photo ${q === 'bascule' ? 'de la bascule' : 'du contenu'}</button>`).join('')}
           <button type="button" class="btn btn-primaire" data-fermer>Terminé</button>
         </div>`,
       onFermer: () => { s.flux?.getTracks().forEach((p) => p.stop()); s.flux = null; }
@@ -190,7 +194,7 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
       c.getContext('2d').drawImage(video, 0, 0);
       await prendre(b.dataset.prendre, c);
       toast(`${QUOI[b.dataset.prendre].titre} : photo prise.`, 'succes');
-      if (s.bascule && s.contenu) fermer();
+      if (demandees.every((q) => s[q])) fermer();
     });
   }
 
@@ -209,9 +213,9 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
   if (!telephone) ouvrirSession();
 
   return {
-    pret: () => Boolean(s.bascule && s.contenu),
+    pret: (liste = demandees) => liste.every((q) => s[q]),
     /** Monte les photos locales (bascule → colis, contenu → bons) ; celles du téléphone sont déjà en place. */
-    async envoyer() {
+    async envoyer(liste = demandees) {
       const b = etat.boutique.id;
       const horo = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
       const envoyes = [];
@@ -225,8 +229,8 @@ export function monterPhotos(zone, { surChangement = () => {} } = {}) {
         return chemin;
       };
       try {
-        const bascule = await deposer('bascule', 'colis');
-        const contenu = await deposer('contenu', 'bons');
+        const bascule = liste.includes('bascule') ? await deposer('bascule', 'colis') : null;
+        const contenu = liste.includes('contenu') ? await deposer('contenu', 'bons') : null;
         return { bascule, contenu, envoyes };
       } catch (err) {
         await this.nettoyer(envoyes);

@@ -371,3 +371,114 @@
 .man-pied { margin-top: 4mm; font-size: 7.5pt; color: #5B6B65; }
 .col-recu { width: 105mm; padding: 8mm; box-sizing: border-box; display: flex; flex-direction: column; gap: 2mm; font-family: 'Manrope', system-ui, sans-serif; font-size: 10pt; }
 .col-recu-titre { font-size: 14pt; }
+
+/* =============================================================================
+   Étape 18 — Transit : accueil des corridors, comptes commerçants, réception, pesée (maquettes LogiAccueil,
+   EntrepotReception, PoidsTaxable). Cartes blanches bord #E6ECE9 rayon 14, montants en tabular-nums.
+   ============================================================================= */
+.page-transit, .page-reception, .page-comptes { gap: 14px; }
+.nombre-moyen { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tr-titre { margin-top: 4px; }
+.tr-corridors { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.tr-corridor { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tr-corridor-tete { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--separateur); }
+.tr-drapeau { font-size: 22px; line-height: 1; min-width: 28px; text-align: center; }
+.tr-corridor-titres { display: flex; flex-direction: column; min-width: 0; }
+.tr-corridor-titres strong { font-size: 15px; }
+.tr-corridor-titres span { font-size: 12px; color: var(--muted); }
+.tr-corridor-chiffres { display: flex; gap: 20px; padding: 12px 16px 4px; }
+.tr-corridor-chiffres > div { display: flex; flex-direction: column; gap: 2px; }
+.tr-a-peser { margin: 0 16px; align-self: flex-start; font-size: 12px; font-weight: 800; color: #7A4A00; background: #FFF4DC; border-radius: 999px; padding: 3px 10px; text-decoration: none; }
+.tr-remplissage { padding: 8px 16px 0; display: flex; flex-direction: column; gap: 6px; }
+.tr-remplissage-tete { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tr-remplissage-tete strong { color: var(--primary-dark); }
+.tr-barre { display: block; height: 7px; border-radius: 99px; background: #E6ECE9; overflow: hidden; }
+.tr-barre > span { display: block; height: 100%; border-radius: 99px; background: var(--primary); }
+.tr-remplissage.bas .tr-barre > span { background: #C62828; }
+.tr-remplissage.bas .tr-remplissage-tete strong { color: #A51C1C; }
+.tr-corridor-pied { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px 14px; margin-top: auto; font-size: 12.5px; }
+.tr-depart { font-weight: 800; color: #7A4A00; background: #FFF4DC; border-radius: 999px; padding: 4px 10px; }
+.tr-bas { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.tr-afaire, .tr-taux { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.tr-liste { list-style: none; margin: 0; padding: 0; }
+.tr-liste li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--separateur); }
+.tr-pastille { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.tr-pastille.or { background: #FFF4DC; color: #7A4A00; }
+.tr-pastille.rouge { background: #FDECEC; color: #A51C1C; }
+.tr-liste-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tr-liste-textes span { font-size: 12.5px; color: var(--muted); }
+.tr-taux-liste { list-style: none; margin: 0; padding: 0; }
+.tr-taux-liste li { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--separateur); font-variant-numeric: tabular-nums; font-size: 14px; }
+.tr-taux-liste li > span:last-child { font-size: 12.5px; text-align: right; }
+
+/* Comptes commerçants */
+.col-comptes, .col-comptes-trouves { list-style: none; margin: 0; padding: 0; }
+.col-compte-ligne { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--separateur); }
+.col-compte-code { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--primary-dark); background: var(--primary-soft); border-radius: 8px; padding: 4px 8px; white-space: nowrap; }
+.col-compte-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.col-compte-textes > span { font-size: 12.5px; color: var(--muted); }
+.col-compte-stock { font-size: 12.5px; color: var(--primary-dark); display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.col-compte-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.col-compte-trouve { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer; margin-top: 8px; min-height: 48px; }
+.col-compte-trouve:hover { border-color: var(--primary); }
+.col-compte-choisi { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: #E8F4EF; border: 1px solid #BFE0D3; }
+.col-avatar { width: 44px; height: 44px; border-radius: 12px; background: var(--navy); color: var(--accent-light); display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.col-compte-absent { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; border: 1px dashed #B8C7C1; font-size: 13.5px; }
+
+/* Réception et pesée */
+.col-reception-grille { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.col-reception-gauche, .col-reception-droite { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.col-qui { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.col-scanner { min-height: 48px; }
+.col-mesures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.col-unite { position: relative; display: block; }
+.col-unite input { padding-right: 34px; width: 100%; }
+.col-unite > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12.5px; color: var(--muted); pointer-events: none; }
+.col-nb-cartons { max-width: 220px; }
+.col-attention-cartons { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 10px; background: #F1F5F3; color: #3A4A44; font-size: 13px; line-height: 1.45; }
+.col-attention-cartons.fort { background: #FFF4DC; border: 1px solid #F2D9A0; color: #6B4E00; }
+.col-attention-cartons svg { flex: none; margin-top: 1px; }
+.col-calcul { padding: 18px; display: flex; flex-direction: column; gap: 10px; background: linear-gradient(180deg, #F3FAF7, #FFFFFF); border-color: #BFE0D3; }
+.col-calcul.calcul { opacity: .6; }
+.col-calcul-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid #D5E9E0; }
+.col-calcul-kg strong { font-size: 44px; font-weight: 800; letter-spacing: -.02em; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+.col-calcul-kg { font-size: 16px; font-weight: 800; color: var(--primary-dark); }
+.col-calcul-prix strong { font-size: 22px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+.col-calcul-prix { font-size: 12.5px; font-weight: 800; color: var(--primary); }
+.col-calcul-detail { display: flex; flex-direction: column; }
+.col-calcul-ligne { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.col-calcul-ligne span { color: #3A4A44; }
+.col-calcul-ligne.fort { border-top: 1px solid #D5E9E0; margin-top: 4px; padding-top: 10px; font-size: 15px; }
+.col-calcul-ligne.fort strong { color: var(--primary-dark); }
+.col-calcul-base { margin: 0; font-size: 13px; font-weight: 700; color: var(--primary-dark); }
+.col-calcul-corridor { margin: 0; font-size: 13px; color: var(--muted); }
+.col-note-encaissement, .col-pourquoi { margin: 0; padding: 12px 14px; border-radius: 12px; background: #FFF8E6; border: 1px solid #F2D9A0; color: #6B4E00; font-size: 13px; line-height: 1.55; }
+.page-pesee { max-width: 560px; margin: 0 auto; gap: 14px; }
+.col-pesee-entete { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--navy); color: #FFFFFF; }
+.col-pesee-entete .btn-icone { color: #FFFFFF; }
+.col-pesee-titres { display: flex; flex-direction: column; }
+.col-pesee-titres span { font-size: 12.5px; color: #BFE0D3; }
+.col-pesee-contenu { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.col-mesurer[disabled] { opacity: .7; }
+.col-jours { border: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.col-jours legend { margin-bottom: 6px; }
+.col-case { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+.col-inactif { opacity: .55; }
+@media (max-width: 1099.98px) {
+  .col-reception-grille, .tr-bas { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 899.98px) {
+  .col-mesures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .col-compte-ligne { grid-template-columns: auto minmax(0, 1fr); }
+  .col-compte-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .col-compte-choisi { grid-template-columns: 44px minmax(0, 1fr); }
+  .col-compte-choisi .col-compte-stock { grid-column: 1 / -1; text-align: left; }
+  .col-calcul-kg strong { font-size: 38px; }
+  .tr-liste li { grid-template-columns: 34px minmax(0, 1fr); }
+  .tr-liste li > a { grid-column: 2; justify-self: start; }
+  .col-corridors thead { display: none; }
+  .col-corridors, .col-corridors tbody, .col-corridors tr, .col-corridors td { display: block; }
+  .col-corridors tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding: 12px 0; border-top: 1px solid var(--separateur); }
+  .col-corridors td { padding: 0; border: none; text-align: left !important; }
+  .col-corridors td:first-child { grid-column: 1 / -1; }
+}
