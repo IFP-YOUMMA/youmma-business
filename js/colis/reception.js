@@ -306,6 +306,8 @@ export function afficherReception(conteneur, params) {
         r = await api.deposer({ compte: s.compte.id, depart, contenu: v('rc-contenu'), photoDepot: fichiers.contenu, nb: m.nb, recuDe: v('rc-recu-de') });
         try { sessionStorage.setItem(`yb_colis_${r.id}`, JSON.stringify({ lien: r.lien_suivi })); } catch { /* facultatif */ }
       }
+      // suivi_interne ne renvoie pas le lien de suivi : on garde celui de l'enregistrement pour le QR des étiquettes.
+      if (avecPesee && r.lien_suivi) { try { sessionStorage.setItem(`yb_colis_${r.id}`, JSON.stringify({ lien: r.lien_suivi })); } catch { /* facultatif */ } }
       photos.arreter();
       const nom = prenom(s.compte.nom);
       if (avecPesee) { toast(`${r.numero} enregistré. Le SMS est parti à ${nom}.`, 'succes', 6000); naviguer(`colis/${encodeURIComponent(r.id)}/etiquette`); return; }
