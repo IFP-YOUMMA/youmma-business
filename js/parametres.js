@@ -13,6 +13,8 @@ import { deconnecter } from './auth.js';
 import { modifierLogo } from './images/actions.js';
 import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
 import { changerBoutique, statutLicence, majNomBoutiqueAffiche } from './layout.js';
+import { estLogistique } from './modules.js';
+import { monterReglagesColis } from './colis/reglages.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, formatDate, formatTelephone,
   normaliserTelephone, jours, TYPES_ACTIVITE
@@ -38,6 +40,7 @@ export function afficherParametres(conteneur) {
         <a class="lien-retour seul-ordi" href="#/aujourdhui">← Aujourd’hui</a>
         <h1>Paramètres</h1>
       </header>
+      ${estLogistique() && gerer ? '<div class="col-reglages" data-zone="reglages-colis"></div>' : ''}
       <div class="clients-corps">
         <div class="parametres-gauche">
           ${gerer ? '<section class="carte section-parametres" aria-labelledby="titre-boutique" data-zone="boutique"></section>' : ''}
@@ -288,4 +291,5 @@ export function afficherParametres(conteneur) {
   if (gerer) { renderBoutique(); renderBoutiques(); }
   renderCompte();
   renderLicence();
+  if (zone('reglages-colis')) monterReglagesColis(zone('reglages-colis'));
 }

@@ -14,8 +14,24 @@ import { lireStockage, ecrireStockage } from './utils.js';
 /** Toujours présents, quelle que soit l'activité ou la formule. */
 export const SOCLE = ['tableau_de_bord', 'caisse', 'stock', 'ventes', 'clients', 'depenses', 'rapports', 'vendeurs', 'documents', 'parametres'];
 
+/**
+ * Activité « logistique » (étape 16 : envoi de colis Dakar ⇄ Guinée) : la base met à 0 ventes, stock, clients et
+ * documents ; ces écrans du socle disparaissent donc pour elle (l'accueil devient « Colis »).
+ */
+const MASQUES_LOGISTIQUE = ['tableau_de_bord', 'caisse', 'ventes', 'stock', 'clients', 'documents', 'rapports'];
+export const estLogistique = () => courant.donnees?.activite?.code === 'logistique';
+
 /** Écrans (routes) qui appartiennent à un module. */
 export const MODULE_DE_ROUTE = {
+  aujourdhui: 'tableau_de_bord',
+  caisse: 'caisse',
+  ventes: 'ventes',
+  stock: 'stock',
+  clients: 'clients',
+  rapports: 'rapports',
+  colis: 'colis',
+  'nouveau-colis': 'colis',
+  envois: 'envois',
   chantiers: 'chantiers',
   proformas: 'devis',
   devis: 'devis',
@@ -101,7 +117,7 @@ export const proprietaireSelonModules = () => (typeof courant.donnees?.proprieta
 
 /** Vrai si le module est disponible (socle ou actif). */
 export function aModule(code) {
-  if (SOCLE.includes(code)) return true;
+  if (SOCLE.includes(code)) return !(estLogistique() && MASQUES_LOGISTIQUE.includes(code)) || Boolean(courant.donnees?.actifs?.includes(code));
   return Boolean(courant.donnees?.actifs?.includes(code));
 }
 

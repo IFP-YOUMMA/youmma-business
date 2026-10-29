@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A3D33">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Suivi de colis · YOUMMA Business</title>
+  <meta name="description" content="Où est mon colis ? Suivi Dakar ⇄ Guinée.">
+  <link rel="icon" href="../img/logo/favicon.ico" sizes="any">
+  <link rel="icon" href="../img/logo/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="../img/logo/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+  <style>
+    /* Page publique de suivi (maquette ColisSuivi) : un seul fichier, aucune session Supabase. */
+    :root { --vert: #0F7B5F; --fonce: #0A3D33; --or: #F2B33D; --texte: #0E1F1A; --doux: #5B6B65; --trait: #E3EAE7; --fond: #F6F8F7; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: 'Manrope', system-ui, sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+    .page { max-width: 520px; margin: 0 auto; padding: 0 0 24px; }
+    .entete { background: var(--fonce); color: #FFFFFF; padding: 18px 16px 22px; display: flex; flex-direction: column; gap: 10px; }
+    .agence { display: flex; align-items: center; gap: 10px; }
+    .logo { width: 38px; height: 38px; border-radius: 10px; background: #FFFFFF; color: var(--fonce); display: flex; align-items: center; justify-content: center; font-weight: 800; overflow: hidden; flex: none; }
+    .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .agence strong { display: block; font-size: 16px; }
+    .agence span { font-size: 12.5px; opacity: .8; }
+    .trajet { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; }
+    .trajet .fl { color: var(--or); }
+    .pays { display: inline-flex; padding: 1px 6px; border-radius: 5px; background: rgba(255,255,255,.14); font-size: 11px; letter-spacing: .05em; }
+    .corps { padding: 0 14px; display: flex; flex-direction: column; gap: 12px; margin-top: -10px; }
+    .carte { background: #FFFFFF; border-radius: 16px; padding: 16px; box-shadow: 0 1px 2px rgba(14,31,26,.06); display: flex; flex-direction: column; gap: 10px; }
+    .carte h2 { margin: 0; font-size: 15px; font-weight: 800; }
+    .numero { font-size: 26px; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+    .petit { font-size: 12.5px; color: var(--doux); }
+    .etiq { font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--doux); text-transform: uppercase; }
+    .etat { align-self: flex-start; font-size: 12.5px; font-weight: 800; padding: 6px 12px; border-radius: 999px; letter-spacing: .03em; }
+    .etat.vert { background: #E3F2EC; color: #0A5A45; }
+    .etat.or { background: #FFF4DC; color: #7A4A00; }
+    .etat.bleu { background: #E6EEFB; color: #1D4E7A; }
+    .etat.gris { background: #EEF2F0; color: #4B5B55; }
+    .etat.rouge { background: #FDECEC; color: #A51C1C; }
+    ol.parcours { list-style: none; margin: 0; padding: 0; }
+    ol.parcours li { position: relative; display: flex; gap: 12px; padding-bottom: 14px; color: #93A39D; }
+    ol.parcours li::before { content: ""; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #DCE5E1; }
+    ol.parcours li:last-child { padding-bottom: 0; }
+    ol.parcours li:last-child::before { display: none; }
+    ol.parcours li.fait { color: var(--texte); }
+    ol.parcours li.fait::before { background: var(--vert); }
+    .puce { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 2px solid #CBD6D1; background: #FFFFFF; }
+    li.fait .puce { border-color: var(--vert); box-shadow: inset 0 0 0 5px var(--vert); }
+    li.courant .puce { border-color: var(--or); box-shadow: inset 0 0 0 6px #FFF4DC; background: var(--or); }
+    .pas { display: flex; flex-direction: column; }
+    .pas strong { font-size: 14.5px; }
+    .pas span { font-size: 12.5px; color: var(--doux); }
+    .photo { display: block; border-radius: 12px; overflow: hidden; background: #E9EFEC; aspect-ratio: 4 / 3; }
+    .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .bouton { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--trait); background: #FFFFFF; color: var(--texte); font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
+    .bouton.plein { background: var(--vert); border-color: var(--vert); color: #FFFFFF; }
+    .bouton.wa { background: #1FA855; border-color: #1FA855; color: #FFFFFF; }
+    dl { margin: 0; }
+    dl div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--trait); font-size: 14px; }
+    dl div:first-child { border-top: none; }
+    dt { color: var(--doux); }
+    dd { margin: 0; text-align: right; font-weight: 700; }
+    .payer { border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .payer.du { background: #FFF6F6; border: 1px solid #F0C4C4; color: #A51C1C; }
+    .payer.ok { background: #E8F5EC; border: 1px solid #A9D7B9; color: #1B6E2A; }
+    .payer strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+    .payer span { font-size: 13px; }
+    form { display: flex; flex-direction: column; gap: 12px; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
+    input { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font: inherit; font-size: 16px; color: var(--texte); background: #FFFFFF; }
+    input:focus { outline: none; border-color: var(--vert); box-shadow: 0 0 0 3px #E3F2EC; }
+    .erreur { padding: 12px 14px; border-radius: 12px; background: #FDECEC; color: #A51C1C; font-weight: 700; font-size: 14px; }
+    .pied { text-align: center; font-size: 12px; color: var(--doux); padding: 18px 16px 8px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .chargement { text-align: center; color: var(--doux); padding: 40px 0; }
+    .grand { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 5; }
+    .grand img { max-width: 100%; max-height: 100%; }
+  </style>
+</head>
+<body>
+  <main class="page" id="suivi">
+    <header class="entete"><div class="agence"><span class="logo">📦</span><span><strong>Suivi de colis</strong><span>Dakar ⇄ Guinée</span></span></div></header>
+    <div class="corps"><div class="carte chargement" role="status">Recherche du colis…</div></div>
+  </main>
+  <footer class="pied"><img src="../img/logo/youmma-business-symbole.png" width="16" height="16" alt=""><span>Suivi propulsé par <strong>YOUMMA Business</strong></span></footer>
+  <noscript><p style="padding:24px">Cette page a besoin de JavaScript pour afficher le suivi.</p></noscript>
+  <script type="module">
+    // Lecture seule par les fonctions publiques suivi_colis(p_jeton) et suivi_par_numero(p_numero, p_tel4).
+    // Les noms renvoyés sont déjà masqués par la base ; on affiche tel quel.
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-suivi-colis' }
+    });
+    const racine = document.getElementById('suivi');
+    const jeton = (new URLSearchParams(location.search).get('j') || location.pathname.match(/\/c\/([A-Za-z0-9_-]{6,120})\/?$/)?.[1] || '').trim();
+    const INTROUVABLE = 'Ce numéro ne correspond à aucun colis. Vérifiez avec le bureau.';
+
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const champ = (o, ...cles) => { for (const c of cles) if (o?.[c] !== undefined && o?.[c] !== null && o?.[c] !== '') return o[c]; return undefined; };
+    const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: dec }).replace(/[  ]/g, ' ');
+    const devise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
+    const date = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h '); } catch { return ''; } };
+    const chiffres = (t) => String(t || '').replace(/\D/g, '');
+
+    const ETAPES = [
+      ['recu', 'Reçu au bureau'], ['entrepot', 'En entrepôt'], ['charge', 'Chargé'],
+      ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']
+    ];
+    // Ordre des statuts sur le parcours (en_route se range avec « Chargé »).
+    const RANG = { recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
+    const ETATS = {
+      recu: ['REÇU AU BUREAU', 'gris'], entrepot: ['EN ENTREPÔT', 'gris'], charge: ['CHARGÉ', 'bleu'], en_route: ['EN ROUTE', 'bleu'],
+      arrive: ['ARRIVÉ', 'bleu'], a_retirer: ['PRÊT À RETIRER', 'vert'], retire: ['RETIRÉ', 'vert'], probleme: ['PROBLÈME — CONTACTEZ LE BUREAU', 'rouge'], annule: ['ANNULÉ', 'rouge']
+    };
+
+    const agence = (r, cote) => {
+      const a = champ(r, cote, `agence_${cote}`);
+      if (a && typeof a === 'object') return a;
+      return { nom: champ(r, `${cote}_nom`, `nom_${cote}`) || a || '', ville: champ(r, `ville_${cote}`, `${cote}_ville`) || '', code: champ(r, `code_${cote}`) || '' };
+    };
+    const urlPhoto = (chemin) => {
+      if (!chemin) return null;
+      if (/^https?:/.test(chemin)) return chemin;
+      return sb.storage.from('colis').getPublicUrl(String(chemin).replace(/^colis\//, '')).data.publicUrl;
+    };
+
+    function formulaire(message = '') {
+      racine.innerHTML = `
+        <header class="entete"><div class="agence"><span class="logo">📦</span><span><strong>Où est mon colis ?</strong><span>Suivi Dakar ⇄ Guinée</span></span></div></header>
+        <div class="corps">
+          <form class="carte" novalidate>
+            <h2>Retrouver un colis</h2>
+            <p class="petit" style="margin:0">Le numéro est sur le bordereau (ex. DK-260412).</p>
+            ${message ? `<div class="erreur" role="alert">${esc(message)}</div>` : ''}
+            <label>Numéro du colis<input name="numero" autocomplete="off" autocapitalize="characters" required placeholder="DK-260412"></label>
+            <label>4 derniers chiffres du téléphone du destinataire<input name="tel4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="8290"></label>
+            <button class="bouton plein" type="submit">Voir le suivi</button>
+          </form>
+        </div>`;
+      const f = racine.querySelector('form');
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const numero = f.numero.value.trim().toUpperCase();
+        const tel4 = chiffres(f.tel4.value).slice(-4);
+        if (!numero || tel4.length !== 4) { formulaire('Saisissez le numéro et les 4 derniers chiffres.'); return; }
+        f.querySelector('button').disabled = true;
+        try {
+          const { data, error } = await sb.rpc('suivi_par_numero', { p_numero: numero, p_tel4: tel4 });
+          if (error) throw error;
+          const r = Array.isArray(data) ? data[0] : data;
+          if (!r || r.introuvable) { formulaire(INTROUVABLE); return; }
+          afficher(r);
+        } catch { formulaire('Connexion impossible. Réessayez dans un instant.'); }
+      });
+    }
+
+    function afficher(r) {
+      const dep = agence(r, 'depart'), arr = agence(r, 'arrivee');
+      const statut = champ(r, 'statut') || 'recu';
+      const [libEtat, classeEtat] = ETATS[statut] || [String(statut).toUpperCase(), 'gris'];
+      const parcours = Array.isArray(champ(r, 'parcours', 'evenements')) ? champ(r, 'parcours', 'evenements') : [];
+      const rang = RANG[statut] ?? -1;
+      const pas = ETAPES.map(([code, libelle], i) => {
+        const ev = [...parcours].reverse().find((p) => (code === 'charge' ? ['charge', 'en_route'] : [code]).includes(p.statut));
+        const fait = ev || i <= rang;
+        const quand = ev ? [date(champ(ev, 'le', 'date', 'created_at')), champ(ev, 'lieu')].filter(Boolean).join(' · ') : '';
+        return `<li class="${fait ? 'fait' : ''} ${i === rang ? 'courant' : ''}"><span class="puce"></span><span class="pas"><strong>${esc(libelle)}</strong>${quand ? `<span>${esc(quand)}</span>` : ''}</span></li>`;
+      }).join('');
+      const photo = urlPhoto(champ(r, 'photo_bascule', 'photo'));
+      const effacees = Boolean(r.photos_effacees);
+      const du = champ(r, 'a_payer', 'du_montant', 'reste_a_payer');
+      const montantDu = typeof du === 'object' ? champ(du, 'montant') : du;
+      const deviseDu = typeof du === 'object' ? champ(du, 'devise') : champ(r, 'du_devise', 'devise_arrivee') || arr.devise || 'GNF';
+      const paye = Boolean(r.paye) || !(Number(montantDu) > 0);
+      const bureau = champ(r, 'bureau', 'agence_retrait') || arr;
+      const telBureau = chiffres(champ(bureau, 'whatsapp', 'telephone') || champ(r, 'telephone_bureau', 'whatsapp'));
+      const villeBureau = champ(bureau, 'ville', 'nom') || 'Conakry';
+      const numero = champ(r, 'numero') || '';
+      const nomBoutique = champ(r, 'boutique', 'boutique_nom', 'agence_nom') || dep.nom || 'Transport de colis';
+      const logo = champ(r, 'logo', 'logo_url');
+      const msg = `Bonjour, je suis le destinataire du colis ${numero}.`;
+      const ligne = (dt, dd) => (dd === undefined || dd === null || dd === '' ? '' : `<div><dt>${esc(dt)}</dt><dd>${esc(dd)}</dd></div>`);
+      const mode = champ(r, 'mode') === 'avion' ? 'Avion ✈' : champ(r, 'mode') === 'route' ? 'Route 🚚' : '';
+
+      racine.innerHTML = `
+        <header class="entete">
+          <div class="agence"><span class="logo">${logo ? `<img src="${esc(logo)}" alt="">` : esc(String(nomBoutique).slice(0, 1).toUpperCase())}</span>
+            <span><strong>${esc(nomBoutique)}</strong><span>Transport de colis</span></span></div>
+          <div class="trajet">${dep.code ? `<span class="pays">${esc(dep.code)}</span>` : ''}${esc(dep.ville || dep.nom)} <span class="fl">→</span> ${arr.code ? `<span class="pays">${esc(arr.code)}</span>` : ''}${esc(arr.ville || arr.nom)}${mode ? ` · ${esc(mode)}` : ''}</div>
+        </header>
+        <div class="corps">
+          <section class="carte">
+            <span class="etiq">Colis</span>
+            <span class="numero">${esc(numero)}</span>
+            <span class="etat ${classeEtat}">${esc(libEtat)}</span>
+            ${statut === 'probleme' && champ(r, 'motif') ? `<span class="petit">${esc(r.motif)}</span>` : ''}
+          </section>
+          <section class="carte"><h2>Parcours</h2><ol class="parcours">${pas}</ol></section>
+          <section class="carte">
+            <h2>Pesée au départ</h2>
+            ${effacees || !photo ? '<p class="petit" style="margin:0">La photo n’est plus conservée.</p>' : `
+              <a class="photo" href="${esc(photo)}" data-grand><img src="${esc(photo)}" alt="Le colis sur la bascule" loading="lazy"></a>
+              <button class="bouton" type="button" data-grand>Voir la photo en grand</button>`}
+          </section>
+          <section class="carte">
+            <h2>Le colis</h2>
+            <dl>
+              ${ligne('Expéditeur', champ(r, 'expediteur', 'expediteur_nom'))}
+              ${ligne('Destinataire', champ(r, 'destinataire', 'destinataire_nom'))}
+              ${ligne('Contenu', champ(r, 'contenu'))}
+              ${ligne('Poids', champ(r, 'poids') !== undefined ? `${nombre(r.poids, 2)} kg` : undefined)}
+              ${ligne('Nombre de colis', champ(r, 'nb_colis'))}
+            </dl>
+          </section>
+          ${statut === 'retire' ? '' : `
+          <section class="payer ${paye ? 'ok' : 'du'}">
+            <span class="etiq" style="color:inherit">${paye ? 'Transport payé au départ' : 'À payer au retrait'}</span>
+            ${paye ? '<strong>Rien à payer</strong>' : `<strong>${nombre(montantDu)} ${esc(devise(deviseDu))}</strong><span>Espèces, Orange Money ou MTN MoMo au bureau.</span>`}
+          </section>`}
+          <section class="carte">
+            <h2>Bureau de retrait</h2>
+            <dl>
+              ${ligne('Bureau', champ(bureau, 'nom'))}
+              ${ligne('Adresse', champ(bureau, 'adresse'))}
+              ${ligne('Horaires', champ(bureau, 'horaires'))}
+            </dl>
+            ${telBureau ? `<a class="bouton wa" href="https://wa.me/${esc(telBureau)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Écrire au bureau de ${esc(villeBureau)}</a>` : ''}
+          </section>
+        </div>`;
+      racine.querySelectorAll('[data-grand]').forEach((b) => b.addEventListener('click', (e) => {
+        e.preventDefault();
+        const g = document.createElement('div');
+        g.className = 'grand';
+        g.innerHTML = `<img src="${esc(photo)}" alt="Le colis sur la bascule">`;
+        g.addEventListener('click', () => g.remove());
+        document.body.append(g);
+      }));
+    }
+
+    if (!jeton) formulaire();
+    else {
+      try {
+        const { data, error } = await sb.rpc('suivi_colis', { p_jeton: jeton });
+        if (error) throw error;
+        const r = Array.isArray(data) ? data[0] : data;
+        if (!r || r.introuvable) formulaire(INTROUVABLE); else afficher(r);
+      } catch { formulaire('Connexion impossible. Réessayez dans un instant.'); }
+    }
+  </script>
+</body>
+</html>

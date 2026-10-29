@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v24';
+const VERSION_CACHE = 'yb-statique-v25';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -112,6 +112,20 @@ const FICHIERS_STATIQUES = [
   './d/index.html',
   './css/chauffeur.css',
   './js/chauffeur.js',
+  // Étape 16 : logistique de colis (écrans, étiquettes, codes-barres et QR maison), suivi public c/ et photos p/
+  './css/colis.css',
+  './js/lib/code128.js',
+  './js/lib/qr.js',
+  './js/colis/commun.js',
+  './js/colis/photos.js',
+  './js/colis/nouveau.js',
+  './js/colis/etiquettes.js',
+  './js/colis/tableau.js',
+  './js/colis/fiche.js',
+  './js/colis/envois.js',
+  './js/colis/reglages.js',
+  './c/index.html',
+  './p/index.html',
   // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
   // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
   './js/detourage.js',
@@ -209,6 +223,7 @@ async function limiterImages(cache) {
  *  - panneau d'administration (admin/…) → admin/index.html (jamais l'appli) ;
  *  - vérification d'un document (v/…) → v/index.html (jamais l'appli) ;
  *  - page du chauffeur (d/…) → d/index.html (jamais l'appli) ;
+ *  - suivi d'un colis (c/…) et photos au téléphone (p/…) → leur propre page (jamais l'appli) ;
  *  - page d'impression (document.html) → elle-même si elle est en cache ;
  *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
  *  - autre navigation dans l'appli → index.html.
@@ -229,6 +244,12 @@ function repli(requete, url) {
   // Page du chauffeur (livraison à signer) : sa propre page, jamais l'index.html de l'appli.
   if (chemin === 'd' || chemin.startsWith('d/')) {
     return requete.mode === 'navigate' ? caches.match('./d/index.html').then((r) => r || Response.error()) : Response.error();
+  }
+  // Suivi public d'un colis et photos prises au téléphone : leurs propres pages.
+  for (const dossier of ['c', 'p']) {
+    if (chemin === dossier || chemin.startsWith(`${dossier}/`)) {
+      return requete.mode === 'navigate' ? caches.match(`./${dossier}/index.html`).then((r) => r || Response.error()) : Response.error();
+    }
   }
   if (chemin === 'document.html') {
     return requete.mode === 'navigate' ? caches.match('./document.html').then((r) => r || Response.error()) : Response.error();

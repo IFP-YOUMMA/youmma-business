@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A3D33">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Photos du colis · YOUMMA Business</title>
+  <link rel="icon" href="../img/logo/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&amp;display=swap">
+  <style>
+    /* Page du téléphone pour les photos d'un colis saisi sur l'ordinateur (maquette ColisOrdinateur). */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: 'Manrope', system-ui, sans-serif; background: #F6F8F7; color: #0E1F1A; font-size: 15px; }
+    main { max-width: 460px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    h1 { margin: 4px 0 0; font-size: 20px; }
+    p { margin: 0; color: #5B6B65; font-size: 14px; }
+    .photo { background: #FFFFFF; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 2px rgba(14,31,26,.06); }
+    .photo strong { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+    .apercu { aspect-ratio: 4 / 3; border-radius: 12px; background: #2E3A37; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #8FA39C; font-size: 13px; }
+    .apercu img { width: 100%; height: 100%; object-fit: cover; }
+    .bouton { position: relative; display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 12px; background: #0F7B5F; color: #FFFFFF; font: inherit; font-weight: 800; border: none; overflow: hidden; }
+    .bouton input { position: absolute; inset: 0; opacity: 0; font-size: 0; }
+    .photo.faite .bouton { background: #FFFFFF; color: #0F7B5F; border: 1px solid #BFE0D3; }
+    .coche { width: 24px; height: 24px; border-radius: 50%; background: #E3EAE7; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+    .photo.faite .coche { background: #0F7B5F; }
+    .fin { background: #E3F2EC; color: #0A5A45; border-radius: 16px; padding: 18px; text-align: center; font-weight: 800; font-size: 17px; }
+    .erreur { background: #FDECEC; color: #A51C1C; border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
+    .pied { text-align: center; font-size: 12px; color: #5B6B65; padding: 10px 0 20px; }
+  </style>
+</head>
+<body>
+  <main id="session"><p>Chargement…</p></main>
+  <div class="pied">YOUMMA Business</div>
+  <script type="module">
+    // session_photo(p_jeton) dit si le lien vit encore ; chaque photo compressée (1280 px, JPEG 0,7, < 200 Ko) part dans
+    // le bucket « colis », dossier sessions/<jeton>/, puis deposer_photo_session(p_jeton, p_quoi, p_chemin) prévient l'ordinateur.
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+    import { chargerCanvas, redimensionner, encoder } from '../js/images/traitement.js';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-photos-colis' }
+    });
+    const racine = document.getElementById('session');
+    const jeton = (new URLSearchParams(location.search).get('j') || location.pathname.match(/\/p\/([A-Za-z0-9_-]{6,120})\/?$/)?.[1] || '').trim();
+    const EXPIRE = 'Ce lien a expiré. Demandez un nouveau QR code sur l’ordinateur.';
+    const QUOI = { bascule: ['Sur la bascule', 'Le colis et l’afficheur sur la même photo.'], contenu: ['Le contenu', 'Carton ouvert, avant fermeture.'] };
+    const faites = {};
+
+    const fin = (message) => { racine.innerHTML = `<h1>Photos du colis</h1><div class="erreur" role="alert">${message}</div>`; };
+
+    function afficher() {
+      racine.innerHTML = `
+        <h1>Photos du colis</h1>
+        <p>Prenez les deux photos. Elles arrivent toutes seules sur l’ordinateur.</p>
+        ${Object.entries(QUOI).map(([quoi, [titre, aide]]) => `
+          <section class="photo" data-quoi="${quoi}">
+            <strong><span class="coche">✓</span>${titre}</strong>
+            <p>${aide}</p>
+            <div class="apercu" data-ref="apercu">Pas encore de photo</div>
+            <label class="bouton"><span data-ref="libelle">Prendre la photo</span><input type="file" accept="image/*" capture="environment"></label>
+          </section>`).join('')}
+        <div data-ref="message"></div>`;
+      racine.querySelectorAll('.photo').forEach((bloc) => {
+        bloc.querySelector('input').addEventListener('change', (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) envoyer(bloc, f); });
+      });
+    }
+
+    async function envoyer(bloc, fichier) {
+      const quoi = bloc.dataset.quoi;
+      const libelle = bloc.querySelector('[data-ref="libelle"]');
+      const message = racine.querySelector('[data-ref="message"]');
+      message.innerHTML = '';
+      libelle.textContent = 'Envoi…';
+      try {
+        const c = await chargerCanvas(fichier);
+        const petit = redimensionner(c, { cote: Math.min(1280, Math.max(c.width, c.height)) });
+        const { blob } = await encoder(petit, { qualite: 0.7, tailleMax: 200 * 1024, forcer: 'jpeg' });
+        const chemin = `sessions/${jeton}/${quoi}-${Date.now()}.jpg`;
+        const { error: e1 } = await sb.storage.from('colis').upload(chemin, blob, { contentType: 'image/jpeg', upsert: false });
+        if (e1) throw e1;
+        const { error: e2 } = await sb.rpc('deposer_photo_session', { p_jeton: jeton, p_quoi: quoi, p_chemin: chemin });
+        if (e2) throw e2;
+        faites[quoi] = true;
+        bloc.classList.add('faite');
+        bloc.querySelector('[data-ref="apercu"]').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
+        libelle.textContent = 'Reprendre la photo';
+        if (faites.bascule && faites.contenu) message.innerHTML = '<div class="fin">C’est bon, revenez à l’ordinateur.</div>';
+      } catch (err) {
+        libelle.textContent = faites[quoi] ? 'Reprendre la photo' : 'Prendre la photo';
+        if (/SESSION_EXPIREE|expir/i.test(String(err?.message || err))) { fin(EXPIRE); return; }
+        message.innerHTML = '<div class="erreur" role="alert">La photo n’est pas partie. Vérifiez la connexion et recommencez.</div>';
+      }
+    }
+
+    if (!jeton) fin(EXPIRE);
+    else {
+      try {
+        const { data, error } = await sb.rpc('session_photo', { p_jeton: jeton });
+        if (error) throw error;
+        const r = Array.isArray(data) ? data[0] : data;
+        if (!r || r.expiree || r.introuvable) fin(EXPIRE); else afficher();
+      } catch { fin('Connexion impossible. Réessayez dans un instant.'); }
+    }
+  </script>
+</body>
+</html>

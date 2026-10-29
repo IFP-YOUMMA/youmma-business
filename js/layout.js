@@ -10,7 +10,7 @@ import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
-import { moduleVisible, aModule, enOption, vocab, activite, chargerModules } from './modules.js';
+import { moduleVisible, aModule, enOption, vocab, activite, chargerModules, estLogistique } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
 } from './utils.js';
@@ -21,16 +21,20 @@ import {
  * `module` : module de la boutique (étape 11).
  */
 export const SECTIONS = [
-  { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true },
-  { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'] },
+  { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'tableau_de_bord' },
+  // Étape 16 — logistique de colis (activité « logistique » seulement).
+  { route: 'colis', libelle: 'Colis', icone: 'colis', active: true, module: 'colis' },
+  { groupe: 'Envoi de colis', route: 'nouveau-colis', libelle: 'Nouveau colis', icone: 'plus', active: true, module: 'colis' },
+  { groupe: 'Envoi de colis', route: 'envois', libelle: 'Envois', icone: 'camion', active: true, module: 'envois' },
+  { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'], module: 'caisse' },
   { groupe: 'Vente', route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer', module: 'devis', badgeDevis: true },
   { groupe: 'Vente', route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true, module: 'boutique_en_ligne' },
-  { groupe: 'Stock & clients', route: 'stock', libelle: 'Articles & stock', icone: 'stock', active: true },
-  { groupe: 'Stock & clients', route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true },
+  { groupe: 'Stock & clients', route: 'stock', libelle: 'Articles & stock', icone: 'stock', active: true, module: 'stock' },
+  { groupe: 'Stock & clients', route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true, module: 'clients' },
   { groupe: 'Stock & clients', route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true, module: 'chantiers' },
   { groupe: 'Gestion', route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true, module: 'messages' },
   { groupe: 'Gestion', route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
-  { groupe: 'Gestion', route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports' },
+  { groupe: 'Gestion', route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports', module: 'rapports' },
   { groupe: 'Gestion', route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
   { groupe: 'bas', route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
   { groupe: 'bas', route: 'aide', libelle: 'Aide', icone: 'aide', active: true, badgeAide: true }
@@ -59,8 +63,29 @@ const ONGLETS = [
   { route: 'stock', libelle: 'Stock', icone: 'stock', vocab: true },
   { route: 'clients', libelle: 'Clients', icone: 'clients' }
 ];
+/** Barre du bas d'une boutique de logistique : Colis, Envois, Messages ; bouton rond « Nouveau colis ». */
+const ONGLETS_LOGISTIQUE = [
+  { route: 'colis', libelle: 'Colis', icone: 'colis' },
+  { route: 'envois', libelle: 'Envois', icone: 'camion' },
+  { route: 'messages', libelle: 'Messages', icone: 'sms' },
+  { route: 'parametres', libelle: 'Réglages', icone: 'parametres' }
+];
+const onglets = () => (estLogistique() ? ONGLETS_LOGISTIQUE : ONGLETS);
 /** Sections accessibles depuis « Plus » (celles absentes de la barre du bas). */
-const ROUTES_BARRE_BAS = ['aujourdhui', 'caisse', 'stock', 'clients'];
+const routesBarreBas = () => onglets().map((o) => o.route);
+function barreBasHTML() {
+  return `${onglets().map((o) => `
+          <a href="#/${o.route}" class="onglet" data-route="${o.route}" ${o.routes ? `data-routes="${o.routes.join(' ')}"` : ''}>
+            <span class="onglet-icone">${icone(o.icone, 21, 1.7)}</span><span data-ref="onglet-${esc(o.route)}">${esc(libelleOnglet(o))}</span>
+          </a>`).join('')}
+        <button type="button" class="onglet" data-action="plus" aria-haspopup="dialog">
+          <span class="onglet-icone">${icone('menu', 21, 1.7)}</span>Plus
+        </button>`;
+}
+const boutonRondHTML = () => (estLogistique()
+  ? `${icone('plus', 18, 2.8)}<span>Nouveau colis</span>`
+  : `${icone('plus', 18, 2.8)}<span>Vendre</span>`);
+const lienBoutonRond = () => (estLogistique() ? '#/nouveau-colis' : '#/caisse?vendre=1');
 
 /* ------------------------------------------------------------ Coquille */
 
@@ -129,16 +154,9 @@ function construireShell() {
         <main id="vue" tabindex="-1"></main>
       </div>
 
-      <nav class="barre-bas" aria-label="Navigation">
-        ${ONGLETS.map((o) => `
-          <a href="#/${o.route}" class="onglet" data-route="${o.route}" ${o.routes ? `data-routes="${o.routes.join(' ')}"` : ''}>
-            <span class="onglet-icone">${icone(o.icone, 21, 1.7)}</span><span data-ref="onglet-${esc(o.route)}">${esc(libelleOnglet(o))}</span>
-          </a>`).join('')}
-        <button type="button" class="onglet" data-action="plus" aria-haspopup="dialog">
-          <span class="onglet-icone">${icone('menu', 21, 1.7)}</span>Plus
-        </button>
+      <nav class="barre-bas" aria-label="Navigation" data-logistique="${estLogistique()}">${barreBasHTML()}
       </nav>
-      <a class="bouton-vendre" href="#/caisse?vendre=1">${icone('plus', 18, 2.8)}<span>Vendre</span></a>
+      <a class="bouton-vendre" href="${lienBoutonRond()}">${boutonRondHTML()}</a>
     </div>`;
 
   const shell = app.querySelector('.shell');
@@ -210,7 +228,15 @@ export function majMenu() {
   const liens = shell.querySelector('.menu-liens');
   if (liens) liens.innerHTML = menuHTML();
   if (actif) shell.querySelector(`.menu-liens [data-route="${actif}"]`)?.classList.add('actif');
-  ONGLETS.forEach((o) => { const el = shell.querySelector(`[data-ref="onglet-${o.route}"]`); if (el) el.textContent = libelleOnglet(o); });
+  // Activité changée (ou modules connus après la coquille) : barre du bas et bouton rond refaits.
+  const barre = shell.querySelector('.barre-bas');
+  if (barre && barre.dataset.logistique !== String(estLogistique())) {
+    barre.innerHTML = barreBasHTML();
+    barre.dataset.logistique = String(estLogistique());
+    const rond = shell.querySelector('.bouton-vendre');
+    if (rond) { rond.href = lienBoutonRond(); rond.innerHTML = boutonRondHTML(); }
+  }
+  onglets().forEach((o) => { const el = shell.querySelector(`[data-ref="onglet-${o.route}"]`); if (el) el.textContent = libelleOnglet(o); });
   majBadgeDevis();
   shell.querySelectorAll('.selecteur-bouton, .entete-mobile').forEach((el) => el.style.setProperty('--couleur-activite', couleurActivite()));
   if (aModule('messages')) majCreditSmsAffiche();
@@ -348,7 +374,7 @@ export function carteLicence(theme = 'sombre') {
 
 function ouvrirPanneauPlus() {
   const autres = etat.boutiques.filter((x) => x.boutique.id !== etat.boutique.id);
-  const sections = sectionsVisibles().filter((s) => !ROUTES_BARRE_BAS.includes(s.route));
+  const sections = sectionsVisibles().filter((s) => !routesBarreBas().includes(s.route));
   const { el, fermer } = ouvrirModale({
     titre: 'Menu',
     variante: 'feuille',
