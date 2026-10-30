@@ -14,17 +14,13 @@ import { lireStockage, ecrireStockage } from './utils.js';
 /** Toujours présents, quelle que soit l'activité ou la formule. */
 export const SOCLE = ['tableau_de_bord', 'caisse', 'stock', 'ventes', 'clients', 'depenses', 'rapports', 'vendeurs', 'documents', 'parametres'];
 
-/**
- * Activité « logistique » (étape 16 : envoi de colis Dakar ⇄ Guinée) : la base met à 0 ventes, stock, clients et
- * documents ; ces écrans du socle disparaissent donc pour elle (l'accueil devient « Colis »).
- */
-const MASQUES_LOGISTIQUE = ['tableau_de_bord', 'caisse', 'ventes', 'stock', 'clients', 'documents', 'rapports'];
+/** Activité « logistique » (étapes 16 et 18) : son accueil est celui du transit (#/transit). */
 export const estLogistique = () => courant.donnees?.activite?.code === 'logistique';
 
 /** Écrans (routes) qui appartiennent à un module. */
 export const MODULE_DE_ROUTE = {
   aujourdhui: 'tableau_de_bord',
-  caisse: 'caisse',
+  caisse: 'ventes',
   ventes: 'ventes',
   stock: 'stock',
   clients: 'clients',
@@ -120,9 +116,16 @@ export const donneesModules = () => courant.donnees;
 export const proprietaireSelonModules = () => (typeof courant.donnees?.proprietaire === 'boolean' ? courant.donnees.proprietaire : null);
 
 /** Vrai si le module est disponible (socle ou actif). */
+/**
+ * Vrai si le module est disponible : il est dans actifs (mes_modules, calculé par la base depuis modules_resolus).
+ * Un module du socle que la base ne mentionne pas du tout reste présent ; dès qu'elle le liste dans modules sans
+ * le mettre dans actifs (ventes, stock, clients… à 0 pour la logistique), il disparaît. Aucune liste en dur ici.
+ */
 export function aModule(code) {
-  if (SOCLE.includes(code)) return !(estLogistique() && MASQUES_LOGISTIQUE.includes(code)) || Boolean(courant.donnees?.actifs?.includes(code));
-  return Boolean(courant.donnees?.actifs?.includes(code));
+  const d = courant.donnees;
+  if (d?.actifs?.includes(code)) return true;
+  if (SOCLE.includes(code)) return !(d?.modules || []).some((m) => m.code === code);
+  return false;
 }
 
 /** Module plus actif mais avec des opérations en cours : consulter et encaisser seulement. */

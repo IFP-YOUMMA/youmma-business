@@ -10,7 +10,7 @@
 import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
 import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, ouvrirModale, copierTexte } from '../utils.js';
-import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO } from './commun.js';
+import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO, chargerPoliceDrapeaux } from './commun.js';
 import { monterComptesClients } from './comptes.js';
 
 const DIVISEUR_DEFAUT = { avion: 6000, route: 5000, bateau: 5000 };
@@ -45,6 +45,10 @@ export function monterReglagesColis(zone) {
       s.avecColis = new Set(comptes.filter(([, n]) => n > 0).map(([id]) => id));
       if (!zone.isConnected) return;
       renderBureaux(); renderTarifs(); renderTaux();
+      // Lien « À régler » de l'accueil (#/parametres?corridor=<id>) : la ligne du corridor, mise en évidence.
+      const cible = new URLSearchParams(location.hash.split('?')[1] || '').get('corridor');
+      const ligne = cible && zone.querySelector(`[data-corridor="${CSS.escape(cible)}"]`);
+      if (ligne) { ligne.classList.add('cible'); ligne.scrollIntoView({ block: 'center' }); }
       if (!s.comptesMontes) { s.comptesMontes = true; monterComptesClients(sous('comptes'), { titre: 'Mes comptes clients' }); }
     } catch (err) {
       zone.innerHTML = `<p class="bloc-erreur">${esc(messageErreur(err))}</p>`;
@@ -54,10 +58,11 @@ export function monterReglagesColis(zone) {
   /* ---------------- Bureaux */
 
   function renderBureaux() {
+    chargerPoliceDrapeaux();
     sous('bureaux').innerHTML = `
       <div class="col-carte-entete"><h2>Mes bureaux</h2>${gerant ? '<button type="button" class="btn btn-secondaire btn-petit" data-bureau="">+ Ajouter un bureau</button>' : ''}</div>
       ${s.agences.map((a) => `<div class="col-bureau-ligne">
-        <span class="col-pays">${esc(codePays(a))}</span>
+        <span class="col-pays" title="${esc(codePays(a))}">${esc(a.drapeau || codePays(a))}</span>
         <span class="col-bureau-textes"><strong>${esc(a.code)} · ${esc(a.ville || '')}${a.nom && a.nom !== a.ville ? ` — ${esc(a.nom)}` : ''}</strong>
           <span>${esc([a.adresse, formatTel(a.telephone), a.horaires, nomDevise(a.devise)].filter(Boolean).join(' · '))}</span></span>
         ${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-bureau="${esc(a.id)}">Modifier</button>` : ''}
@@ -122,7 +127,7 @@ export function monterReglagesColis(zone) {
       <p class="discret">Un corridor, c’est un bureau de départ, un bureau d’arrivée et un mode (avion, route ou bateau), avec ses prix et ses jours de départ.</p>
       ${s.tarifs.length ? `<div class="tableau-cadre"><table class="col-tableau col-corridors">
         <thead><tr><th>Corridor</th><th class="droite">Prix / kg</th><th class="droite">Prix / m³</th><th class="droite">Minimum</th><th class="droite">Diviseur</th><th class="droite">Délai</th><th>Départs</th><th class="droite">Capacité</th><th></th></tr></thead>
-        <tbody>${s.tarifs.map((x) => `<tr class="${x.actif ? '' : 'col-inactif'}">
+        <tbody>${s.tarifs.map((x) => `<tr class="${x.actif ? '' : 'col-inactif'}" data-corridor="${esc(x.id)}">
           <td><strong>${esc(x.nom || `${ville(x.agence_depart)} → ${ville(x.agence_arrivee)}`)}</strong><span class="col-sous">${esc(ville(x.agence_depart))} → ${esc(ville(x.agence_arrivee))} · ${esc(MODES[x.mode]?.libelle || x.mode)}${x.actif ? '' : ' · fermé'}</span></td>
           <td class="droite">${formatNombre(x.prix_kg)} ${esc(nomDevise(x.devise))}</td>
           <td class="droite">${x.prix_m3 ? formatNombre(x.prix_m3) : '—'}</td>

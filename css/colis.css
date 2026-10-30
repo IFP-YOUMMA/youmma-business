@@ -486,3 +486,9 @@
 .col-remplissage-envoi { padding: 14px 16px; }
 .tr-afaire h2, .tr-taux h2 { font-size: 16px; font-weight: 800; margin: 0; }
 .col-photos-grille.seule { grid-template-columns: minmax(0, 1fr); }
+.tr-depart.a-definir { background: #EEF2F0; color: #4B5B55; }
+.tr-a-regler { margin: 8px 16px 0; font-size: 12.5px; font-weight: 700; color: #7A4A00; text-decoration: underline; text-underline-offset: 2px; }
+.col-corridors tr.cible { background: #FFF8E6; box-shadow: inset 3px 0 0 var(--accent-light); }
+.et-bout strong { text-transform: uppercase; }
+/* Drapeaux : Windows ne dessine pas les drapeaux emoji (il affiche « SN ») ; Noto Color Emoji (Google Fonts, tranche des drapeaux seulement). */
+.tr-drapeau, .col-pays { font-family: 'Noto Color Emoji', 'Manrope', system-ui, sans-serif; }

@@ -94,6 +94,20 @@ export const api = {
   }).then(premiere)
 };
 
+/**
+ * Drapeaux (agences.drapeau, « 🇸🇳 ») : Windows ne dessine pas les drapeaux emoji et affiche « SN ». Sur Windows
+ * seulement, et au moment où un écran en montre, on charge Noto Color Emoji (Google Fonts, tranche des drapeaux).
+ * Jamais au démarrage : mesuré, elle retardait l'ouverture de l'appli de plusieurs secondes.
+ */
+export function chargerPoliceDrapeaux() {
+  if (!/Windows/.test(navigator.userAgent) || document.getElementById('police-drapeaux')) return;
+  const lien = document.createElement('link');
+  lien.id = 'police-drapeaux';
+  lien.rel = 'stylesheet';
+  lien.href = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap';
+  document.head.append(lien);
+}
+
 /** Jours de départ des corridors (tarifs_colis.jours_depart) : ISO, 1 = lundi … 7 = dimanche. */
 export const JOURS_ISO = [[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Jeu'], [5, 'Ven'], [6, 'Sam'], [7, 'Dim']];
 /** Pourquoi ce poids est facturé (calcul.base de tarif_colis, simuler_prix, poids_taxable). */

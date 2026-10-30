@@ -29,6 +29,7 @@
     .agence span { font-size: 12.5px; opacity: .8; }
     .trajet { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; }
     .trajet .fl { color: var(--or); }
+    .drap { font-family: 'Noto Color Emoji', 'Manrope', sans-serif; }
     .pays { display: inline-flex; padding: 1px 6px; border-radius: 5px; background: rgba(255,255,255,.14); font-size: 11px; letter-spacing: .05em; }
     .corps { padding: 0 14px; display: flex; flex-direction: column; gap: 12px; margin-top: -10px; }
     .carte { background: #FFFFFF; border-radius: 16px; padding: 16px; box-shadow: 0 1px 2px rgba(14,31,26,.06); display: flex; flex-direction: column; gap: 10px; }
@@ -123,6 +124,9 @@
     /** La photo de la bascule est dans le seau public « colis » ; null quand elle a été effacée (un mois après le retrait). */
     const urlBascule = (chemin) => sb.storage.from('colis').getPublicUrl(chemin).data.publicUrl;
 
+    /** Windows ne dessine pas les drapeaux emoji : police chargée après l'affichage, jamais au démarrage. */
+    const policeDrapeaux = () => { if (!/Windows/.test(navigator.userAgent) || document.getElementById('police-drapeaux')) return; const l = document.createElement('link'); l.id = 'police-drapeaux'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap'; document.head.append(l); };
+
     function formulaire(message = '') {
       racine.innerHTML = `
         <header class="entete"><div class="agence"><span class="logo">📦</span><span><strong>Où est mon colis ?</strong><span>Suivi Dakar ⇄ Guinée</span></span></div></header>
@@ -173,7 +177,7 @@
         <header class="entete">
           <div class="agence"><span class="logo">${entreprise.logo_url ? `<img src="${esc(entreprise.logo_url)}" alt="">` : esc(String(entreprise.nom).slice(0, 1).toUpperCase())}</span>
             <span><strong>${esc(entreprise.nom)}</strong><span>Transport de colis</span></span></div>
-          <div class="trajet">${esc(dep.drapeau || '')} ${esc(dep.ville)} <span class="fl">→</span> ${esc(arr.drapeau || '')} ${esc(arr.ville)}${MODES[r.mode] ? ` · ${esc(MODES[r.mode])}` : ''}</div>
+          <div class="trajet"><span class="drap">${esc(dep.drapeau || '')}</span> ${esc(dep.ville)} <span class="fl">→</span> <span class="drap">${esc(arr.drapeau || '')}</span> ${esc(arr.ville)}${MODES[r.mode] ? ` · ${esc(MODES[r.mode])}` : ''}</div>
         </header>
         <div class="corps">
           <section class="carte">
@@ -216,6 +220,7 @@
             ${telBureau ? `<a class="bouton wa" href="https://wa.me/${esc(telBureau)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Écrire au bureau de ${esc(arr.ville)}</a>` : ''}
           </section>
         </div>`;
+      policeDrapeaux();
       racine.querySelectorAll('[data-grand]').forEach((b) => b.addEventListener('click', (e) => {
         e.preventDefault();
         const g = document.createElement('div');

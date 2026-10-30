@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v28';
+const VERSION_CACHE = 'yb-statique-v29';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 

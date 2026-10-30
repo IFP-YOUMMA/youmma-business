@@ -42,7 +42,8 @@ export function donneesEtiquette(c, agences) {
   };
 }
 
-const ville = (a) => String(a?.ville || a?.nom || '').toUpperCase();
+/** Ville telle que la base l'a normalisée (« Conakry ») ; les capitales du bandeau imprimé viennent du CSS. */
+const ville = (a) => String(a?.ville || a?.nom || '');
 const bureau = (a) => (a?.nom && a.nom !== a.ville ? a.nom : `Bureau de ${a?.ville || ''}`);
 const lienCourt = (l) => String(l || '').replace(/^https?:\/\//, '');
 const telAgence = (a) => (a?.telephone ? `${a.ville || a.nom} ${formatTel(a.telephone)}` : '');

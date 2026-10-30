@@ -21,15 +21,16 @@ import {
  * `module` : module de la boutique (étape 11).
  */
 export const SECTIONS = [
-  { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'tableau_de_bord' },
+  // Un seul « Aujourd'hui » : celui du commerce, ou celui du transit pour une boutique de logistique.
+  { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'tableau_de_bord', accueil: 'commerce' },
   // Étapes 16 et 18 — logistique et transit (activité « logistique » seulement).
-  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'colis' },
+  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'colis', accueil: 'logistique' },
   { groupe: 'Expéditions', route: 'colis', libelle: 'Colis', icone: 'colis', active: true, module: 'colis' },
   { groupe: 'Expéditions', route: 'recevoir', libelle: 'Recevoir', icone: 'entree', active: true, module: 'colis', routes: ['recevoir', 'peser'] },
   { groupe: 'Expéditions', route: 'nouveau-colis', libelle: 'Nouveau colis', icone: 'plus', active: true, module: 'colis' },
   { groupe: 'Expéditions', route: 'envois', libelle: 'Envois', icone: 'camion', active: true, module: 'envois' },
   { groupe: 'Expéditions', route: 'comptes', libelle: 'Comptes clients', icone: 'client', active: true, module: 'colis' },
-  { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'], module: 'caisse' },
+  { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'], module: 'ventes' },
   { groupe: 'Vente', route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer', module: 'devis', badgeDevis: true },
   { groupe: 'Vente', route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true, module: 'boutique_en_ligne' },
   { groupe: 'Stock & clients', route: 'stock', libelle: 'Articles & stock', icone: 'stock', active: true, module: 'stock' },
@@ -46,7 +47,9 @@ export const SECTIONS = [
 /** Sections visibles : droits du rôle ET modules de la boutique (un module en lecture seule reste visible). */
 function sectionsVisibles() {
   // Option payante non payée (boutique en ligne) : l'entrée reste, grisée avec un cadenas, et mène à la page d'activation.
-  return SECTIONS.filter((section) => (!section.droit || peut(section.droit)) && (!section.module || moduleVisible(section.module) || enOption(section.module)));
+  const accueil = estLogistique() ? 'logistique' : 'commerce';
+  return SECTIONS.filter((section) => (!section.accueil || section.accueil === accueil)
+    && (!section.droit || peut(section.droit)) && (!section.module || moduleVisible(section.module) || enOption(section.module)));
 }
 
 /** Entrée d'une option à activer (grisée, cadenas à la place des pastilles). */
@@ -255,6 +258,8 @@ function libelleSection(section, court = true) {
   // « Articles & stock » (« Modèles & stock » en habillement) ; « Menu », « Prestations » restent tels quels.
   if (section.route === 'stock') return vocab('menu') && vocab('menu') !== 'Stock' ? vocab('menu') : `${vocab('articles') || 'Articles'} & stock`;
   if (section.route === 'clients' && !moduleVisible('credits')) return 'Clients';
+  // « Vendeurs » suit le vocabulaire de l'activité (activites.vocab.vendeurs, « Employés » pour le transit).
+  if (section.route === 'vendeurs') return vocab('vendeurs') || section.libelle;
   return court ? section.libelleCourt || section.libelle : section.libelle;
 }
 
