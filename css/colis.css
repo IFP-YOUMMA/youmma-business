@@ -490,5 +490,6 @@
 .tr-a-regler { margin: 8px 16px 0; font-size: 12.5px; font-weight: 700; color: #7A4A00; text-decoration: underline; text-underline-offset: 2px; }
 .col-corridors tr.cible { background: #FFF8E6; box-shadow: inset 3px 0 0 var(--accent-light); }
 .et-bout strong { text-transform: uppercase; }
-/* Drapeaux : Windows ne dessine pas les drapeaux emoji (il affiche « SN ») ; Noto Color Emoji (Google Fonts, tranche des drapeaux seulement). */
-.tr-drapeau, .col-pays { font-family: 'Noto Color Emoji', 'Manrope', system-ui, sans-serif; }
+/* Drapeaux en image sur Windows (drapeauHTML) : même taille que l'emoji. */
+.drapeau-img { width: 1.15em; height: 1.15em; vertical-align: -0.18em; }
+.col-pays .drapeau-img { width: 16px; height: 16px; }

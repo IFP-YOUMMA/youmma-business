@@ -7,7 +7,7 @@
  * envois en cours, taux du jour, bureaux.
  */
 import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, formatNombre, formatDate, lireNombre } from '../utils.js';
-import { api, chargerAgences, montant, nomDevise, pastilleStatut, iconeColis, MODES, poids as poidsTexte, chargerPoliceDrapeaux } from './commun.js';
+import { api, chargerAgences, montant, nomDevise, pastilleStatut, iconeColis, MODES, poids as poidsTexte, drapeauHTML } from './commun.js';
 
 /** Taux XOF → GNF parmi tableau_colis.taux (le premier sinon). */
 const tauxPrincipal = (liste) => liste.find((x) => x.de === 'XOF' && x.vers === 'GNF') || liste[0] || null;
@@ -151,10 +151,9 @@ export function afficherColisTableau(conteneur, params) {
   }
 
   function renderBureaux() {
-    chargerPoliceDrapeaux();
     zone('bureaux').innerHTML = `<h2>Entrepôts</h2>${s.tableau.agences.map((a) => {
       const depart = a.devise === 'XOF';
-      return `<div class="col-bureau"><span class="col-pays" title="${esc(a.code)}">${esc(a.drapeau || a.code)}</span><span class="col-bureau-textes"><strong>${esc(a.nom)}</strong><span>${depart ? 'En attente de départ' : 'À retirer'}</span></span><strong class="col-chiffre">${formatNombre(depart ? a.en_attente : a.a_retirer)}</strong></div>`;
+      return `<div class="col-bureau"><span class="col-pays" title="${esc(a.code)}">${drapeauHTML(a.drapeau, a.code)}</span><span class="col-bureau-textes"><strong>${esc(a.nom)}</strong><span>${depart ? 'En attente de départ' : 'À retirer'}</span></span><strong class="col-chiffre">${formatNombre(depart ? a.en_attente : a.a_retirer)}</strong></div>`;
     }).join('')}`;
   }
 

@@ -10,7 +10,7 @@
 import { sb } from '../supabase.js';
 import { etat, estGerant } from '../state.js';
 import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, ouvrirModale, copierTexte } from '../utils.js';
-import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO, chargerPoliceDrapeaux } from './commun.js';
+import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO, drapeauHTML } from './commun.js';
 import { monterComptesClients } from './comptes.js';
 
 const DIVISEUR_DEFAUT = { avion: 6000, route: 5000, bateau: 5000 };
@@ -58,11 +58,10 @@ export function monterReglagesColis(zone) {
   /* ---------------- Bureaux */
 
   function renderBureaux() {
-    chargerPoliceDrapeaux();
     sous('bureaux').innerHTML = `
       <div class="col-carte-entete"><h2>Mes bureaux</h2>${gerant ? '<button type="button" class="btn btn-secondaire btn-petit" data-bureau="">+ Ajouter un bureau</button>' : ''}</div>
       ${s.agences.map((a) => `<div class="col-bureau-ligne">
-        <span class="col-pays" title="${esc(codePays(a))}">${esc(a.drapeau || codePays(a))}</span>
+        <span class="col-pays" title="${esc(codePays(a))}">${drapeauHTML(a.drapeau, codePays(a))}</span>
         <span class="col-bureau-textes"><strong>${esc(a.code)} · ${esc(a.ville || '')}${a.nom && a.nom !== a.ville ? ` — ${esc(a.nom)}` : ''}</strong>
           <span>${esc([a.adresse, formatTel(a.telephone), a.horaires, nomDevise(a.devise)].filter(Boolean).join(' · '))}</span></span>
         ${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-bureau="${esc(a.id)}">Modifier</button>` : ''}

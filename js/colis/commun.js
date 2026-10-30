@@ -95,17 +95,16 @@ export const api = {
 };
 
 /**
- * Drapeaux (agences.drapeau, « 🇸🇳 ») : Windows ne dessine pas les drapeaux emoji et affiche « SN ». Sur Windows
- * seulement, et au moment où un écran en montre, on charge Noto Color Emoji (Google Fonts, tranche des drapeaux).
- * Jamais au démarrage : mesuré, elle retardait l'ouverture de l'appli de plusieurs secondes.
+ * Drapeau d'un bureau : agences.drapeau (« 🇸🇳 ») tel que la base l'envoie, le code pays seulement s'il est vide.
+ * Windows ne dessine pas les drapeaux emoji (il écrit « SN ») : là seulement, on montre l'image Twemoji du même emoji
+ * (SVG de 300 octets environ, version figée). Une police emoji complète pesait des centaines de Ko par tranche.
  */
-export function chargerPoliceDrapeaux() {
-  if (!/Windows/.test(navigator.userAgent) || document.getElementById('police-drapeaux')) return;
-  const lien = document.createElement('link');
-  lien.id = 'police-drapeaux';
-  lien.rel = 'stylesheet';
-  lien.href = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap';
-  document.head.append(lien);
+const SANS_DRAPEAUX = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent);
+export function drapeauHTML(drapeau, repli = '') {
+  if (!drapeau) return esc(repli);
+  if (!SANS_DRAPEAUX) return esc(drapeau);
+  const code = [...drapeau].map((c) => c.codePointAt(0).toString(16)).join('-');
+  return `<img class="drapeau-img" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${code}.svg" alt="${esc(drapeau)}" width="20" height="20" loading="lazy">`;
 }
 
 /** Jours de départ des corridors (tarifs_colis.jours_depart) : ISO, 1 = lundi … 7 = dimanche. */

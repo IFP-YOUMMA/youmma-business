@@ -36,7 +36,8 @@
     .choix button strong { font-size: 14px; }
     .choix button span { font-size: 12px; color: var(--doux); font-variant-numeric: tabular-nums; }
     .choix button[aria-pressed="true"] { border-color: var(--vert); background: #E3F2EC; }
-    .drap { font-size: 20px; line-height: 1; font-family: 'Noto Color Emoji', 'Manrope', sans-serif; }
+    .drap { font-size: 20px; line-height: 1; }
+    .drapeau-img { width: 1.15em; height: 1.15em; vertical-align: -0.18em; }
     .champs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .champs.deux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #3A4A44; }
@@ -84,8 +85,8 @@
     const lire = (v) => { const n = Number(String(v || '').replace(/\s/g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
     const jourLong = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${iso}T12:00:00`)); } catch { return ''; } };
 
-    /** Windows ne dessine pas les drapeaux emoji : police chargée après l'affichage, jamais au démarrage. */
-    const policeDrapeaux = () => { if (!/Windows/.test(navigator.userAgent) || document.getElementById('police-drapeaux')) return; const l = document.createElement('link'); l.id = 'police-drapeaux'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap'; document.head.append(l); };
+    /** Drapeau : emoji natif, image Twemoji (300 octets) sur Windows, qui ne dessine pas les drapeaux emoji. */
+    const drapeau = (d) => (!d ? '' : !/Windows/.test(navigator.userAgent) ? esc(d) : `<img class="drapeau-img" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${[...d].map((c) => c.codePointAt(0).toString(16)).join('-')}.svg" alt="${esc(d)}" width="20" height="20">`);
 
     function introuvable(message) {
       racine.innerHTML = `<div class="introuvable"><h1 style="font-size:20px;color:#0E1F1A">Simulateur introuvable</h1><p>${esc(message)}</p></div>`;
@@ -137,7 +138,7 @@
       const zone = (n) => racine.querySelector(`[data-zone="${n}"]`);
 
       function renderChoix() {
-        zone('origines').innerHTML = origines.map((o) => `<button type="button" data-depart="${esc(o.depart)}" aria-pressed="${o.depart === s.depart}"><span class="drap" title="${esc(o.pays)}">${esc(o.drapeau || o.pays)}</span><strong>${esc(o.ville)}</strong></button>`).join('');
+        zone('origines').innerHTML = origines.map((o) => `<button type="button" data-depart="${esc(o.depart)}" aria-pressed="${o.depart === s.depart}"><span class="drap" title="${esc(o.pays)}">${o.drapeau ? drapeau(o.drapeau) : esc(o.pays)}</span><strong>${esc(o.ville)}</strong></button>`).join('');
         const arrivees = [...new Map(corridors.filter((c) => c.depart === s.depart).map((c) => [c.arrivee, c])).values()];
         zone('bloc-arrivee').hidden = arrivees.length < 2;
         zone('arrivees').innerHTML = arrivees.map((c) => `<button type="button" data-arrivee="${esc(c.arrivee)}" aria-pressed="${c.arrivee === s.arrivee}"><strong>${esc(c.vers)}</strong></button>`).join('');
@@ -205,7 +206,6 @@
       racine.addEventListener('input', recalculer);
       renderChoix();
       renderPrix(null);
-      policeDrapeaux();
     }
 
     if (!slug) introuvable('Il manque le nom de l’entreprise dans l’adresse.');

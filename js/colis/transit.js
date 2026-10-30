@@ -9,7 +9,7 @@
  * Aucun poids ni prix n'est calculé ici : seule la proportion de la barre l'est, pour la dessiner.
  */
 import { esc, icone, messageErreur, formatNombre, formatDate } from '../utils.js';
-import { api, nomDevise, MODES, chargerPoliceDrapeaux } from './commun.js';
+import { api, nomDevise, MODES, drapeauHTML } from './commun.js';
 
 const SEUIL_REMPLISSAGE = 40;
 const kgTexte = (n) => formatNombre(n, 2).replace(/,00$/, '');
@@ -33,14 +33,18 @@ const dateDepart = (iso) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', 
 function trajetsTexte(corridors) {
   const arrivees = [...new Set(corridors.map((c) => c.vers))];
   if (arrivees.length === 1) return `${[...new Set(corridors.map((c) => c.ville))].join(', ')} → ${arrivees[0]}`;
+  // Chaque paire de villes une seule fois : « Conakry ⇄ Dakar » couvre déjà « Dakar → Conakry ».
   const paires = [...new Set(corridors.map((c) => `${c.ville}|${c.vers}`))];
   const vus = new Set();
-  return paires.filter((p) => !vus.has(p)).map((p) => {
+  const trajets = [];
+  for (const p of paires) {
+    if (vus.has(p)) continue;
     const [d, a] = p.split('|');
     const retour = paires.includes(`${a}|${d}`);
     vus.add(p); vus.add(`${a}|${d}`);
-    return `${d} ${retour ? '⇄' : '→'} ${a}`;
-  }).join(' · ');
+    trajets.push(`${d} ${retour ? '⇄' : '→'} ${a}`);
+  }
+  return trajets.join(' · ');
 }
 const pourcent = (c) => (c.capacite ? Math.min(100, Math.round((Number(c.kg_attente) / Number(c.capacite)) * 100)) : null);
 
@@ -92,12 +96,11 @@ export function afficherTransit(conteneur) {
   }
 
   function renderCorridors(corridors) {
-    chargerPoliceDrapeaux();
     zone('corridors').innerHTML = corridors.length ? corridors.map((c) => {
       const p = pourcent(c);
       const bas = p !== null && p < SEUIL_REMPLISSAGE;
       return `<article class="carte tr-corridor">
-        <header class="tr-corridor-tete"><span class="tr-drapeau" title="${esc(c.pays)}">${esc(c.drapeau || c.pays)}</span>
+        <header class="tr-corridor-tete"><span class="tr-drapeau" title="${esc(c.pays)}">${drapeauHTML(c.drapeau, c.pays)}</span>
           <span class="tr-corridor-titres"><strong>${esc(c.ville)} → ${esc(c.vers)}</strong><span>${esc(MODES[c.mode]?.libelle || c.mode)} · ${formatNombre(c.delai_jours)} j · ${formatNombre(c.prix_kg)} ${esc(nomDevise(c.devise))}/kg</span></span></header>
         <div class="tr-corridor-chiffres">
           <div><span class="etiquette">En attente</span><strong class="nombre-moyen">${formatNombre(c.en_attente)}</strong> <span class="discret">colis</span></div>
@@ -107,7 +110,7 @@ export function afficherTransit(conteneur) {
         ${p !== null ? `<div class="tr-remplissage ${bas ? 'bas' : ''}"><div class="tr-remplissage-tete"><span>Remplissage du prochain départ</span><strong>${p} %</strong></div>
           <span class="tr-barre" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p}%"></span></span></div>` : ''}
         ${c.a_regler ? `<a class="tr-a-regler" href="#/parametres?corridor=${encodeURIComponent(c.id)}">À régler : ${esc(c.a_regler)}</a>` : ''}
-        <footer class="tr-corridor-pied">${c.prochain ? `<span class="tr-depart">Départ ${esc(dateDepart(c.prochain))}</span>` : '<span class="tr-depart a-definir">Jours de départ à définir</span>'}${c.capacite ? `<span class="discret">${esc(kgTexte(c.kg_attente))} kg sur ${esc(kgTexte(c.capacite))} kg</span>` : ''}</footer>
+        <footer class="tr-corridor-pied">${c.prochain ? `<span class="tr-depart">Départ ${esc(dateDepart(c.prochain))}</span>` : ''}${c.capacite ? `<span class="discret">${esc(kgTexte(c.kg_attente))} kg sur ${esc(kgTexte(c.capacite))} kg</span>` : ''}</footer>
       </article>`;
     }).join('') : '<p class="col-vide carte">Aucun corridor. Ouvrez le premier dans Réglages › Mes corridors.</p>';
   }
