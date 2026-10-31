@@ -666,7 +666,7 @@ function blocHistorique(historique) {
       <li><span class="discret">${esc(formatDate(h.created_at, 'complet'))}</span><span>${esc(libelleAction(h.action))}${detailsAction(h.details) ? ` · ${esc(detailsAction(h.details))}` : ''}</span><span class="discret">${esc(champ(h, 'par', 'admin_nom', 'auteur') || '')}</span></li>`).join('')}</ul>` : '<p class="vide-admin">Aucune action enregistrée.</p>'}`;
 }
 
-function ouvrirDateLibre(b, valider) {
+export function ouvrirDateLibre(b, valider) {
   const { el, fermer } = ouvrirModale({
     titre: 'Date de fin de licence',
     contenu: `
@@ -728,7 +728,7 @@ async function ouvrirChangerActivite(b, valider) {
   });
 }
 
-function ouvrirSuspension(b, valider) {
+export function ouvrirSuspension(b, valider) {
   if (b.suspendue) {
     confirmer(`Réactiver « ${b.nom} » ? La boutique pourra de nouveau vendre (si sa licence est valide).`, { titre: 'Réactiver la boutique', libelleOk: 'Réactiver' })
       .then((ok) => ok && valider(false, null));
