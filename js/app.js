@@ -232,6 +232,10 @@ async function demarrer() {
   }
   if (await controlesApresConnexion(() => location.reload())) return;
 
+  // « Dernier usage » de la console de direction : un ping au chargement, pas à chaque écran (la base n'écrit que
+  // toutes les 20 minutes). Sans attendre ni bloquer : une erreur ici ne doit jamais empêcher l'appli de s'ouvrir.
+  if (etat.boutique) sb.rpc('ping_boutique', { p_boutique: etat.boutique.id }).then(() => {}, () => {});
+
   sb.auth.onAuthStateChange((evenement, session) => {
     if (evenement === 'SIGNED_OUT') {
       if (!etat.session) return;

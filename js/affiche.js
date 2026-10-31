@@ -14,6 +14,7 @@
  * Polices Manrope et Bebas Neue (fonts/, licence OFL) chargées par FontFace.
  */
 import { formatNombre, formatTelephone, FUSEAU } from './utils.js';
+import { dessinerQr } from './qr.js';
 
 export const FORMATS_AFFICHE = {
   '4:5': { largeur: 1080, hauteur: 1350, libelle: 'Facebook · Instagram 4:5', fichier: '4x5' },
@@ -905,6 +906,87 @@ function image(url) {
 }
 
 /**
+ * Affiche d'un vendeur du marché du monde (étape 19, maquette AfficheArticle) : clé « marche » de affiche_du_jour.
+ * Le visuel de l'article, puis le prix en GNF en gros (prix_gnf, calculé par la base) et le prix local en petit dessous,
+ * puis le bandeau orange : appel, sous_appel et le QR du lien, tels que la base les renvoie. Le numéro du bandeau vient
+ * de la base (sous_appel), jamais du téléphone de la boutique : un vendeur qui mettrait le sien récupérerait le client.
+ */
+async function genererAfficheMarche(a, W, H) {
+  const m = a.marche;
+  const p = a.produit ? { nom: 'Article', ...a.produit } : { nom: m.vendeur || 'Article' };
+  const couleur = rgb(m.couleur) ? m.couleur : COULEUR_DEFAUT;
+  const nuit = '#0A3D33';
+  const or = ACCENT_DEFAUT;
+  const [, photo] = await Promise.all([chargerPolices(), image(p.photo_url)]);
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.textBaseline = 'alphabetic';
+  const k = W / 1080;
+  const M = 64 * k;
+  const hb = Math.max(230 * k, H * 0.17);
+  const hp = Math.max(380 * k, H * 0.3);
+  const hv = H - hb - hp;
+
+  // Visuel de l'article sur un fond aux couleurs de l'espace.
+  fondDegrade(ctx, W, hv, eclaire(couleur, 0.15), fonce(couleur, 0.45));
+  dessinerVisuel(ctx, p, photo, M, M * 1.6, W - 2 * M, hv - M * 2.2, { couleur, ombre: 0.45 });
+  if (m.ville) pastille(ctx, `Depuis ${m.ville}`.toUpperCase(), M * 0.6, M * 0.6, 58 * k, or, '#3A2600');
+
+  // Bloc prix : nom, vendeur, prix GNF en gros, prix local en petit.
+  ctx.fillStyle = nuit;
+  ctx.fillRect(0, hv, W, hp);
+  const lMax = W - 2 * M;
+  const nom = ajusterBloc(ctx, p.nom, lMax, 2, 76 * k, 44 * k, (t) => mf(800, t));
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'left';
+  let y = hv + M * 0.9 + nom.taille * 0.8;
+  nom.lignes.forEach((l, i) => ctx.fillText(l, M, y + i * nom.taille * 1.08));
+  y += (nom.lignes.length - 1) * nom.taille * 1.08 + 46 * k;
+  ctx.font = mf(700, 30 * k);
+  ctx.fillStyle = '#A9D4C6';
+  ctx.fillText(couperLignes(ctx, m.vendeur || '', lMax, 1)[0] || '', M, y);
+  const prix = prixTexte(m.prix_gnf);
+  const tPrix = ajusterTaille(ctx, `${prix} GNF`, lMax, 150 * k, 70 * k, (t) => mf(800, t));
+  y += tPrix * 0.95 + 18 * k;
+  ctx.font = mf(800, tPrix);
+  ctx.fillStyle = or;
+  ctx.fillText(prix, M, y);
+  const lp = ctx.measureText(prix).width;
+  ctx.font = mf(800, tPrix * 0.36);
+  ctx.fillText(' GNF', M + lp, y);
+  const devise = m.devise_locale === 'XOF' ? 'FCFA' : (m.devise_locale || '');
+  ctx.font = mf(600, 26 * k);
+  ctx.fillStyle = '#CFE6DD';
+  const local = m.prix_local !== null && m.prix_local !== undefined ? `${prixTexte(m.prix_local)} ${devise}${m.ville ? ` à ${m.ville}` : ''} · prix tout compris, hors transport` : '';
+  ctx.fillText(couperLignes(ctx, local, lMax, 1)[0] || '', M, Math.min(y + 50 * k, hv + hp - 24 * k));
+
+  // Bandeau orange : appel, sous_appel (numéro de la base) et QR du lien.
+  ctx.fillStyle = or;
+  ctx.fillRect(0, H - hb, W, hb);
+  const cote = hb - 2 * 34 * k;
+  const xQr = W - M - cote;
+  if (m.lien) {
+    ctx.fillStyle = '#FFFFFF';
+    rectArrondi(ctx, xQr - 8 * k, H - hb + 34 * k - 8 * k, cote + 16 * k, cote + 16 * k, 14 * k);
+    ctx.fill();
+    dessinerQr(ctx, m.lien, xQr, H - hb + 34 * k, cote, { couleur: nuit, fond: '#FFFFFF' });
+  }
+  const lTexte = (m.lien ? xQr - 30 * k : W - M) - M;
+  const appel = String(m.appel || '').toUpperCase();
+  const tAppel = ajusterTaille(ctx, appel, lTexte, 48 * k, 26 * k, (t) => mf(800, t));
+  ctx.fillStyle = '#3A2600';
+  ctx.font = mf(800, tAppel);
+  ctx.fillText(appel, M, H - hb / 2 - 6 * k);
+  ctx.font = mf(700, Math.min(30 * k, tAppel * 0.7));
+  const sous = couperLignes(ctx, m.sous_appel || '', lTexte, 2);
+  sous.forEach((l, i) => ctx.fillText(l, M, H - hb / 2 + 38 * k + i * 36 * k));
+  return canvas;
+}
+
+/**
  * Dessine l'affiche du jour et renvoie le canvas (taille réelle).
  * a : réponse de affiche_du_jour ({ theme, style, titre, texte, jour, fete, boutique, produit, autres… }) complétée par l'écran :
  *   horaires ([[jour, heures]…]), sousTexte, phraseMerci.
@@ -913,6 +995,8 @@ function image(url) {
 export async function genererAffiche(a, format = '4:5') {
   const f = FORMATS_AFFICHE[format] ? format : '4:5';
   const { largeur: W, hauteur: H } = FORMATS_AFFICHE[f];
+  // Vendeur du marché du monde relié : l'affiche du marché. Sinon, l'affiche de la boutique, inchangée.
+  if (a?.marche && typeof a.marche === 'object') return genererAfficheMarche(a, W, H);
   const b = a?.boutique || {};
   const d = {
     ...a,

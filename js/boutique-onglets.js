@@ -134,7 +134,8 @@ export function afficherBoutiqueOnglets(conteneur, params) {
     const a = premiere(data);
     if (error || !z?.isConnected || !a?.produit) return;
     const p = a.produit;
-    const prix = Number(p.prix ?? p.prix_promo ?? p.prix_detail) || 0;
+    // Vendeur du marché du monde : son article est en monnaie locale, l'affiche montre le prix GNF de la base.
+    const prix = Number(a.marche ? a.marche.prix_gnf : (p.prix ?? p.prix_promo ?? p.prix_detail)) || 0;
     z.hidden = false;
     z.innerHTML = `
       <span class="bo-affiche-vignette" aria-hidden="true"><span>${prix ? esc(formatNombre(prix)) : ''}</span></span>
