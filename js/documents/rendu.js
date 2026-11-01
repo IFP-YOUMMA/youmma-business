@@ -5,8 +5,9 @@
  * et l'impression d'essai. Le CSS est intégré et préfixé « .ybd » (n'affecte pas le reste de la page).
  */
 import {
-  esc, formatNombre, formatQuantite, formatDate, formatTelephone, formatNumeroVente, initiales, urlLogo, MODES_PAIEMENT
+  esc, formatNombre, formatQuantite, formatDate, formatTelephone, formatNumeroVente, initiales, urlLogo
 } from '../utils.js';
+import { libelleMode } from '../modes-paiement.js';
 import { svgQr } from '../qr.js';
 import { montantEnLettres } from './lettres.js';
 
@@ -85,7 +86,7 @@ function etatProforma(p) {
 /** Texte du bloc paiement (une vente = un seul mode de paiement). */
 function textePaiement(vente, chantier) {
   if (!vente) return null;
-  const mode = MODES_PAIEMENT[vente.mode_paiement]?.libelle || vente.mode_paiement;
+  const mode = libelleMode(vente.mode_paiement);
   if (vente.statut === 'annulee') return { titre: `${mode} — vente annulée`, detail: '' };
   if (vente.mode_paiement === 'credit') {
     return { titre: `À crédit${vente.echeance ? ` — échéance ${formatDate(`${String(vente.echeance).slice(0, 10)}T12:00:00Z`, 'jourMois')}` : ''}`, detail: '' };

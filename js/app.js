@@ -7,7 +7,7 @@ import { etat, chargerSession, chargerBoutiques, viderEtat, peut } from './state
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
-import { preparerShell, retirerShell, afficherBientot, SECTIONS } from './layout.js';
+import { preparerShell, retirerShell, afficherBientot, routeAccueil } from './layout.js';
 import { afficherAujourdhui } from './aujourdhui.js';
 import { afficherCaisse } from './caisse.js';
 import { afficherStock } from './stock.js';
@@ -27,9 +27,11 @@ import { afficherProformas } from './proformas.js';
 import { afficherReglagesDocuments } from './documents/reglages.js';
 import { afficherIdentite } from './identite.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
-import { chargerModules, modulesPour, accesRoute } from './modules.js';
+import { chargerModules, modulesPour, accesRoute, moduleDeRoute, estLogistique } from './modules.js';
 import { afficherMesModules } from './mes-modules.js';
-import { estLogistique } from './modules.js';
+import { chargerModes } from './modes-paiement.js';
+import { verrouillerModule } from './plateforme.js';
+import { afficherAgences } from './colis/reglages.js';
 import { afficherColisTableau } from './colis/tableau.js';
 import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
@@ -41,8 +43,6 @@ import { afficherReception, afficherPesee } from './colis/reception.js';
 
 /** Sur téléphone, une fiche (#/clients/<id>, #/ventes/<id>) s'ouvre en plein écran. */
 const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
-/** Accueil : « Aujourd'hui » du transit pour une boutique de logistique (étape 18), « Aujourd'hui » du commerce sinon. */
-const routeAccueil = () => (estLogistique() ? 'transit' : 'aujourdhui');
 /** #/colis (tableau), #/colis/<id> (fiche), #/colis/<id>/etiquette (étiquettes). */
 function afficherColis(conteneur, params) {
   const id = params.get('id');
@@ -108,11 +108,15 @@ const ROUTES = {
   transit: { vue: afficherTransit },
   recevoir: { vue: afficherReception },
   peser: { vue: (conteneur, params) => afficherPesee(conteneur, params.get('id')) },
-  comptes: { vue: afficherComptes }
+  comptes: { vue: afficherComptes },
+  // Étape 18f — modules « agences » et « marche » du menu de la logistique.
+  agences: { vue: afficherAgences },
+  // Le marché (vitrine des vendeurs, relevés /f/) arrive avec son étape : écran « Bientôt » d'ici là.
+  marche: { vue: (conteneur) => afficherBientot(conteneur, { icone: 'panier', libelle: 'Marché', description: 'Vos articles sur le marché YOUMMA, vos commandes et ce qui vous sera versé.' }) }
 };
-SECTIONS.filter((section) => !section.active).forEach((section) => {
-  ROUTES[section.route] = { vue: (conteneur) => afficherBientot(conteneur, section) };
-});
+
+/** Écrans qui gèrent eux-mêmes leur lecture seule (chantiers : on peut encore encaisser un versement). */
+const LECTURE_GEREE = ['chantiers'];
 
 let nettoyerVue = null;
 
@@ -160,7 +164,10 @@ function resoudre() {
     window.scrollTo(0, 0);
   } else {
     const pleinEcran = typeof route.pleinEcran === 'function' ? route.pleinEcran(params) : Boolean(route.pleinEcran);
-    conteneur = preparerShell({ route: nom, pleinEcran });
+    // Module dans lecture_seule : l'écran s'ouvre, avec un bandeau et sans ses boutons d'écriture.
+    const lecture = accesRoute(nom) === 'lecture' && !LECTURE_GEREE.includes(nom) ? moduleDeRoute(nom) : null;
+    conteneur = preparerShell({ route: nom, pleinEcran, lecture });
+    verrouillerModule(Boolean(lecture));
   }
   const nettoyage = route.vue(conteneur, params);
   if (typeof nettoyage === 'function') nettoyerVue = nettoyage;
@@ -235,6 +242,8 @@ async function demarrer() {
   // « Dernier usage » de la console de direction : un ping au chargement, pas à chaque écran (la base n'écrit que
   // toutes les 20 minutes). Sans attendre ni bloquer : une erreur ici ne doit jamais empêcher l'appli de s'ouvrir.
   if (etat.boutique) sb.rpc('ping_boutique', { p_boutique: etat.boutique.id }).then(() => {}, () => {});
+  // Modes de paiement de la caisse et des remboursements, gardés pour les écrans (et hors ligne).
+  if (etat.boutique) ['vente', 'credit'].forEach((usage) => chargerModes(usage));
 
   sb.auth.onAuthStateChange((evenement, session) => {
     if (evenement === 'SIGNED_OUT') {

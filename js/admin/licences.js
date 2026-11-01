@@ -7,8 +7,9 @@ import { sb } from '../supabase.js';
 import { esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, differer, formatDate, formatNombre, lireNombre, formaterSaisieMontant, bornesPeriode } from '../utils.js';
 import { PACKS_SMS } from '../sms.js';
 import {
-  estSuper, rpc, premiere, champ, liste, erreurAdmin, gnf, nombre, ilYa, telLocal, lienWa, exporterCsv, tableau, blocErreur, squelette, MODES_PAIEMENT_YOUMMA
+  estSuper, rpc, premiere, champ, liste, erreurAdmin, gnf, nombre, ilYa, telLocal, lienWa, exporterCsv, tableau, blocErreur, squelette
 } from './commun.js';
+import { chargerModes, libelleMode } from '../modes-paiement.js';
 
 const DUREES = [1, 3, 6, 12];
 const PERIODES = [['mois', 'Ce mois'], ['moisDernier', 'Mois dernier'], ['7j', '7 jours'], ['annee', 'Cette année']];
@@ -80,7 +81,7 @@ export function afficherLicences(conteneur, { majCompteurs }) {
       zone('attente').innerHTML = lignes.length ? lignes.map((p) => `
         <div class="adm-paiement">
           <span class="adm-ligne-textes"><strong>${esc(champ(p, 'boutique_nom', 'boutique') || '—')}</strong>
-            <span class="discret">${esc(objet(p))} · ${esc(MODES_PAIEMENT_YOUMMA[p.mode] || p.mode || '')}${p.reference ? ` · réf. ${esc(p.reference)}` : ''} · ${esc(ilYa(p.created_at))}${champ(p, 'par_nom', 'enregistre_par') ? ` · par ${esc(champ(p, 'par_nom', 'enregistre_par'))}` : ''}</span>
+            <span class="discret">${esc(objet(p))} · ${esc(libelleMode(p.mode))}${p.reference ? ` · réf. ${esc(p.reference)}` : ''} · ${esc(ilYa(p.created_at))}${champ(p, 'par_nom', 'enregistre_par') ? ` · par ${esc(champ(p, 'par_nom', 'enregistre_par'))}` : ''}</span>
             ${p.note ? `<span class="discret">${esc(p.note)}</span>` : ''}</span>
           <strong class="adm-montant">${gnf(p.montant)}</strong>
           ${estSuper() ? `<span class="adm-boutons-ligne"><button type="button" class="btn btn-valider-adm" data-valider="${esc(p.id)}">Valider</button><button type="button" class="btn btn-refuser" data-refuser="${esc(p.id)}">Refuser</button></span>` : '<span class="pastille-admin orange">En attente du super admin</span>'}
@@ -132,7 +133,7 @@ export function afficherLicences(conteneur, { majCompteurs }) {
         ['Date', (p) => esc(formatDate(champ(p, 'valide_at', 'created_at'), 'court'))],
         ['Boutique', (p) => `<strong>${esc(champ(p, 'boutique_nom', 'boutique') || '—')}</strong>`],
         ['Objet', (p) => esc(objet(p))],
-        ['Mode', (p) => esc(MODES_PAIEMENT_YOUMMA[p.mode] || p.mode || '')],
+        ['Mode', (p) => esc(libelleMode(p.mode))],
         ['Par', (p) => `<span class="discret">${esc(champ(p, 'par_nom', 'enregistre_par') || '')}</span>`],
         ['Montant', (p) => `<strong>${gnf(p.montant)}</strong>`, { droite: true }]
       ], s.encaissements, { vide: 'Aucun encaissement sur la période.' });
@@ -163,7 +164,7 @@ export function afficherLicences(conteneur, { majCompteurs }) {
       const { du, au } = bornesPeriode(s.periode);
       exporterCsv(`encaissements-youmma-${du}-${au}.csv`, [
         ['Date', (p) => formatDate(champ(p, 'valide_at', 'created_at'), 'court')], ['Boutique', (p) => champ(p, 'boutique_nom', 'boutique') || ''],
-        ['Objet', (p) => objet(p)], ['Mode', (p) => MODES_PAIEMENT_YOUMMA[p.mode] || p.mode || ''], ['Référence', (p) => p.reference || ''],
+        ['Objet', (p) => objet(p)], ['Mode', (p) => libelleMode(p.mode)], ['Référence', (p) => p.reference || ''],
         ['Par', (p) => champ(p, 'par_nom', 'enregistre_par') || ''], ['Montant (GNF)', (p) => Number(p.montant) || 0]
       ], s.encaissements);
     }
@@ -259,6 +260,7 @@ function ouvrirModifierFormule(f, apres) {
    ========================================================================= */
 
 export async function ouvrirEnregistrerPaiement(boutique, apres) {
+  const modes = await chargerModes('licence'); // modes_de_paiement('licence')
   const formules = (await chargerFormules()).filter((f) => f.actif !== false && Number(f.prix_mois) > 0);
   const s = { boutique, objet: 'licence', formule: formules.find((f) => f.code === boutique?.licence_formule)?.code || formules[0]?.code, duree: 1, pack: 0, montantModifie: false };
   const { el, fermer } = ouvrirModale({
@@ -286,7 +288,7 @@ export async function ouvrirEnregistrerPaiement(boutique, apres) {
         </div>
         <div class="rangee-champs">
           <div class="champ"><label for="pai-montant">Montant (GNF)</label><input id="pai-montant" class="input input-montant" type="text" inputmode="numeric"><small class="aide" data-ref="calcul"></small></div>
-          <div class="champ"><label for="pai-mode">Mode</label><select id="pai-mode" class="input">${Object.entries(MODES_PAIEMENT_YOUMMA).map(([c, l]) => `<option value="${c}" ${c === 'orange_money' ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+          <div class="champ"><label for="pai-mode">Mode</label><select id="pai-mode" class="input">${modes.map((m) => `<option value="${esc(m.code)}" ${m.code === 'orange_money' ? 'selected' : ''}>${esc(m.nom)}</option>`).join('')}</select></div>
         </div>
         <div class="rangee-champs">
           <div class="champ"><label for="pai-ref">Référence (n° de transaction)</label><input id="pai-ref" class="input" type="text" maxlength="80"></div>

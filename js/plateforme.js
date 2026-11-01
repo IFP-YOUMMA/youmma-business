@@ -189,21 +189,34 @@ const SELECTEUR_ECRITURE = [
   '#vue .interrupteur', '#vue [data-ajouter]', '#vue [data-action="ajouter"]'
 ].join(', ');
 let observateur = null;
+/** Écran d'un module en lecture seule (lecture_seule de mes_modules) : mêmes boutons verrouillés que la licence. */
+let moduleEnLecture = false;
+const verrouActif = () => enLectureSeule() || moduleEnLecture;
 
 function verrouiller(racine = document) {
-  if (!enLectureSeule()) return;
-  racine.querySelectorAll?.(SELECTEUR_ECRITURE).forEach((b) => {
+  if (!verrouActif()) return;
+  // Module en lecture seule : aussi les liens de création (« Nouveau devis »). Pas pour la licence : son écran de
+  // renouvellement doit rester ouvert.
+  racine.querySelectorAll?.(moduleEnLecture ? `${SELECTEUR_ECRITURE}, #vue a.btn-primaire` : SELECTEUR_ECRITURE).forEach((b) => {
     if (b.closest('[data-lecture-ok]') || b.hasAttribute('data-fermer') || b.hasAttribute('data-ok') || b.dataset.verrouLicence) return;
     b.dataset.verrouLicence = '1';
     b.disabled = true;
     b.setAttribute('aria-disabled', 'true');
+    if (b.tagName === 'A') b.tabIndex = -1;
     b.title = MESSAGE_LECTURE_SEULE;
   });
 }
 
 /** Active / retire le verrouillage selon l'état de licence courant. */
+/** Ouvre (vrai) ou ferme le verrou d'un module en lecture seule ; appelé par le routeur à chaque écran. */
+export function verrouillerModule(actif) {
+  if (moduleEnLecture === actif) return;
+  moduleEnLecture = actif;
+  appliquerLectureSeule();
+}
+
 export function appliquerLectureSeule() {
-  const actif = enLectureSeule();
+  const actif = verrouActif();
   document.body.classList.toggle('lecture-seule', actif);
   majBandeauLicence();
   if (!actif) {
@@ -213,6 +226,7 @@ export function appliquerLectureSeule() {
       delete b.dataset.verrouLicence;
       b.disabled = false;
       b.removeAttribute('aria-disabled');
+      if (b.tagName === 'A') b.removeAttribute('tabindex');
       if (b.title === MESSAGE_LECTURE_SEULE) b.removeAttribute('title');
     });
     return;

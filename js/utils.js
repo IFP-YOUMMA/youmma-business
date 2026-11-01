@@ -296,17 +296,7 @@ export const TYPES_ACTIVITE = {
 };
 
 /** Modes de paiement : libellés et couleurs des maquettes. */
-export const MODES_PAIEMENT = {
-  especes: { libelle: 'Espèces', court: 'Espèces', couleur: '#0A3D33', fond: '#E6ECE9', encre: '#0A3D33' },
-  orange_money: { libelle: 'Orange Money', court: 'Orange Money', couleur: '#EF6C00', fond: '#FFE8D6', encre: '#8A3B00' },
-  mtn_momo: { libelle: 'MTN MoMo', court: 'MTN MoMo', couleur: '#FBC02D', fond: '#FFF4C2', encre: '#5C4600' },
-  credit: { libelle: 'À crédit', court: 'Crédit', couleur: '#90A4AE', fond: '#FBE9E7', encre: '#9A2E0A' },
-  // Enlèvement sur un compte chantier (payé par l'avance ou mis en dette du chantier).
-  chantier: { libelle: 'Chantier', court: 'Chantier', couleur: '#3BA58A', fond: '#E0F2EC', encre: '#0A5E48' }
-};
-
-/** Modes proposés à la caisse (le mode « chantier » passe par l'écran d'enlèvement). */
-export const MODES_CAISSE = ['especes', 'orange_money', 'mtn_momo', 'credit'];
+/* Modes de paiement : lus dans la base, voir modes-paiement.js (étape 18f). */
 
 /** Numéro de vente lisible : 232 → « V-0232 » (un texte déjà formaté est gardé tel quel). */
 export function formatNumeroVente(numero) {

@@ -46,6 +46,7 @@ export const kpi = (libelle, valeur, sous = '', ton = '') => `<div class="carte 
 
 /** Erreurs de la console affichées telles qu'elles sont décidées, jamais « une erreur est survenue ». */
 const MESSAGES = {
+  MODE_INVALIDE: 'Ce mode de paiement n’est pas accepté. Rechargez la page et choisissez-en un dans la liste.',
   COMPTE_INTROUVABLE: 'Cette personne doit d’abord ouvrir l’application une fois avec ce numéro.',
   SUPER_ADMIN_UNIQUE: 'Il ne peut y avoir qu’un seul super administrateur.',
   SUPER_ADMIN_PROTEGE: 'On ne ferme pas l’accès du super administrateur.',

@@ -189,7 +189,6 @@ export const pastilleStatut = (statut) => {
   return `<span class="col-statut ${s.classe}">${esc(s.libelle)}</span>`;
 };
 export const MODES = { avion: { libelle: 'Avion', icone: 'avion' }, route: { libelle: 'Route', icone: 'camion' }, bateau: { libelle: 'Bateau', icone: 'bateau' } };
-export const MODES_PAIEMENT_COLIS = [['especes', 'Espèces'], ['orange_money', 'Orange Money'], ['wave', 'Wave'], ['mtn_momo', 'MoMo']];
 
 /** Icônes propres au métier (traits 1,7, jamais remplies). */
 export function iconeColis(nom, taille = 18) {

@@ -9,15 +9,15 @@ import { aModule, proprietaireSelonModules } from './modules.js';
 import { etat, estProprietaire } from './state.js';
 import {
   esc, icone, toast, messageErreur, capitaliser, formatNombre, formatGNF, formatMillions, formatQuantite,
-  formatDate, dateISO, decalerDate, bornesPeriode, MODES_PAIEMENT, logoSymbole
+  formatDate, dateISO, decalerDate, bornesPeriode, logoSymbole
 } from './utils.js';
+import { courtMode, apparenceMode, modesConnus } from './modes-paiement.js';
 
 const PERIODES = [
   ['semaine', 'Cette semaine'], ['mois', 'Ce mois'], ['moisDernier', 'Mois dernier'], ['annee', 'Cette année'], ['choix', 'Choisir…']
 ];
 const TITRES_EVOLUTION = { jour: 'Ventes et dépenses par jour', semaine: 'Ventes et dépenses par semaine', mois: 'Ventes et dépenses par mois' };
 const TRIS = [['ca', 'Chiffre d’affaires'], ['marge', 'Marge'], ['quantite', 'Quantité']];
-const ORDRE_MODES = ['especes', 'orange_money', 'mtn_momo', 'credit', 'chantier'];
 const HAUTEUR_BARRE = 160;
 const MAX_VALEURS_AFFICHEES = 12;
 
@@ -272,18 +272,21 @@ export function afficherRapports(conteneur) {
   }
 
   function paiementsHTML(parMode) {
-    const lignes = ORDRE_MODES.map((mode) => ({ mode, montant: Number(parMode[mode]) || 0 }));
+    // Modes de vente donnés par la base, puis crédit et chantier, puis tout autre mode encaissé sur la période.
+    const codes = [...new Set([...modesConnus('vente').map((m) => m.code), 'credit', 'chantier', ...Object.keys(parMode).filter((m) => Number(parMode[m]) > 0)])];
+    const lignes = codes.map((mode) => ({ mode, montant: Number(parMode[mode]) || 0 }))
+      .filter((l) => l.montant > 0 || !['credit', 'chantier'].includes(l.mode) || aModule(l.mode === 'credit' ? 'credits' : 'chantiers'));
     const total = lignes.reduce((t, l) => t + l.montant, 0);
     return `
       <div class="bloc-titres"><h2>Modes de paiement</h2><span>Total · ${formatGNF(total)}</span></div>
-      <div class="barre-empilee" role="img" aria-label="${esc(lignes.map((l) => `${MODES_PAIEMENT[l.mode].court} ${taux(l.montant, total)}`).join(', '))}">
-        ${total ? lignes.filter((l) => l.montant > 0).map((l) => `<div style="width:${(l.montant / total) * 100}%;background:${MODES_PAIEMENT[l.mode].couleur}"></div>`).join('') : ''}
+      <div class="barre-empilee" role="img" aria-label="${esc(lignes.map((l) => `${courtMode(l.mode)} ${taux(l.montant, total)}`).join(', '))}">
+        ${total ? lignes.filter((l) => l.montant > 0).map((l) => `<div style="width:${(l.montant / total) * 100}%;background:${apparenceMode(l.mode).couleur}"></div>`).join('') : ''}
       </div>
       <div class="legende-paiements">
         ${lignes.map((l) => `
           <div class="legende-ligne">
-            <span class="legende-pastille" style="background:${MODES_PAIEMENT[l.mode].couleur}"></span>
-            <span class="legende-libelle">${esc(MODES_PAIEMENT[l.mode].court)}</span>
+            <span class="legende-pastille" style="background:${apparenceMode(l.mode).couleur}"></span>
+            <span class="legende-libelle">${esc(courtMode(l.mode))}</span>
             <span class="legende-montant">${formatNombre(l.montant)}</span>
             <span class="legende-pct">${total ? Math.round((l.montant / total) * 100) : 0} %</span>
           </div>`).join('')}

@@ -8,15 +8,16 @@
 import { sb } from '../supabase.js';
 import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, lireNombre, formatNombre, formatDate, copierTexte, confirmer } from '../utils.js';
 import {
-  api, chargerAgences, agenceSelon, formatTel, montant, pastilleStatut, iconeColis, lienSuivi, dateHeure, STATUTS, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, agenceSelon, codePays, formatTel, montant, pastilleStatut, iconeColis, lienSuivi, dateHeure, STATUTS, MODES
 } from './commun.js';
+import { chargerModes, libelleMode } from '../modes-paiement.js';
 import { imprimerColis } from './etiquettes.js';
 
 /** Les six étapes publiques du parcours (le registre détaillé garde tout le reste). */
 export const ETAPES = [
   ['recu', 'Reçu'], ['entrepot', 'En entrepôt'], ['charge', 'Chargé'], ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']
 ];
-const nomMode = (m) => MODES_PAIEMENT_COLIS.find(([x]) => x === m)?.[1] || m;
+const nomMode = (m) => libelleMode(m);
 const RANG = { a_peser: 0, recu: 0, entrepot: 1, charge: 2, en_route: 2, arrive: 3, a_retirer: 4, retire: 5 };
 
 /** La bascule est dans le seau public « colis » (elle s'affiche aussi sur le suivi). */
@@ -172,8 +173,10 @@ export function afficherFicheColis(conteneur, id) {
 
   /* ---------------- Remise du colis */
 
-  function remettre() {
+  async function remettre() {
     const c = s.c;
+    // Modes du pays du bureau d'arrivée : modes_de_paiement('colis', pays).
+    const modes = c.paye ? [] : await chargerModes('colis', codePays(agenceSelon(s.agences, c.arrivee)));
     const du = c.du_montant;
     const devise = c.du_devise;
     const { el, fermer } = ouvrirModale({
@@ -187,7 +190,7 @@ export function afficherFicheColis(conteneur, id) {
         ${c.paye ? '<p class="col-paiement paye"><span>Déjà payé au départ</span><strong>Rien à encaisser</strong></p>' : `
         <div class="rangee-champs">
           <div class="champ"><label for="rem-montant">Montant encaissé (${esc(devise)})</label><input id="rem-montant" class="input col-gros" type="text" inputmode="numeric" value="${esc(formatNombre(du))}"></div>
-          <div class="champ"><label for="rem-mode">Mode de paiement</label><select id="rem-mode" class="input">${MODES_PAIEMENT_COLIS.map(([m, l]) => `<option value="${m}">${esc(l)}</option>`).join('')}</select></div>
+          <div class="champ"><label for="rem-mode">Mode de paiement</label><select id="rem-mode" class="input">${modes.map((m) => `<option value="${esc(m.code)}">${esc(m.nom)}</option>`).join('')}</select></div>
         </div>`}
         <div class="champ"><span class="etiquette">Signature au doigt</span>
           <canvas class="col-signature" width="640" height="220" data-ref="signature" aria-label="Zone de signature"></canvas>

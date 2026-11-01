@@ -32,6 +32,7 @@ import { afficherEquipe } from './equipe.js';
 import { afficherParametres } from './parametres.js';
 import { afficherStockage } from './stockage.js';
 import { afficherFetes } from './fetes.js';
+import { chargerModes } from '../modes-paiement.js';
 
 const racine = document.getElementById('admin');
 
@@ -246,6 +247,7 @@ export async function demarrer() {
   if (!data?.session) { afficherConnexion(); return; }
   try {
     direction.accueil = await rpc('console_accueil');
+    chargerModes('licence'); // noms des modes dans les historiques de paiement
   } catch (err) {
     const brut = String(err?.message || err || '');
     if (/ACCES_REFUSE|42501|permission/i.test(brut + (err?.code || ''))) { afficherAccesRefuse(); return; }

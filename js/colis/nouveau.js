@@ -12,8 +12,9 @@ import { etat } from '../state.js';
 import { naviguer } from '../router.js';
 import { esc, icone, toast, boutonOccupe, messageErreur, differer, lireNombre, formatNombre } from '../utils.js';
 import {
-  api, chargerAgences, codePays, normaliserTel, montant, nomDevise, iconeColis, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, codePays, normaliserTel, montant, nomDevise, iconeColis, MODES
 } from './commun.js';
+import { chargerModes, modesConnus } from '../modes-paiement.js';
 import { monterPhotos } from './photos.js';
 
 export function afficherNouveauColis(conteneur) {
@@ -42,6 +43,7 @@ export function afficherNouveauColis(conteneur) {
     s.arrivee = s.agences.find((a) => a.id !== s.depart.id && codePays(a) !== codePays(s.depart)) || s.agences.find((a) => a.id !== s.depart.id);
     render();
     chargerTarifsModes();
+    rendreModes();
   }
 
   const agence = (id) => s.agences.find((a) => a.id === id);
@@ -111,7 +113,7 @@ export function afficherNouveauColis(conteneur) {
               <button type="button" class="col-payeur ${s.paye ? '' : 'actif'}" data-paye="0" aria-pressed="${!s.paye}"><strong>À l’arrivée</strong><span data-ref="payeur-arrivee">Le destinataire paie au retrait</span></button>
             </div>
             <div class="col-modes-paiement" data-ref="modes-paiement" ${s.paye ? '' : 'hidden'}>
-              ${MODES_PAIEMENT_COLIS.map(([c, l]) => `<label class="puce-jour"><input type="radio" name="paye-mode" value="${c}" ${c === s.payeMode ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}
+              ${modesHTML(modesConnus('colis', codePays(s.depart)))}
             </div>
           </section>
 
@@ -320,6 +322,17 @@ export function afficherNouveauColis(conteneur) {
   }
 
   /** Changement de trajet : sélecteurs, ville de retrait, bureau, tarifs ; la saisie en cours est gardée. */
+  /** Modes du pays du bureau de départ : modes_de_paiement('colis', pays). */
+  function modesHTML(modes) {
+    if (modes.length && !modes.some((m) => m.code === s.payeMode)) s.payeMode = modes[0].code;
+    return modes.map(({ code, nom }) => `<label class="puce-jour"><input type="radio" name="paye-mode" value="${esc(code)}" ${code === s.payeMode ? 'checked' : ''}><span>${esc(nom)}</span></label>`).join('');
+  }
+  async function rendreModes() {
+    const depart = s.depart;
+    const modes = await chargerModes('colis', codePays(depart));
+    if (s.depart === depart && ref('modes-paiement')) ref('modes-paiement').innerHTML = modesHTML(modes);
+  }
+
   function rendreTrajet() {
     const dep = ref('depart');
     const arr = ref('arrivee');
@@ -330,6 +343,7 @@ export function afficherNouveauColis(conteneur) {
     s.supplements.clear();
     ref('supplements').dataset.signature = '';
     chargerTarifsModes();
+    rendreModes();
   }
 
   demarrer();

@@ -12,12 +12,12 @@ import { ouvrirFormulaireClient, COLONNES_CLIENT } from './clients-commun.js';
 import { imprimerRecuVersement } from './recu.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, initiales, formatGNF,
-  formatTelephone, formaterSaisieMontant, texteSolde, classeSolde, MODES_PAIEMENT
+  formatTelephone, formaterSaisieMontant, texteSolde, classeSolde
 } from './utils.js';
+import { chargerModes, modesConnus, libelleMode } from './modes-paiement.js';
 
 
 export const COLONNES_CHANTIER = 'id, boutique_id, client_id, numero, nom, adresse, statut, solde, cree_par, created_at, cloture_at';
-export const MODES_VERSEMENT = ['especes', 'orange_money', 'mtn_momo'];
 
 /* ------------------------------------------------------------ Solde */
 
@@ -40,11 +40,13 @@ export async function chargerChantierOuvert(idClient) {
 
 /* ------------------------------------------------------------ Boutons de mode de paiement */
 
+/** Modes d'un versement : modes_de_paiement('credit'), comme un remboursement de crédit. */
 function modesHTML(modeChoisi) {
+  chargerModes('credit'); // rafraîchit la copie pour la prochaine fois
   return `
     <div class="modes-remb" role="group" aria-label="Mode de paiement">
-      ${MODES_VERSEMENT.map((code) => `
-        <button type="button" class="mode-remb" data-mode-versement="${code}" aria-pressed="${code === modeChoisi}">${esc(MODES_PAIEMENT[code].libelle)}</button>`).join('')}
+      ${modesConnus('credit').map(({ code, nom }) => `
+        <button type="button" class="mode-remb" data-mode-versement="${code}" aria-pressed="${code === modeChoisi}">${esc(nom)}</button>`).join('')}
     </div>`;
 }
 
@@ -306,7 +308,7 @@ function proposerRecuVersement(recu) {
     contenu: `
       <div class="confirmation">
         <span class="confirmation-icone">${icone('valide', 32, 2.6)}</span>
-        <p class="confirmation-numero">${esc(recu.chantier.nom)} · ${esc(MODES_PAIEMENT[recu.mode].libelle)}</p>
+        <p class="confirmation-numero">${esc(recu.chantier.nom)} · ${esc(libelleMode(recu.mode))}</p>
         <p class="confirmation-total">${formatGNF(recu.montant)}</p>
         <div class="confirmation-monnaie"><span>Nouveau solde</span><strong class="${classeSolde(recu.nouveauSolde)}">${esc(texteSolde(recu.nouveauSolde))}</strong></div>
       </div>

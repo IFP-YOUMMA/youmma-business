@@ -24,12 +24,12 @@ import { aModule, moduleVisible } from './modules.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales,
   formatNombre, formatGNF, formatDate, formatTelephone, formatNumeroVente,
-  dateISO, formaterSaisieMontant, MODES_PAIEMENT
+  dateISO, formaterSaisieMontant
 } from './utils.js';
+import { chargerModes, modesConnus, libelleMode } from './modes-paiement.js';
 
 const LIMITE_HISTORIQUE = 30;
 const TAILLE_LOT_IN = 100;
-const MODES_REMBOURSEMENT = ['especes', 'orange_money', 'mtn_momo'];
 const FILTRES = [
   { code: 'tous', libelle: 'Tous', garde: () => true },
   { code: 'credit', libelle: 'Avec crédit', garde: (c) => c.statut.code !== 'aucun' },
@@ -400,6 +400,8 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
   let client = clientInitial;
   const remb = { montant: null, mode: 'especes', enCours: false, detteSoldee: false };
   const histo = { limite: LIMITE_HISTORIQUE, html: '' };
+  // Modes de remboursement : modes_de_paiement('credit') (déjà en mémoire le plus souvent).
+  if (!modesConnus('credit').length) chargerModes('credit').then((m) => { if (m.length && zone.isConnected) rendre(); });
 
   function rendre() {
     const tel = client.telephone;
@@ -549,8 +551,8 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
           <p class="erreur-champ" id="erreur-remb-${mode}" data-ref="erreur-remb" hidden></p>
         </div>
         <div class="modes-remb" role="group" aria-label="Mode de paiement">
-          ${MODES_REMBOURSEMENT.map((code) => `
-            <button type="button" class="mode-remb" data-mode-remb="${code}" aria-pressed="${remb.mode === code}">${esc(MODES_PAIEMENT[code].libelle)}</button>`).join('')}
+          ${modesConnus('credit').map(({ code, nom }) => `
+            <button type="button" class="mode-remb" data-mode-remb="${code}" aria-pressed="${remb.mode === code}">${esc(nom)}</button>`).join('')}
         </div>
         <div class="ligne-apercu">
           <span class="discret">Nouveau solde<span class="seul-ordi"> après paiement</span></span>
@@ -631,7 +633,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
       contenu: `
         <div class="confirmation">
           <span class="confirmation-icone">${icone('valide', 32, 2.6)}</span>
-          <p class="confirmation-numero">${esc(recu.client)} · ${esc(MODES_PAIEMENT[recu.mode].libelle)}</p>
+          <p class="confirmation-numero">${esc(recu.client)} · ${esc(libelleMode(recu.mode))}</p>
           <p class="confirmation-total">${formatGNF(recu.montant)}</p>
           ${recu.nouveauSolde === 0
             ? '<p class="dette-soldee">Dette soldée ✔</p>'
@@ -724,7 +726,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
       <li class="hist-ligne hist-paiement">
         <span class="hist-icone">${icone('moins', 16, 2.2)}</span>
         <span class="hist-textes">
-          <span class="hist-titre">Remboursement · ${esc(MODES_PAIEMENT[p.mode]?.libelle || p.mode)}</span>
+          <span class="hist-titre">Remboursement · ${esc(libelleMode(p.mode))}</span>
           <span class="discret">${esc(formatDate(p.created_at, 'court'))}${nom ? ' · reçu par ' + esc(nom) : ''}</span>
         </span>
         <span class="hist-montant">− ${formatNombre(p.montant)}</span>

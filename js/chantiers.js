@@ -27,8 +27,9 @@ import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, dateISO, ecartJours,
   lireNombre, lireStockage, ecrireStockage, uniteDivisible, chargerParLots, texteSolde, classeSolde,
-  MODES_PAIEMENT, logoSymbole
+  logoSymbole
 } from './utils.js';
+import { libelleMode } from './modes-paiement.js';
 
 const COLONNES_MOUVEMENT = 'id, chantier_id, type, montant, mode, vente_id, personne, note, photo_path, annule, solde_apres, fait_par, created_at';
 const COLONNES_PRODUIT_CAISSE = 'id, nom, unite, prix_detail, prix_gros, stock, seuil_alerte, sur_commande, code_barre, tailles, couleurs, photo_url, photo_mini_url';
@@ -309,7 +310,7 @@ function afficherCompte(conteneur, id, params) {
   function titreMouvement(m) {
     const numero = formatNumeroVente(s.registre.numeros.get(m.vente_id));
     if (m.type === 'enlevement') return `Enlèvement · ${numero}`;
-    if (m.type === 'versement') return `Versement · ${MODES_PAIEMENT[m.mode]?.libelle || m.mode || ''}`;
+    if (m.type === 'versement') return `Versement · ${libelleMode(m.mode)}`;
     if (m.type === 'annulation_enlevement') return `Annulation enlèvement · ${numero}`;
     return 'Annulation versement';
   }
@@ -1023,7 +1024,7 @@ function afficherReleve(conteneur, id) {
     const numero = formatNumeroVente(s.registre.numeros.get(m.vente_id));
     let texte;
     if (m.type === 'enlevement') texte = `${numero} · ${resumeArticles(s.registre.lignes.get(m.vente_id) || [])}`;
-    else if (m.type === 'versement') texte = `Versement ${MODES_PAIEMENT[m.mode]?.libelle || ''}${m.personne ? ' · ' + m.personne : ''}`;
+    else if (m.type === 'versement') texte = `Versement ${libelleMode(m.mode)}${m.personne ? ' · ' + m.personne : ''}`;
     else if (m.type === 'annulation_enlevement') texte = `Annulation ${numero}`;
     else texte = 'Annulation versement';
     return texte + (m.annule ? ' (annulé)' : '');

@@ -9,8 +9,9 @@ import { PACKS_SMS } from '../sms.js';
 import {
   estSuper, rpc, premiere, champ, liste, appelComptes, erreurAdmin, badgeLicence, etatLicenceTexte, ilYa, telLocal, lienWa,
   urlVitrine, gnf, nombre, exporterCsv, afficherMotDePasse, nouveauMotDePasse, tableau, blocErreur, squelette, libelleAction,
-  detailsAction, TYPES, MODES_PAIEMENT_YOUMMA, avatarBoutique, chargerActivites, tuilesActivites, suivreTuiles } from './commun.js';
+  detailsAction, TYPES, avatarBoutique, chargerActivites, tuilesActivites, suivreTuiles } from './commun.js';
 import { ouvrirEnregistrerPaiement } from './licences.js';
+import { chargerModes, libelleMode } from '../modes-paiement.js';
 
 const FILTRES = [['toutes', 'Toutes'], ['actives', 'Actives'], ['essai', 'Essai'], ['expirent_7j', 'Expirent < 7 j'], ['expirees', 'Expirées'], ['suspendues', 'Suspendues'], ['inactives', 'Inactives 7 j']];
 const PAGE = 50;
@@ -359,7 +360,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         ${tableau([
           ['Date', (p) => esc(formatDate(p.created_at, 'court'))],
           ['Objet', (p) => esc(objetPaiement(p))],
-          ['Mode', (p) => esc(MODES_PAIEMENT_YOUMMA[p.mode] || p.mode || '')],
+          ['Mode', (p) => esc(libelleMode(p.mode))],
           ['Montant', (p) => `<strong>${gnf(p.montant)}</strong>`, { droite: true }],
           ['Statut', (p) => statutPaiement(p.statut)]
         ], paiements, { vide: 'Aucun paiement enregistré.' })}`;
@@ -508,7 +509,9 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
   }
 
   /** Prolonger (mois > 0) ou retirer (mois < 0, super admin) une option : admin_option. */
-  function ouvrirOption(m, mois) {
+  /** Modes d'un paiement à YOUMMA : modes_de_paiement('licence'). */
+  async function ouvrirOption(m, mois) {
+    const modes = mois < 0 ? [] : await chargerModes('licence');
     const retrait = mois < 0;
     const b = s.fiche.boutique || {};
     const restants = m.option_fin ? Math.max(1, Math.ceil((new Date(`${String(m.option_fin).slice(0, 10)}T12:00:00Z`) - Date.now()) / (30 * 864e5))) : 1;
@@ -521,7 +524,7 @@ function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
         <div class="champ"><label for="opt-montant">Montant reçu (GNF)</label><input id="opt-montant" class="input" type="text" inputmode="numeric" placeholder="Calcul du tarif…">
           <small class="aide" data-ref="detail-tarif"></small></div>
         <div class="rangee-champs">
-          <div class="champ"><label for="opt-mode">Mode de paiement</label><select id="opt-mode" class="input">${Object.entries(MODES_PAIEMENT_YOUMMA).map(([c, l]) => `<option value="${c}" ${c === 'orange_money' ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+          <div class="champ"><label for="opt-mode">Mode de paiement</label><select id="opt-mode" class="input">${modes.map((m) => `<option value="${esc(m.code)}" ${m.code === 'orange_money' ? 'selected' : ''}>${esc(m.nom)}</option>`).join('')}</select></div>
           <div class="champ"><label for="opt-ref">Référence (facultatif)</label><input id="opt-ref" class="input" maxlength="80" placeholder="Ex. n° de transaction"></div>
         </div>`}
         <p class="erreur-form" role="alert" hidden></p>

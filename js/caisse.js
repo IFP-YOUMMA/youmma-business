@@ -14,6 +14,7 @@ import { chargerSoldeSms } from './sms.js';
 import { chargerReglages, typeVente, ouvrirDocument } from './documents/donnees.js';
 import { vignetteProduit } from './images/affichage.js';
 import { aModule, vocab, unArticle } from './modules.js';
+import { chargerModes, modesConnus, libelleMode, courtMode, apparenceMode } from './modes-paiement.js';
 import { ongletsVenteHTML } from './onglets-vente.js';
 import { vehiculesActifs, creerLivraisonVente, ouvrirOrganiserLivraison } from './livraisons.js';
 import { chargerUnitesArticles, ouvrirChoixUnite, prixUnite, quantiteEnUnite, completerLignesBase } from './unites.js';
@@ -21,7 +22,7 @@ import { aVariantes, ouvrirChoixVariante, chercherVarianteParCode, chargerVarian
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, lireNombre,
   lireStockage, ecrireStockage, prenom, initiales, formatNombre, formatGNF, formatQuantite, formatDate,
-  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, texteSolde, classeSolde, MODES_PAIEMENT, MODES_CAISSE, prixApplique, promoActive
+  formatTelephone, formatNumeroVente, uniteDivisible, dateISO, texteSolde, classeSolde, prixApplique, promoActive
 } from './utils.js';
 
 const ICONES_UNITES = {
@@ -408,10 +409,10 @@ export function afficherCaisse(conteneur, params) {
   function modesHTML(compact) {
     return `
       <div class="modes ${compact ? 'modes-compacts' : ''}" role="group" aria-label="Mode de paiement">
-        ${Object.entries(MODES_PAIEMENT).filter(([code]) => MODES_CAISSE.includes(code) && (code !== 'credit' || aModule('credits'))).map(([code, m]) => `
+        ${[...modesConnus('vente').map((m) => m.code), ...(aModule('credits') ? ['credit'] : [])].map((code) => `
           <button type="button" class="mode" data-mode="${code}" aria-pressed="${s.mode === code}">
-            ${compact ? '' : `<span class="mode-pastille" style="background:${m.couleur}"></span>`}
-            ${esc(compact ? m.court : m.libelle)}
+            ${compact ? '' : `<span class="mode-pastille" style="background:${apparenceMode(code).couleur}"></span>`}
+            ${esc(compact ? courtMode(code) : libelleMode(code))}
           </button>`).join('')}
       </div>`;
   }
@@ -427,10 +428,10 @@ export function afficherCaisse(conteneur, params) {
           <div class="totaux-ligne"><span class="discret">Monnaie à rendre</span><span class="gras" data-ref="monnaie">${texteMonnaie(total)}</span></div>
         </div>`;
     }
-    if (s.mode === 'orange_money' || s.mode === 'mtn_momo') {
+    if (s.mode !== 'credit') {
       return `
         <div class="detail-mode encadre-info">
-          <span class="gras">Paiement ${esc(MODES_PAIEMENT[s.mode].libelle)}</span>
+          <span class="gras">Paiement ${esc(libelleMode(s.mode))}</span>
           <span>Vérifiez que le paiement est bien arrivé sur le téléphone de la boutique avant de valider.</span>
         </div>`;
     }
@@ -1042,7 +1043,7 @@ export function afficherCaisse(conteneur, params) {
           <span class="confirmation-icone">${icone('valide', 32, 2.6)}</span>
           <p class="confirmation-numero">Vente ${esc(formatNumeroVente(vente.numero))}</p>
           <p class="confirmation-total">${formatGNF(total)}</p>
-          <p class="discret">${esc(MODES_PAIEMENT[instantane.mode].libelle)}${instantane.client ? ' · ' + esc(instantane.client.nom) : ''}</p>
+          <p class="discret">${esc(libelleMode(instantane.mode))}${instantane.client ? ' · ' + esc(instantane.client.nom) : ''}</p>
           ${monnaie !== null ? `<div class="confirmation-monnaie"><span>Monnaie à rendre</span><strong>${formatGNF(Math.max(0, monnaie))}</strong></div>` : ''}
           ${instantane.echeance ? `<p class="discret">Ajouté au crédit du client · échéance le ${esc(formatDate(instantane.echeance, 'court'))}</p>` : ''}
           ${liv ? `<div class="confirmation-livraison" data-zone="etat-livraison">${etatLivraisonHTML(resultatLivraison, liv)}</div>` : ''}
@@ -1266,7 +1267,8 @@ export function afficherCaisse(conteneur, params) {
         .eq('boutique_id', boutique.id)
         .eq('actif', true)
         .order('nom'),
-      sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom')
+      sb.from('categories').select('id, nom, ordre').eq('boutique_id', boutique.id).order('ordre').order('nom'),
+      chargerModes('vente') // modes proposés : modes_de_paiement('vente')
     ]);
     if (produitsRes.error || categoriesRes.error) {
       zone('articles').innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(produitsRes.error || categoriesRes.error))}</p>`;

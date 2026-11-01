@@ -14,8 +14,9 @@ import { esc, icone, messageErreur, formatDate, initiales } from '../utils.js';
 import { chargerJsBarcode, svgCode128 } from '../codes-barres.js';
 import { svgQr } from '../qr.js';
 import {
-  api, chargerAgences, agenceSelon, codePays, formatTel, montant, numeroSansTirets, iconeColis, lienSuivi, MODES, MODES_PAIEMENT_COLIS
+  api, chargerAgences, agenceSelon, codePays, formatTel, montant, numeroSansTirets, iconeColis, lienSuivi, MODES
 } from './commun.js';
+import { libelleMode } from '../modes-paiement.js';
 
 /** QR des étiquettes : noir sur blanc, niveau Q (rattrape un pli, une trace, une impression pâle), zone calme 4. */
 const qrEtiquette = (lien, titre) => svgQr(lien, { titre, niveau: 'Q', marge: 4, couleur: '#000000' });
@@ -102,7 +103,7 @@ export function etiquetteA6(d) {
 /** Le bordereau A4 : reçu de l'expéditeur, avec le montant et la souche. */
 export function bordereauA4(d, reglages = {}) {
   const aPayer = !d.paye;
-  const modePaye = MODES_PAIEMENT_COLIS.find(([c]) => c === d.payeMode)?.[1];
+  const modePaye = d.payeMode ? libelleMode(d.payeMode) : '';
   const du = d.duMontant !== undefined && d.duMontant !== null ? { montant: d.duMontant, devise: d.duDevise || d.arrivee?.devise } : { montant: d.montant, devise: d.devise };
   const bloc = (titre, nom, tel, ligne, pays) => `
     <div class="et-partie"><span class="et-etiquette">${titre}</span><strong>${esc(nom)}</strong><span class="et-gras">${esc(formatTel(tel, { indicatif: true }))}</span>

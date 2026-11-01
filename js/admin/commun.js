@@ -72,9 +72,6 @@ export function suivreTuiles(form) {
     form.querySelectorAll('.carte-type').forEach((c) => c.classList.toggle('choisie', c.querySelector('input').checked));
   });
 }
-export const MODES_PAIEMENT_YOUMMA = {
-  especes: 'Espèces', orange_money: 'Orange Money', mtn_momo: 'MTN MoMo', virement: 'Virement', chapchap: 'ChapChap Pay', offert: 'Offert'
-};
 
 const ETATS_LICENCE = {
   active: ['Active', 'vert'], grace: ['Délai de grâce', 'orange'], lecture_seule: ['Lecture seule', 'rouge'],

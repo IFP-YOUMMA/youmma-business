@@ -20,8 +20,9 @@ import { poserOngletsVente } from './onglets-vente.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, prenom, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, formatNumeroVente, dateISO, decalerDate,
-  bornesPeriode, ecartJours, chargerParLots, MODES_PAIEMENT
+  bornesPeriode, ecartJours, chargerParLots
 } from './utils.js';
+import { libelleMode, courtMode, apparenceMode, modesConnus } from './modes-paiement.js';
 
 const TAILLE_PAGE = 50;
 const PERIODES = [
@@ -62,8 +63,8 @@ function dateCourte(horodatage) {
 /** Badge de paiement (couleurs existantes), ou « Annulée » en gris. */
 function badgeVente(vente) {
   if (vente.statut === 'annulee') return '<span class="badge-paiement badge-annulee">Annulée</span>';
-  const m = MODES_PAIEMENT[vente.mode_paiement] || MODES_PAIEMENT.especes;
-  return `<span class="badge-paiement" style="background:${m.fond};color:${m.encre}">${esc(m.court)}</span>`;
+  const m = apparenceMode(vente.mode_paiement);
+  return `<span class="badge-paiement" style="background:${m.fond};color:${m.encre}">${esc(courtMode(vente.mode_paiement))}</span>`;
 }
 
 /** Point d'entrée des routes #/ventes et #/ventes/<id>. */
@@ -133,7 +134,7 @@ function afficherHistorique(conteneur, idSelection) {
           <span class="sr-only">Mode de paiement</span>
           <select id="filtre-mode">
             <option value="">Paiement : tous</option>
-            ${Object.entries(MODES_PAIEMENT).map(([code, m]) => `<option value="${code}">${esc(m.court)}</option>`).join('')}
+            ${[...modesConnus('vente').map((m) => m.code), ...(aModule('credits') ? ['credit'] : []), ...(aModule('chantiers') ? ['chantier'] : [])].map((code) => `<option value="${code}">${esc(courtMode(code))}</option>`).join('')}
           </select>
         </label>
         <label class="filtre-select" ${toutesLesVentes ? '' : 'hidden'}>
@@ -463,7 +464,7 @@ async function monterDetail(zone, idVente, { mode, refsPromesse, onMaj }) {
             <span class="dv-numero">${esc(formatNumeroVente(vente.numero))}</span>
             <span class="discret">${esc(dateComplete)} · vendeur : ${esc(vendeur ? prenom(vendeur.nom) : '—')}</span>
           </div>
-          ${annulee ? badgeVente(vente) : `<span class="badge-paiement" style="background:${MODES_PAIEMENT[vente.mode_paiement].fond};color:${MODES_PAIEMENT[vente.mode_paiement].encre}">${esc(MODES_PAIEMENT[vente.mode_paiement].libelle)}</span>`}
+          ${annulee ? badgeVente(vente) : `<span class="badge-paiement" style="background:${apparenceMode(vente.mode_paiement).fond};color:${apparenceMode(vente.mode_paiement).encre}">${esc(libelleMode(vente.mode_paiement))}</span>`}
         </div>
 
         ${annulee ? `<p class="bandeau-annulee">${icone('alerte', 16, 2)} Vente annulée</p>` : ''}

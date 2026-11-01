@@ -10,75 +10,70 @@ import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
-import { moduleVisible, aModule, enOption, vocab, activite, chargerModules, estLogistique } from './modules.js';
+import { moduleVisible, aModule, enOption, vocab, activite, chargerModules, donneesModules, infoModule } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
 } from './utils.js';
 
 /**
- * Sections du menu (étape 14 : dix entrées rangées par groupe). `groupe` : titre gris au-dessus (« bas » : séparées
- * par un trait en bas du menu) ; `routes` : écrans qui allument l'entrée ; `droit` : rôle (peut() dans state.js) ;
- * `module` : module de la boutique (étape 11).
+ * Comment ouvrir chaque module (étape 18f) : route, icône, libellé. Ce n'est PAS la liste du menu : une entrée n'existe
+ * que si la base met son code dans actifs (ou dans lecture_seule, grisée), dans l'ordre qu'elle donne (mes_modules).
+ * Un module sans écran à lui (documents, crédits, variantes…) n'a pas d'entrée. `routes` : écrans qui allument
+ * l'entrée ; `droit` : rôle (peut() dans state.js) ; `court` : libellé de la barre du bas ; `onglet` : candidat à la
+ * barre du bas (téléphone) ; `dans` : écran déjà ouvert par l'entrée d'un autre module (ventes dans la caisse).
  */
-export const SECTIONS = [
-  // Un seul « Aujourd'hui » : celui du commerce, ou celui du transit pour une boutique de logistique.
-  { route: 'aujourdhui', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'tableau_de_bord', accueil: 'commerce' },
-  // Étapes 16 et 18 — logistique et transit (activité « logistique » seulement).
-  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison', active: true, module: 'colis', accueil: 'logistique' },
-  { groupe: 'Expéditions', route: 'colis', libelle: 'Colis', icone: 'colis', active: true, module: 'colis' },
-  { groupe: 'Expéditions', route: 'recevoir', libelle: 'Recevoir', icone: 'entree', active: true, module: 'colis', routes: ['recevoir', 'peser'] },
-  { groupe: 'Expéditions', route: 'nouveau-colis', libelle: 'Nouveau colis', icone: 'plus', active: true, module: 'colis' },
-  { groupe: 'Expéditions', route: 'envois', libelle: 'Envois', icone: 'camion', active: true, module: 'envois' },
-  { groupe: 'Expéditions', route: 'comptes', libelle: 'Comptes clients', icone: 'client', active: true, module: 'colis' },
-  { groupe: 'Vente', route: 'caisse', libelle: 'Caisse & ventes', icone: 'caisse', active: true, routes: ['caisse', 'ventes'], module: 'ventes' },
-  { groupe: 'Vente', route: 'proformas', libelle: 'Devis', icone: 'document', active: true, droit: 'devis.creer', module: 'devis', badgeDevis: true },
-  { groupe: 'Vente', route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', active: true, droit: 'commandes.voir', badgeCommandes: true, module: 'boutique_en_ligne' },
-  { groupe: 'Stock & clients', route: 'stock', libelle: 'Articles & stock', icone: 'stock', active: true, module: 'stock' },
-  { groupe: 'Stock & clients', route: 'clients', libelle: 'Clients & crédits', icone: 'clients', active: true, module: 'clients' },
-  { groupe: 'Stock & clients', route: 'chantiers', libelle: 'Chantiers', icone: 'casque', active: true, module: 'chantiers' },
-  { groupe: 'Gestion', route: 'messages', libelle: 'Messages', icone: 'sms', active: true, droit: 'messages.voir', soldeSms: true, module: 'messages' },
-  { groupe: 'Gestion', route: 'depenses', libelle: 'Dépenses', icone: 'depenses', active: true },
-  { groupe: 'Gestion', route: 'rapports', libelle: 'Rapports', icone: 'rapports', active: true, droit: 'rapports', module: 'rapports' },
-  { groupe: 'Gestion', route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', active: true, droit: 'equipe' },
-  { groupe: 'bas', route: 'parametres', libelle: 'Paramètres', icone: 'parametres', active: true },
-  { groupe: 'bas', route: 'aide', libelle: 'Aide', icone: 'aide', active: true, badgeAide: true }
-];
+const ECRANS = {
+  tableau_de_bord: { route: 'aujourdhui', routes: ['aujourdhui', 'transit'], libelle: 'Aujourd’hui', court: 'Accueil', icone: 'maison' },
+  caisse: { route: 'caisse', routes: ['caisse', 'ventes'], libelle: 'Caisse & ventes', court: 'Caisse', icone: 'caisse', onglet: true },
+  ventes: { route: 'ventes', libelle: 'Ventes', icone: 'ventes', dans: 'caisse' },
+  devis: { route: 'proformas', libelle: 'Devis', icone: 'document', droit: 'devis.creer', badgeDevis: true },
+  boutique_en_ligne: { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', droit: 'commandes.voir', badgeCommandes: true },
+  stock: { route: 'stock', libelle: 'Articles & stock', court: 'Stock', icone: 'stock', onglet: true },
+  clients: { route: 'clients', libelle: 'Clients & crédits', court: 'Clients', icone: 'clients', onglet: true },
+  chantiers: { route: 'chantiers', libelle: 'Chantiers', icone: 'casque' },
+  messages: { route: 'messages', libelle: 'Messages', icone: 'sms', droit: 'messages.voir', soldeSms: true },
+  depenses: { route: 'depenses', libelle: 'Dépenses', icone: 'depenses' },
+  rapports: { route: 'rapports', libelle: 'Rapports', icone: 'rapports', droit: 'rapports' },
+  vendeurs: { route: 'vendeurs', libelle: 'Vendeurs', icone: 'vendeurs', droit: 'equipe' },
+  parametres: { route: 'parametres', libelle: 'Paramètres', icone: 'parametres' },
+  // Étapes 16 et 18 — logistique et transit : recevoir, peser, nouveau colis et comptes s'ouvrent depuis « Colis ».
+  colis: { route: 'colis', routes: ['colis', 'nouveau-colis', 'recevoir', 'peser', 'comptes'], libelle: 'Colis', icone: 'colis', onglet: true },
+  envois: { route: 'envois', libelle: 'Envois', icone: 'camion', onglet: true },
+  agences: { route: 'agences', libelle: 'Agences', icone: 'magasin', onglet: true },
+  marche: { route: 'marche', libelle: 'Marché', icone: 'panier' }
+};
 
-/** Sections visibles : droits du rôle ET modules de la boutique (un module en lecture seule reste visible). */
+/**
+ * Entrées du menu : codes de actifs dans l'ordre de la base, puis ceux de lecture_seule (grisés), filtrés par le rôle.
+ * Rien d'autre : un code absent de ces deux listes n'a aucune entrée dans la page.
+ */
 function sectionsVisibles() {
-  // Option payante non payée (boutique en ligne) : l'entrée reste, grisée avec un cadenas, et mène à la page d'activation.
-  const accueil = estLogistique() ? 'logistique' : 'commerce';
-  return SECTIONS.filter((section) => (!section.accueil || section.accueil === accueil)
-    && (!section.droit || peut(section.droit)) && (!section.module || moduleVisible(section.module) || enOption(section.module)));
+  const d = donneesModules();
+  const actifs = d?.actifs || [];
+  const codes = [...actifs.map((code) => [code, false]), ...(d?.lecture_seule || []).filter((c) => !actifs.includes(c)).map((code) => [code, true])];
+  return codes.map(([code, lecture]) => ({ code, lecture, ...ECRANS[code] }))
+    .filter((s) => s.route && !(s.dans && actifs.includes(s.dans)) && (!s.droit || peut(s.droit)));
 }
 
-/** Entrée d'une option à activer (grisée, cadenas à la place des pastilles). */
+/** Route de l'accueil : première entrée du menu (Aujourd'hui), sinon Paramètres (toujours ouvert). */
+export function routeAccueil() {
+  return sectionsVisibles().find((s) => !s.lecture)?.route || 'parametres';
+}
+
+/** Option payante pas encore payée (grisée avec un cadenas, mène à la page d'activation). */
 function verrouillee(section) {
-  return Boolean(section.module && enOption(section.module));
+  return Boolean(section.code && enOption(section.code));
 }
 
-/** Onglet « Stock » de la barre du bas : libellé du menu de l'activité (« Stock », « Menu », « Prestations »…). */
-function libelleOnglet(o) {
-  return o.vocab ? vocab('menu') : o.libelle;
+/** Barre du bas (téléphone) : l'accueil, puis les trois premiers modules d'usage courant que la base a activés. */
+function onglets() {
+  const visibles = sectionsVisibles().filter((s) => !s.lecture);
+  return [...visibles.slice(0, 1), ...visibles.slice(1).filter((s) => s.onglet).slice(0, 3)];
 }
-
-/** Onglets de la barre du bas (téléphone) ; « Vendre » est un bouton rond flottant à part. */
-const ONGLETS = [
-  { route: 'aujourdhui', libelle: 'Accueil', icone: 'maison' },
-  { route: 'caisse', libelle: 'Caisse', icone: 'caisse', routes: ['caisse', 'ventes'] },
-  { route: 'stock', libelle: 'Stock', icone: 'stock', vocab: true },
-  { route: 'clients', libelle: 'Clients', icone: 'clients' }
-];
-/** Barre du bas d'une boutique de logistique : Aujourd'hui, Colis, Envois, Comptes ; bouton rond « Recevoir » (étape 18). */
-const ONGLETS_LOGISTIQUE = [
-  { route: 'transit', libelle: 'Aujourd’hui', icone: 'maison' },
-  { route: 'colis', libelle: 'Colis', icone: 'colis' },
-  { route: 'envois', libelle: 'Envois', icone: 'camion' },
-  { route: 'comptes', libelle: 'Comptes', icone: 'client' }
-];
-const onglets = () => (estLogistique() ? ONGLETS_LOGISTIQUE : ONGLETS);
+const libelleOnglet = (s) => (s.code === 'stock' ? vocab('menu') : s.court || libelleSection(s));
 /** Sections accessibles depuis « Plus » (celles absentes de la barre du bas). */
 const routesBarreBas = () => onglets().map((o) => o.route);
+const signatureBarre = () => onglets().map((o) => o.code).join(' ');
 function barreBasHTML() {
   return `${onglets().map((o) => `
           <a href="#/${o.route}" class="onglet" data-route="${o.route}" ${o.routes ? `data-routes="${o.routes.join(' ')}"` : ''}>
@@ -88,10 +83,10 @@ function barreBasHTML() {
           <span class="onglet-icone">${icone('menu', 21, 1.7)}</span>Plus
         </button>`;
 }
-const boutonRondHTML = () => (estLogistique()
-  ? `${icone('plus', 18, 2.8)}<span>Recevoir</span>`
-  : `${icone('plus', 18, 2.8)}<span>Vendre</span>`);
-const lienBoutonRond = () => (estLogistique() ? '#/recevoir' : '#/caisse?vendre=1');
+/** Bouton rond : « Recevoir » si la base a activé les colis, « Vendre » si elle a activé la caisse, sinon aucun. */
+const actionRonde = () => (aModule('colis') ? { lien: '#/recevoir', texte: 'Recevoir' } : aModule('caisse') ? { lien: '#/caisse?vendre=1', texte: 'Vendre' } : null);
+const boutonRondHTML = () => `${icone('plus', 18, 2.8)}<span>${esc(actionRonde()?.texte || '')}</span>`;
+const lienBoutonRond = () => actionRonde()?.lien || '#/';
 
 /* ------------------------------------------------------------ Coquille */
 
@@ -99,12 +94,13 @@ const lienBoutonRond = () => (estLogistique() ? '#/recevoir' : '#/caisse?vendre=
  * Construit (si besoin) la coquille, marque la page active et renvoie le conteneur de la vue.
  * pleinEcran : masque menus (caisse).
  */
-export function preparerShell({ route, pleinEcran = false }) {
+export function preparerShell({ route, pleinEcran = false, lecture = null }) {
   let shell = document.querySelector('.shell');
   if (!shell || shell.dataset.boutique !== etat.boutique.id) {
     shell = construireShell();
   }
   shell.classList.toggle('plein', pleinEcran);
+  bandeauModule(shell, lecture);
   shell.querySelectorAll('[data-route]').forEach((lien) => {
     const actif = (lien.dataset.routes || lien.dataset.route).split(' ').includes(route);
     lien.classList.toggle('actif', actif);
@@ -141,6 +137,7 @@ function construireShell() {
         <a class="sidebar-logo" href="#/aujourdhui" aria-label="YOUMMA Business — Aujourd’hui">${logoMarque('sombre', 30)}</a>
         ${selecteurBoutique()}
         <div class="menu-liens">${menuHTML()}</div>
+        <div class="menu-bas">${lienAide()}</div>
         ${ligneLicence()}
         <button type="button" class="lien-deconnexion" data-action="deconnexion">${icone('deconnexion', 15, 1.7)}<span>Se déconnecter</span></button>
       </nav>
@@ -157,12 +154,13 @@ function construireShell() {
         <div data-zone="bandeau-licence">${bandeauLicenceHTML()}</div>
         <div data-zone="bandeau-annonce"></div>
         <div data-zone="bandeau-sms"></div>
+        <div data-zone="bandeau-module"></div>
         <main id="vue" tabindex="-1"></main>
       </div>
 
-      <nav class="barre-bas" aria-label="Navigation" data-logistique="${estLogistique()}">${barreBasHTML()}
+      <nav class="barre-bas" aria-label="Navigation" data-barre="${esc(signatureBarre())}">${barreBasHTML()}
       </nav>
-      <a class="bouton-vendre" href="${lienBoutonRond()}">${boutonRondHTML()}</a>
+      <a class="bouton-vendre" href="${lienBoutonRond()}" ${actionRonde() ? '' : 'hidden'}>${boutonRondHTML()}</a>
     </div>`;
 
   const shell = app.querySelector('.shell');
@@ -192,22 +190,26 @@ function brancherShell(shell) {
 
 /** Entrées du menu (pour l'aperçu « Votre menu » de Paramètres › Mes modules). */
 export function entreesMenu() {
-  return sectionsVisibles().map((s) => ({ route: s.route, libelle: libelleSection(s, false), icone: s.icone }));
+  return sectionsVisibles().map((s) => ({ route: s.route, libelle: libelleSection(s), icone: s.icone, lecture: s.lecture }));
 }
 
-/** Menu groupé : « Aujourd'hui », puis Vente / Stock & clients / Gestion, puis Paramètres et Aide sous un trait. */
+/** Menu : les entrées de sectionsVisibles(), dans l'ordre de la base, sans rien ajouter. */
 function menuHTML() {
-  const visibles = sectionsVisibles();
-  const groupes = [];
-  visibles.filter((s) => s.groupe !== 'bas').forEach((s) => {
-    const nom = s.groupe || '';
-    let g = groupes.find((x) => x.nom === nom);
-    if (!g) { g = { nom, sections: [] }; groupes.push(g); }
-    g.sections.push(s);
-  });
-  const bas = visibles.filter((s) => s.groupe === 'bas');
-  return `${groupes.map((g) => `${g.nom ? `<span class="menu-groupe">${esc(g.nom)}</span>` : ''}${g.sections.map(lienMenu).join('')}`).join('')}
-    <div class="menu-bas">${bas.map(lienMenu).join('')}</div>`;
+  return sectionsVisibles().map(lienMenu).join('');
+}
+
+/** Aide YOUMMA : pas un module de la boutique, sous le menu avec la licence et la déconnexion. */
+function lienAide() {
+  return `
+    <a href="#/aide" class="lien-menu" data-route="aide">${icone('aide', 17, 1.7)}<span class="lien-menu-libelle">Aide</span><span class="badge-commandes" data-ref="badge-aide"></span></a>`;
+}
+
+/** Bandeau d'un module en lecture seule (lecture_seule de la base) : on consulte, on n'ajoute plus. */
+function bandeauModule(shell, code) {
+  const zone = shell.querySelector('[data-zone="bandeau-module"]');
+  if (!zone) return;
+  const nom = code ? (infoModule(code)?.nom || ECRANS[code]?.libelle || code) : '';
+  zone.innerHTML = code ? `<p class="bandeau-lecture-seule">${esc(nom)} n’est plus compris dans votre boutique : vous pouvez consulter ce qui existe, mais plus rien ajouter ni modifier.</p>` : '';
 }
 
 /** Pastille or « Devis » : devis en attente (brouillon ou envoyé). */
@@ -234,14 +236,14 @@ export function majMenu() {
   const liens = shell.querySelector('.menu-liens');
   if (liens) liens.innerHTML = menuHTML();
   if (actif) shell.querySelector(`.menu-liens [data-route="${actif}"]`)?.classList.add('actif');
-  // Activité changée (ou modules connus après la coquille) : barre du bas et bouton rond refaits.
+  // Modules changés (ou connus après la coquille) : barre du bas et bouton rond refaits.
   const barre = shell.querySelector('.barre-bas');
-  if (barre && barre.dataset.logistique !== String(estLogistique())) {
+  if (barre && barre.dataset.barre !== signatureBarre()) {
     barre.innerHTML = barreBasHTML();
-    barre.dataset.logistique = String(estLogistique());
-    const rond = shell.querySelector('.bouton-vendre');
-    if (rond) { rond.href = lienBoutonRond(); rond.innerHTML = boutonRondHTML(); }
+    barre.dataset.barre = signatureBarre();
   }
+  const rond = shell.querySelector('.bouton-vendre');
+  if (rond) { rond.href = lienBoutonRond(); rond.innerHTML = boutonRondHTML(); rond.hidden = !actionRonde(); }
   onglets().forEach((o) => { const el = shell.querySelector(`[data-ref="onglet-${o.route}"]`); if (el) el.textContent = libelleOnglet(o); });
   majBadgeDevis();
   shell.querySelectorAll('.selecteur-bouton, .entete-mobile').forEach((el) => el.style.setProperty('--couleur-activite', couleurActivite()));
@@ -254,24 +256,24 @@ window.addEventListener('modules:change', majMenu);
 /* ------------------------------------------------------------ Éléments du menu */
 
 /** Libellé d'une section : « Stock » suit le vocabulaire de l'activité (« Modèles & stock », « Prestations »…). */
-function libelleSection(section, court = true) {
+function libelleSection(section) {
   // « Articles & stock » (« Modèles & stock » en habillement) ; « Menu », « Prestations » restent tels quels.
   if (section.route === 'stock') return vocab('menu') && vocab('menu') !== 'Stock' ? vocab('menu') : `${vocab('articles') || 'Articles'} & stock`;
   if (section.route === 'clients' && !moduleVisible('credits')) return 'Clients';
   // « Vendeurs » suit le vocabulaire de l'activité (activites.vocab.vendeurs, « Employés » pour le transit).
   if (section.route === 'vendeurs') return vocab('vendeurs') || section.libelle;
-  return court ? section.libelleCourt || section.libelle : section.libelle;
+  return section.libelle;
 }
 
 function lienMenu(section) {
   return `
-    <a href="#/${section.route}" class="lien-menu ${verrouillee(section) ? 'verrouille' : ''}" data-route="${section.route}" ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
+    <a href="#/${section.route}" class="lien-menu ${verrouillee(section) ? 'verrouille' : ''} ${section.lecture ? 'en-lecture' : ''}" data-route="${section.route}" data-module="${esc(section.code)}" ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
       ${icone(section.icone, 17, 1.7)}
       <span class="lien-menu-libelle">${esc(libelleSection(section))}</span>
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
       ${section.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
       ${verrouillee(section) ? `<span class="cadenas-menu" title="Option à activer">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
-      ${section.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
+      ${section.lecture ? '<span class="lecture-menu">lecture seule</span>' : ''}
     </a>`;
 }
 
@@ -400,13 +402,14 @@ function ouvrirPanneauPlus() {
             </button>`).join('')}
         </div>` : ''}
       <div class="plus-groupe">
-        ${sections.map((s, i) => `${s.groupe && s.groupe !== 'bas' && s.groupe !== sections[i - 1]?.groupe ? `<span class="plus-groupe-titre">${esc(s.groupe)}</span>` : ''}
-          <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''}">
-            ${icone(s.icone, 20, 1.7)}<span>${esc(libelleSection(s, false))}</span>
+        ${sections.map((s) => `
+          <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''} ${s.lecture ? 'en-lecture' : ''}" data-module="${esc(s.code)}">
+            ${icone(s.icone, 20, 1.7)}<span>${esc(libelleSection(s))}</span>
             ${s.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
             ${verrouillee(s) ? `<span class="cadenas-menu">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
-            ${s.badgeAide ? '<span class="badge-commandes" data-ref="badge-aide"></span>' : ''}
+            ${s.lecture ? '<span class="lecture-menu">lecture seule</span>' : ''}
           </a>`).join('')}
+        <a href="#/aide" class="plus-lien">${icone('aide', 20, 1.7)}<span>Aide</span><span class="badge-commandes" data-ref="badge-aide"></span></a>
         ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
         <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>
       </div>
@@ -439,7 +442,7 @@ export function afficherBientot(conteneur, section) {
         ${section.badge ? `<span class="badge-premium">${esc(section.badge)}</span>` : ''}
         <p class="bientot-texte">${esc(section.description || '')}</p>
         <p class="bientot-statut">${icone('horloge', 16, 2)} Bientôt disponible dans YOUMMA Business</p>
-        <a class="btn btn-primaire" href="#/aujourdhui">Retour à « Aujourd’hui »</a>
+        <a class="btn btn-primaire" href="#/${routeAccueil()}">Retour à l’accueil</a>
       </section>
     </div>`;
 }

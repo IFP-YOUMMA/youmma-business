@@ -1,8 +1,10 @@
 /**
  * modules.js — Modules de la boutique selon son activité (étape 11). Seule source de vérité : la RPC
- * mes_modules(p_boutique) → { activite: { code, nom, emoji, couleur, unites, vocab }, formule, actifs, lecture_seule, modules }.
+ * mes_modules(p_boutique) → { activite: { code, nom, emoji, couleur, unites, vocab, socle }, formule, actifs, lecture_seule, modules }.
  *
- *  - gardé en mémoire et dans le navigateur (par boutique) pour démarrer hors ligne ; sans réseau ni copie : socle seul ;
+ *  - actifs (dans son ordre) fait le menu ; lecture_seule : modules retirés dont il reste des données (consultables) ;
+ *    aucune liste de modules ici, pas même le socle (étape 18f : chaque activité a le sien, activite.socle) ;
+ *  - gardé en mémoire et dans le navigateur (par boutique) pour démarrer hors ligne ;
  *  - rechargé au choix de la boutique, au retour au premier plan, après choisir_module / changer_activite et
  *    dès qu'une action est refusée avec MODULE_INACTIF ;
  *  - l'événement « modules:change » (sur window) permet à chaque écran de se redessiner.
@@ -11,16 +13,13 @@
 import { sb } from './supabase.js';
 import { lireStockage, ecrireStockage } from './utils.js';
 
-/** Toujours présents, quelle que soit l'activité ou la formule. */
-export const SOCLE = ['tableau_de_bord', 'caisse', 'stock', 'ventes', 'clients', 'depenses', 'rapports', 'vendeurs', 'documents', 'parametres'];
-
 /** Activité « logistique » (étapes 16 et 18) : son accueil est celui du transit (#/transit). */
 export const estLogistique = () => courant.donnees?.activite?.code === 'logistique';
 
 /** Écrans (routes) qui appartiennent à un module. */
 export const MODULE_DE_ROUTE = {
   aujourdhui: 'tableau_de_bord',
-  caisse: 'ventes',
+  caisse: 'caisse',
   ventes: 'ventes',
   stock: 'stock',
   clients: 'clients',
@@ -32,15 +31,16 @@ export const MODULE_DE_ROUTE = {
   recevoir: 'colis',
   peser: 'colis',
   comptes: 'colis',
+  agences: 'agences',
+  marche: 'marche',
+  depenses: 'depenses',
+  vendeurs: 'vendeurs',
   chantiers: 'chantiers',
   proformas: 'devis',
   devis: 'devis',
   messages: 'messages',
   'boutique-en-ligne': 'boutique_en_ligne'
 };
-
-/** Modules dont les écrans restent consultables en lecture seule (encaisser, consulter). */
-const ROUTES_LECTURE = ['chantiers'];
 
 const VOCAB_DEFAUT = { article: 'Article', articles: 'Articles', menu: 'Stock', sans_stock: false };
 const cle = (id) => `yb_modules_${id}`;
@@ -96,7 +96,7 @@ export async function chargerModules(idBoutique, { annoncer = true } = {}) {
       return appliquerModules(idBoutique, data, { annoncer });
     } catch (err) {
       console.warn('[YOUMMA] Modules non rechargés :', err?.message || err);
-      // Ni réseau ni copie : socle seul (les écrans des modules restent masqués jusqu'au prochain chargement).
+      // Ni réseau ni copie : rien n'est connu (menu vide, écrans ouverts : la base refuse elle-même ce qui est inactif).
       if (!courant.donnees) courant.donnees = normaliser({});
       return courant.donnees;
     } finally {
@@ -115,18 +115,13 @@ export const donneesModules = () => courant.donnees;
 /** Propriétaire selon la base (null si la réponse ne le dit pas : l'appelant se rabat sur le rôle). */
 export const proprietaireSelonModules = () => (typeof courant.donnees?.proprietaire === 'boolean' ? courant.donnees.proprietaire : null);
 
-/** Vrai si le module est disponible (socle ou actif). */
-/**
- * Vrai si le module est disponible : il est dans actifs (mes_modules, calculé par la base depuis modules_resolus).
- * Un module du socle que la base ne mentionne pas du tout reste présent ; dès qu'elle le liste dans modules sans
- * le mettre dans actifs (ventes, stock, clients… à 0 pour la logistique), il disparaît. Aucune liste en dur ici.
- */
+/** Vrai si le module est disponible : il est dans actifs (mes_modules, calculé par la base depuis modules_resolus). */
 export function aModule(code) {
-  const d = courant.donnees;
-  if (d?.actifs?.includes(code)) return true;
-  if (SOCLE.includes(code)) return !(d?.modules || []).some((m) => m.code === code);
-  return false;
+  return Boolean(courant.donnees?.actifs?.includes(code));
 }
+
+/** Faux tant que la base n'a jamais répondu pour cette boutique (ni réseau ni copie locale). */
+const actifsConnus = () => Boolean(courant.donnees?.actifs?.length);
 
 /** Module plus actif mais avec des opérations en cours : consulter et encaisser seulement. */
 export function enLectureSeule(code) {
@@ -136,9 +131,9 @@ export function enLectureSeule(code) {
 /** Visible (actif ou en lecture seule). */
 export const moduleVisible = (code) => aModule(code) || enLectureSeule(code);
 
-/** actif · inactif · formule · option · bloque · bientot (ou 'socle'). « option » : option payante non payée (étape 14b). */
+/** actif · inactif · formule · option · bloque · bientot (ou 'socle', selon activite.socle). « option » : option payante non payée (étape 14b). */
 export function etatModule(code) {
-  if (SOCLE.includes(code)) return 'socle';
+  if (courant.donnees?.activite?.socle?.includes(code)) return 'socle';
   return courant.donnees?.modules?.find((m) => m.code === code)?.etat || (aModule(code) ? 'actif' : 'inactif');
 }
 
@@ -169,13 +164,16 @@ export function unites() {
   return Array.isArray(u) && u.length ? u : null;
 }
 
-/** Module requis par une route (ou null) ; accès : 'ok' | 'lecture' | 'option' (page d'activation) | 'refuse'. */
+/** Module d'une route (ou null). */
+export const moduleDeRoute = (route) => MODULE_DE_ROUTE[route] || null;
+
+/** Accès à une route : 'ok' | 'lecture' (module dans lecture_seule) | 'option' (page d'activation) | 'refuse'. */
 export function accesRoute(route) {
   const code = MODULE_DE_ROUTE[route];
-  if (!code) return 'ok';
+  if (!code || !actifsConnus()) return 'ok';
   if (aModule(code)) return 'ok';
   if (enOption(code)) return 'option';
-  if (ROUTES_LECTURE.includes(route) && enLectureSeule(code)) return 'lecture';
+  if (enLectureSeule(code)) return 'lecture';
   return 'refuse';
 }
 

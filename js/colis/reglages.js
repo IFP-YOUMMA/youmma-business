@@ -16,6 +16,16 @@ import { monterComptesClients } from './comptes.js';
 const DIVISEUR_DEFAUT = { avion: 6000, route: 5000, bateau: 5000 };
 const COLONNES_TARIF = 'id, nom, agence_depart, agence_arrivee, mode, prix_kg, prix_m3, minimum_kg, frais_fixe, diviseur, delai_jours, jours_depart, capacite_kg, devise, supplements, actif, ordre';
 
+/** Page #/agences (module « agences », étape 18f) : bureaux, corridors, taux du jour et comptes clients. */
+export function afficherAgences(conteneur) {
+  conteneur.innerHTML = `
+    <div class="page page-agences">
+      <header class="page-entete"><div class="page-titres"><h1>Agences</h1><span>Vos bureaux, les corridors entre eux, le taux du jour et les comptes de vos clients.</span></div></header>
+      <div class="col-reglages" data-zone="reglages-colis"></div>
+    </div>`;
+  monterReglagesColis(conteneur.querySelector('[data-zone="reglages-colis"]'));
+}
+
 export function monterReglagesColis(zone) {
   const gerant = estGerant();
   const s = { agences: [], tarifs: [], taux: null, avecColis: new Set() };

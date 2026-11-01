@@ -8,8 +8,9 @@
 import { sb } from './supabase.js';
 import { etat } from './state.js';
 import {
-  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, texteSolde, MODES_PAIEMENT, logoSymbole, imagesPretes
+  esc, formatNombre, formatGNF, formatQuantite, formatDate, formatTelephone, formatNumeroVente, texteSolde, logoSymbole, imagesPretes
 } from './utils.js';
+import { libelleMode } from './modes-paiement.js';
 import { svgQr } from './qr.js';
 import { chargerReglages } from './documents/donnees.js';
 import { lienVerification } from './documents/rendu.js';
@@ -102,7 +103,7 @@ export function htmlRecuVente(recu, { mentions = [], reglages = {}, code = null 
     ${recu.remise ? ligne('Remise', `− ${formatGNF(recu.remise)}`) : ''}
     ${Number(recu.fraisLivraison) ? ligne(recu.libelleLivraison || 'Livraison', formatGNF(recu.fraisLivraison)) : ''}
     ${ligne('TOTAL', formatGNF(recu.total), 'recu-total')}
-    ${ligne('Paiement', MODES_PAIEMENT[recu.mode]?.libelle || recu.mode)}
+    ${ligne('Paiement', libelleMode(recu.mode))}
     ${recu.montantRecu !== null && recu.montantRecu !== undefined
       ? ligne('Reçu', formatGNF(recu.montantRecu)) + ligne('Monnaie rendue', formatGNF(Math.max(0, recu.monnaie || 0)))
       : ''}
@@ -154,7 +155,7 @@ export async function imprimerRecuVersement(recu) {
     ${ligne('Date', formatDate(recu.date, 'complet'))}
     <div class="recu-sep"></div>
     ${ligne('Montant reçu', formatGNF(recu.montant), 'recu-total')}
-    ${ligne('Mode', MODES_PAIEMENT[recu.mode].libelle)}
+    ${ligne('Mode', libelleMode(recu.mode))}
     ${recu.versePar ? ligne('Versé par', recu.versePar) : ''}
     ${ligne('Ancien solde', texteSolde(recu.ancienSolde))}
     ${ligne('Nouveau solde', texteSolde(recu.nouveauSolde))}
@@ -175,7 +176,7 @@ export async function imprimerRecuRemboursement(recu) {
     ${ligne('Client', recu.client)}
     <div class="recu-sep"></div>
     ${ligne('Montant reçu', formatGNF(recu.montant), 'recu-total')}
-    ${ligne('Mode', MODES_PAIEMENT[recu.mode].libelle)}
+    ${ligne('Mode', libelleMode(recu.mode))}
     ${ligne('Ancien solde', formatGNF(recu.ancienSolde))}
     ${ligne('Nouveau solde', formatGNF(recu.nouveauSolde))}
     ${ligne('Encaissé par', recu.encaissePar)}

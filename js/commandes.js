@@ -14,9 +14,10 @@ import { chargerSoldeSms } from './sms.js';
 import { verifierCommandes } from './alertes-commandes.js';
 import { ouvrirOrganiserLivraison } from './livraisons.js';
 import { aModule } from './modules.js';
+import { chargerModes, libelleMode } from './modes-paiement.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, formatNombre, formatGNF, formatDate, formatQuantite,
-  formatTelephone, formatNumeroVente, prenom, dateISO, decalerDate, MODES_PAIEMENT, MODES_CAISSE, lienBoutique
+  formatTelephone, formatNumeroVente, prenom, dateISO, decalerDate, lienBoutique
 } from './utils.js';
 
 const STATUTS = {
@@ -364,7 +365,9 @@ function renderDetail(cadre, c, { stocks, nbAchats, vente, mode, apresAction }) 
 
 async function ouvrirLivraison(c, apres) {
   const avecTel = Boolean(c.telephone);
-  const s = { mode: 'especes', echeance: dateISO(ECHEANCE_PAR_DEFAUT_JOURS) };
+  // Modes donnés par la base (modes_de_paiement('vente')) ; « À crédit » si le module crédits est actif.
+  const modes = [...(await chargerModes('vente')).map((m) => m.code), ...(aModule('credits') ? ['credit'] : [])];
+  const s = { mode: modes[0] || 'especes', echeance: dateISO(ECHEANCE_PAR_DEFAUT_JOURS) };
   const { el, fermer } = ouvrirModale({
     titre: `Livrer la commande ${c.numero}`,
     contenu: `
@@ -373,7 +376,7 @@ async function ouvrirLivraison(c, apres) {
         <div class="champ">
           <span class="etiquette">Mode de paiement</span>
           <div class="modes-livraison" role="radiogroup" aria-label="Mode de paiement">
-            ${MODES_CAISSE.map((m) => `<button type="button" class="mode-livraison" role="radio" data-mode="${m}" aria-checked="${m === s.mode}">${esc(MODES_PAIEMENT[m].libelle)}</button>`).join('')}
+            ${modes.map((m) => `<button type="button" class="mode-livraison" role="radio" data-mode="${m}" aria-checked="${m === s.mode}">${esc(libelleMode(m))}</button>`).join('')}
           </div>
         </div>
         <div class="champ" data-zone="echeance" hidden>

@@ -12,8 +12,9 @@ import { sb } from './supabase.js';
 import { etat, estGerant, estProprietaire, utilisateur } from './state.js';
 import { naviguer } from './router.js';
 import { aModule, moduleVisible } from './modules.js';
+import { courtMode, apparenceMode, modesConnus } from './modes-paiement.js';
 import {
-  esc, icone, capitaliser, initiales, formatNombre, formatGNF, formatMillions, formatDate, formatNumeroVente, dateISO, MODES_PAIEMENT
+  esc, icone, capitaliser, initiales, formatNombre, formatGNF, formatMillions, formatDate, formatNumeroVente, dateISO
 } from './utils.js';
 
 const JOURS_COURTS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -171,15 +172,17 @@ export function afficherAujourdhui(conteneur) {
   /* ---------------- Modes de paiement (7 jours) */
 
   function renderPaiements(p = {}) {
-    const modes = Object.keys(MODES_PAIEMENT).filter((m) => n(p[m]) > 0 || ['especes', 'orange_money', 'mtn_momo'].includes(m)
-      || (m === 'credit' && moduleVisible('credits')) || (m === 'chantier' && moduleVisible('chantiers')));
+    // Modes de vente donnés par la base (modes_de_paiement('vente')), plus tout mode encaissé cette semaine.
+    const modes = [...new Set([...modesConnus('vente').map((m) => m.code),
+      ...(moduleVisible('credits') ? ['credit'] : []), ...(moduleVisible('chantiers') ? ['chantier'] : []),
+      ...Object.keys(p).filter((m) => n(p[m]) > 0)])];
     const total = modes.reduce((t, m) => t + n(p[m]), 0);
     zone('paiements').innerHTML = `
       <div class="auj-carte-entete"><h2>Modes de paiement</h2><span class="auj-sous-titre">7 jours</span></div>
-      <span class="auj-empile">${total ? modes.filter((m) => n(p[m])).map((m) => `<span style="width:${(n(p[m]) / total) * 100}%;background:${MODES_PAIEMENT[m].couleur}"></span>`).join('') : ''}</span>
+      <span class="auj-empile">${total ? modes.filter((m) => n(p[m])).map((m) => `<span style="width:${(n(p[m]) / total) * 100}%;background:${apparenceMode(m).couleur}"></span>`).join('') : ''}</span>
       <div class="auj-modes">${modes.map((m) => `
-        <div class="auj-mode ${n(p[m]) ? '' : 'nul'}"><span class="auj-mode-pastille" style="background:${MODES_PAIEMENT[m].couleur}"></span>
-          <span class="auj-mode-nom">${esc(MODES_PAIEMENT[m].court)}</span><strong class="auj-nombre">${formatNombre(n(p[m]))}</strong>
+        <div class="auj-mode ${n(p[m]) ? '' : 'nul'}"><span class="auj-mode-pastille" style="background:${apparenceMode(m).couleur}"></span>
+          <span class="auj-mode-nom">${esc(courtMode(m))}</span><strong class="auj-nombre">${formatNombre(n(p[m]))}</strong>
           <span class="auj-mode-pct">${total && n(p[m]) ? `${Math.round((n(p[m]) / total) * 100)} %` : ''}</span></div>`).join('')}</div>`;
   }
 
@@ -221,7 +224,7 @@ export function afficherAujourdhui(conteneur) {
     (lignes.data || []).forEach((l) => { if (!articles.has(l.vente_id)) articles.set(l.vente_id, []); articles.get(l.vente_id).push(`${l.nom_produit} ×${formatNombre(l.quantite, 3)}`); });
     const liste = ventes.map((v) => {
       const a = articles.get(v.id) || [];
-      return { ...v, client: noms.get(v.client_id) || 'Client comptoir', articles: a.slice(0, 2).join(', '), plus: Math.max(0, a.length - 2), mode: MODES_PAIEMENT[v.mode_paiement] || MODES_PAIEMENT.especes };
+      return { ...v, client: noms.get(v.client_id) || 'Client comptoir', articles: a.slice(0, 2).join(', '), plus: Math.max(0, a.length - 2), mode: { couleur: apparenceMode(v.mode_paiement).couleur, court: courtMode(v.mode_paiement) } };
     });
     z.innerHTML = `
       <div class="auj-carte-entete auj-entete-tableau"><h2>${vendeur ? 'Mes dernières ventes' : 'Dernières ventes'}</h2><a class="auj-lien" href="#/ventes">Historique complet ›</a></div>

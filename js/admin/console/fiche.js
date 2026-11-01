@@ -12,6 +12,7 @@
 import { esc, icone, formatNombre, formatGNF, formatDate, confirmer, toast, ouvrirModale, boutonOccupe } from '../../utils.js';
 import { rpc, initiales, telLocal, lienWa, ilYa } from '../commun.js';
 import { ouvrirEnregistrerPaiement } from '../licences.js';
+import { chargerModes } from '../../modes-paiement.js';
 import { ouvrirSuspension, ouvrirDateLibre } from '../boutiques.js';
 import { espace, estSuperAdmin, montantDevise, erreurConsole, dernierUsage, finDans, SEUIL_AFFICHES, chargerFormulesConsole } from './commun.js';
 
@@ -150,16 +151,20 @@ function ouvrirCommission(f, relire) {
   });
 }
 
-/** regler_fournisseur(p_fournisseur, p_mode) : la base règle ce qui lui est dû et renvoie { montant, devise, lignes }. */
-const MODES_REGLEMENT = [['especes', 'Espèces'], ['orange_money', 'Orange Money'], ['wave', 'Wave'], ['mtn_momo', 'MoMo']];
-function ouvrirReglement(f, relire) {
+/**
+ * regler_fournisseur(p_fournisseur, p_mode) : la base règle ce qui lui est dû et renvoie { montant, devise, lignes }.
+ * Modes proposés : modes_de_paiement('fournisseur') ; un mode inconnu est refusé (MODE_INVALIDE).
+ */
+async function ouvrirReglement(f, relire) {
   const c = f.commission;
+  const modes = await chargerModes('fournisseur');
+  if (!modes.length) { toast('Impossible de lire les modes de paiement. Vérifiez la connexion.', 'erreur'); return; }
   const { el, fermer } = ouvrirModale({
     titre: `Payer « ${f.nom} »`,
     contenu: `
       <form class="form-modale" novalidate>
         <p class="texte-modale">À lui verser, selon la base : <strong>${esc(montantDevise(c.a_lui_verser, c.devise))}</strong>. Votre commission est déjà retenue.</p>
-        <div class="champ"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${MODES_REGLEMENT.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></div>
+        <div class="champ"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${modes.map((m) => `<option value="${esc(m.code)}">${esc(m.nom)}</option>`).join('')}</select></div>
         <p class="erreur-form" role="alert" hidden></p>
         <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer le règlement</button></div>
       </form>`
