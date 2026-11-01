@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v30';
+const VERSION_CACHE = 'yb-statique-v31';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -56,9 +56,17 @@ const FICHIERS_STATIQUES = [
   './js/plateforme.js',
   './js/aide.js',
   './js/licence.js',
-  // Panneau d'administration YOUMMA (page séparée admin/)
+  // Console de direction YOUMMA (page séparée admin/, étape 19)
   './admin/index.html',
   './css/admin.css',
+  './css/console.css',
+  './js/admin/console/commun.js',
+  './js/admin/console/accueil.js',
+  './js/admin/console/espace.js',
+  './js/admin/console/fiche.js',
+  './js/admin/console/acces.js',
+  './js/admin/console/terrain.js',
+  './js/admin/console/recherche.js',
   './js/admin/app.js',
   './js/admin/commun.js',
   './js/admin/accueil.js',
