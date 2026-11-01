@@ -12,8 +12,8 @@
 import { esc, icone, formatNombre, formatGNF, differer } from '../../utils.js';
 import { rpc, tableau, chargerActivites, telLocal } from '../commun.js';
 import {
-  espace, peutGererAcces, estSuperAdmin, entete, kpi, montantEspace, erreurConsole, dernierUsage, etatAffiches,
-  SEUIL_AFFICHES, chargerFormulesConsole, finDans
+  espace, peutGererAcces, estSuperAdmin, entete, kpi, montantEspace, montantDevise, erreurConsole, dernierUsage, etatAffiches,
+  SEUIL_AFFICHES, chargerFormulesConsole, finDans, drapeau
 } from './commun.js';
 
 const FILTRES = {
@@ -83,9 +83,16 @@ export function afficherEspace(conteneur, { id }) {
     const endormies = s.tous.filter((b) => b.endormie).length;
     if (vendeurs) {
       const muets = s.tous.filter((b) => Number(b.affiches_30j) < SEUIL_AFFICHES).length;
+      // « À leur verser » : total des montants de la base, seulement s'ils sont tous dans la même monnaie
+      // (on n'additionne jamais deux monnaies).
+      const dus = s.tous.filter((b) => Number(b.a_lui_verser) > 0);
+      const devises = [...new Set(dus.map((b) => b.devise))];
+      const aVerser = devises.length === 1
+        ? kpi('À leur verser', esc(montantDevise(dus.reduce((t, b) => t + Number(b.a_lui_verser), 0), devises[0])), `${formatNombre(dus.length)} vendeur${dus.length > 1 ? 's' : ''}`, 'rouge')
+        : kpi('À leur verser', dus.length ? `${formatNombre(dus.length)} <small>vendeurs</small>` : '0', dus.length ? 'plusieurs monnaies : voir la colonne' : 'rien en attente');
       q('[data-zone="kpis"]').innerHTML = [
         kpi('Commission, 30 derniers jours', esc(montantEspace(e, e.recette_30j)), 'votre part, calculée par la base', 'vert'),
-        kpi('Argent des clients en caisse', esc(montantEspace(e, e.en_caisse)), 'ne vous appartient pas encore'),
+        aVerser,
         kpi('N’ouvrent plus l’application', formatNombre(endormies), endormies ? 'depuis plus de 21 jours' : 'tous l’ouvrent', endormies ? 'rouge' : ''),
         kpi('Ne publient plus', `${formatNombre(muets)} <small>vendeur${muets > 1 ? 's' : ''}</small>`, `moins de ${SEUIL_AFFICHES} affiches sur 30 jours`, muets ? 'rouge' : 'vert')
       ].join('');
@@ -107,20 +114,27 @@ export function afficherEspace(conteneur, { id }) {
     const ouvrir = (b) => `data-fiche="${esc(b.id)}" tabindex="0" class="cs-ligne-cliquable"`;
     const nom = (b) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b.id)}">${esc(b.nom)}</a><span class="cs-sous-ligne">${esc(nomActivite(b.type_activite))}</span>`;
     const usage = (b) => `<span class="cs-usage ${b.endormie ? 'rouge' : ''}">${esc(dernierUsage(b.derniere_activite))}</span>`;
+    const ville = (b) => `${drapeau(b.drapeau)} ${esc(b.ville || '—')}`;
+    // Montants d'un vendeur dans sa monnaie (devise de la ligne), tels que la base les renvoie.
+    const m = (n, b) => esc(montantDevise(n, b.devise));
     const colonnes = vendeurs ? [
-      ['Vendeur', nom],
-      ['Ville', (b) => esc(b.ville || '—')],
+      ['Vendeur', (b) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b.id)}">${esc(b.nom)}</a><span class="cs-sous-ligne">${esc(b.specialite || b.activite_nom || nomActivite(b.type_activite))}</span>`],
+      ['Ville', ville],
       ['Com.', (b) => `<strong class="vert">${b.commission === null || b.commission === undefined ? '—' : `${formatNombre(b.commission, 2)} %`}</strong>`],
-      ['Votre part, 30 j', (b) => `<strong>${esc(montantEspace(e, b.commission_30j))}</strong>`, { droite: true }],
+      ['Art.', (b) => `${formatNombre(b.articles)}${Number(b.articles_sans_photo) ? ` <small class="rouge" title="sans photo">· ${formatNombre(b.articles_sans_photo)} sans photo</small>` : ''}`],
+      ['Cmd.', (b) => formatNombre(b.commandes_30j)],
+      ['Ventes, 30 j', (b) => m(b.ventes_30j, b), { droite: true }],
+      ['Votre part', (b) => `<strong class="vert">${m(b.votre_part_30j ?? b.commission_30j, b)}</strong>`, { droite: true }],
+      ['À lui verser', (b) => `<strong>${m(b.a_lui_verser, b)}</strong>`, { droite: true }],
       ['Affiches, 30 j', (b) => `<strong class="${Number(b.affiches_30j) < SEUIL_AFFICHES ? 'rouge' : 'vert'}">${formatNombre(b.affiches_30j)}/30</strong>`],
       ['Dernier usage', usage],
       ['État', (b) => (b.suspendue ? pastille('Suspendu', 'gris') : pastille(...etatAffiches(b.affiches_30j)))]
     ] : [
-      ['Boutique', (b) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b.id)}">${esc(b.nom)}</a><span class="cs-sous-ligne">${esc(telLocal(b.telephone))}</span>`],
-      ['Ville', (b) => esc(b.ville || '—')],
-      ['Activité', (b) => esc(nomActivite(b.type_activite))],
+      ['Boutique', (b) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b.id)}">${esc(b.nom)}</a><span class="cs-sous-ligne">${esc([b.proprietaire, telLocal(b.telephone)].filter(Boolean).join(' · '))}</span>`],
+      ['Ville', ville],
+      ['Activité', (b) => esc(b.activite_nom || nomActivite(b.type_activite))],
       ['Formule', (b) => pastille(s.formules[b.licence_formule]?.nom || b.licence_formule || '—', 'violet')],
-      ['Par mois', (b) => { const f = s.formules[b.licence_formule]; return f ? esc(formatGNF(f.prix_mois)) : '—'; }, { droite: true }],
+      ['Par mois', (b) => { const p = b.prix_mois ?? s.formules[b.licence_formule]?.prix_mois; return p === null || p === undefined ? '—' : esc(formatGNF(p)); }, { droite: true }],
       ['Finit dans', (b) => `<strong class="${Number(b.jours_restants) <= 15 ? 'rouge' : 'vert'}">${esc(finDans(b.jours_restants))}</strong>`],
       ['Dernier usage', usage],
       ['État', etatLicence]

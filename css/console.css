@@ -233,7 +233,7 @@
 .cs-avant-partir strong { font-size: 14px; }
 .cs-avant-partir small { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 .cs-num { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; background: var(--fond-segments); color: var(--muted); font-weight: 800; font-size: 13px; }
-.cs-num.vert { background: var(--primary); color: #FFFFFF; }
+.cs-page .cs-avant-partir span.cs-num.vert { background: var(--primary); color: #FFFFFF; }
 .cs-num.or { background: var(--accent-light); color: var(--accent-encre); }
 
 /* Impression du QR du terrain : seule la copie sous <body> s'imprime. */
@@ -275,3 +275,19 @@
   .cs-pret-qr { flex-direction: column; align-items: flex-start; }
   .cs-tableau-roles td:not(:first-child) { text-align: right; }
 }
+
+/* Étape 19c : code d'invitation, lien vendeur, drapeaux des listes */
+.cs-drapeau { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; font-size: 15px; line-height: 1; }
+.cs-invitation { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--navy-2); border: 1px solid var(--navy-border); }
+.cs-invitation span { font-size: 12px; color: var(--navy-text); font-weight: 700; }
+.cs-invitation strong { font-size: 34px; font-weight: 800; letter-spacing: .14em; color: var(--accent-light); }
+.cs-invitation small { font-size: 12px; color: var(--navy-lien); }
+.cs-pret > .cs-pret-avertissement { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--alerte-bg); color: var(--alerte); font-size: 13px; line-height: 1.45; }
+.cs-pret-avertissement svg { flex: none; margin-top: 2px; }
+.cs-pret-vendeur { margin: 0; font-size: 13px; color: var(--navy-lien); overflow-wrap: anywhere; }
+.cs-pret-vendeur a { color: var(--accent-light); font-weight: 800; }
+.cs-pret-actions:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.cs-secours { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cs-secours p { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+.cs-secours-manque { color: var(--alerte); font-weight: 700; }
+.cs-secours-ok svg { color: var(--primary); }

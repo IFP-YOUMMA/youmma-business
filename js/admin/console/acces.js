@@ -80,7 +80,8 @@ export function afficherAcces(conteneur) {
         <section class="carte cs-encart cs-encart-jaune"><h2>Un compte par personne, jamais un compte partagé</h2>
           <p>Le jour où un versement manque, la seule question qui compte est « qui l’a encaissé ». Avec un compte partagé entre trois employés, cette question n’a pas de réponse, et vous vous retrouvez à soupçonner trois personnes au lieu d’en interroger une.</p></section>
         <section class="carte cs-encart"><h2>Ce qui se passe si vous perdez votre téléphone</h2>
-          <p>Le super administrateur est unique : personne, pas même votre associé, ne peut le remplacer depuis l’application. Gardez un deuxième moyen de vous reconnecter — un numéro de secours — sinon il faudra passer par nous pour rouvrir la porte.</p></section>
+          <p>Le super administrateur est unique : personne, pas même votre associé, ne peut le remplacer depuis l’application. Gardez un deuxième moyen de vous reconnecter — un numéro de secours — sinon il faudra passer par nous pour rouvrir la porte.</p>
+          <div class="cs-secours" data-zone="secours"></div></section>
       </div>
     </div>`;
   const zone = conteneur.querySelector('[data-zone="acces"]');
@@ -92,8 +93,23 @@ export function afficherAcces(conteneur) {
     try { rendre(await rpc('console_acces')); } catch (err) { zone.innerHTML = `<p class="bloc-erreur">${esc(erreurConsole(err))}</p>`; }
   };
 
+  // Numéro de secours : mon_acces() dit s'il manque ; numero_de_secours(p_telephone) l'enregistre.
+  const zoneSecours = conteneur.querySelector('[data-zone="secours"]');
+  const secours = async () => {
+    try {
+      const m = await rpc('mon_acces');
+      zoneSecours.innerHTML = m?.secours_manquant || !m?.tel_secours
+        ? `<p class="cs-secours-manque">${icone('alerte', 16, 2)} Aucun numéro de secours enregistré.</p>
+           <button type="button" class="btn btn-secondaire btn-bloc" data-action="secours">${icone('telephone', 18, 2)} Enregistrer un numéro de secours</button>`
+        : `<p class="cs-secours-ok">${icone('valide', 16, 2.4)} Numéro de secours : <strong>${esc(telLocal(m.tel_secours))}</strong></p>
+           <button type="button" class="btn btn-secondaire btn-bloc" data-action="secours">Changer le numéro de secours</button>`;
+    } catch (err) { zoneSecours.innerHTML = `<p class="bloc-erreur">${esc(erreurConsole(err))}</p>`; }
+  };
+  secours();
+
   conteneur.addEventListener('click', async (ev) => {
     if (ev.target.closest('[data-action="ajouter"]')) { ouvrirAjout(rendre); return; }
+    if (ev.target.closest('[data-action="secours"]')) { ouvrirSecours(secours); return; }
     const b = ev.target.closest('[data-fermer-acces]');
     if (b) {
       if (!(await confirmer(`Fermer l’accès de ${b.dataset.nom || 'cette personne'} à la console ? Son compte de l’application reste ouvert.`, { titre: 'Fermer un accès', libelleOk: 'Fermer l’accès', danger: true }))) return;
@@ -157,6 +173,28 @@ function ouvrirAjout(rendre) {
       boutonOccupe(bouton, false);
       erreur(erreurConsole(err));
     }
+  });
+}
+
+function ouvrirSecours(apres) {
+  const { el, fermer } = ouvrirModale({
+    titre: 'Numéro de secours',
+    contenu: `
+      <form class="form-modale" novalidate>
+        <p class="texte-modale">Un deuxième numéro, à vous, pour vous reconnecter si vous perdez votre téléphone. Pas celui d’un employé.</p>
+        <div class="champ"><label for="sc-tel">Téléphone de secours</label><input id="sc-tel" class="input" type="tel" inputmode="tel" placeholder="620 00 00 00" required></div>
+        <p class="erreur-form" role="alert" hidden></p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
+      </form>`
+  });
+  el.querySelector('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const z = el.querySelector('.erreur-form');
+    const tel = telInternational(el.querySelector('#sc-tel').value);
+    if (!tel) { z.textContent = 'Numéro invalide.'; z.hidden = false; return; }
+    const bouton = el.querySelector('[type=submit]');
+    boutonOccupe(bouton, true, 'Enregistrement…');
+    try { await rpc('numero_de_secours', { p_telephone: tel }); fermer(); toast('Numéro de secours enregistré.', 'succes'); apres(); } catch (err) { boutonOccupe(bouton, false); z.textContent = erreurConsole(err); z.hidden = false; }
   });
 }
 

@@ -37,9 +37,13 @@ export function afficherTerrain(conteneur, { params }) {
         <div class="champ"><label for="tv-proprio">Nom du ou de la propriétaire</label><input id="tv-proprio" class="input" type="text" maxlength="80" required placeholder="Fatou Ndiaye"></div>
         <div class="champ"><label for="tv-activite">Ce qu’elle vend</label><select id="tv-activite" class="input" required><option value="">Choisir…</option></select></div>
         ${commission ? `
-          <div class="champ"><label for="tv-commission">Commission (obligatoire)</label>
-            <div class="cs-champ-unite"><input id="tv-commission" class="input" type="text" inputmode="decimal" placeholder="8"><span>%</span></div>
-            <small class="aide">La commission est prise sur ce que YOUMMA lui reverse. Elle affiche son prix, elle touche son prix moins la commission ; l’acheteur paie le prix affiché.</small></div>`
+          <div class="rangee-champs">
+            <div class="champ"><label for="tv-commission">Commission (obligatoire)</label>
+              <div class="cs-champ-unite"><input id="tv-commission" class="input" type="text" inputmode="decimal" placeholder="8"><span>%</span></div></div>
+            <div class="champ"><label for="tv-delai">Prépare en</label>
+              <div class="cs-champ-unite"><input id="tv-delai" class="input" type="text" inputmode="numeric" value="2"><span>jours</span></div></div>
+          </div>
+          <small class="aide">La commission est prise sur ce que YOUMMA lui reverse. Elle affiche son prix, elle touche son prix moins la commission ; l’acheteur paie le prix affiché.</small>`
         : `
           <div class="champ"><label for="tv-mois">Mois offerts</label><select id="tv-mois" class="input">
             <option value="0">Aucun</option><option value="1" selected>1 mois</option><option value="2">2 mois</option><option value="3">3 mois</option></select></div>`}
@@ -69,21 +73,28 @@ export function afficherTerrain(conteneur, { params }) {
     const saisie = commission ? q('#tv-commission').value.trim().replace(',', '.') : '';
     const taux = saisie === '' ? null : Number(saisie);
     if (commission && saisie !== '' && !(taux > 0 && taux < 100)) { erreur('Commission invalide : un pourcentage entre 0 et 100.'); return; }
+    const delai = commission ? Number(q('#tv-delai').value.trim()) : null;
+    if (commission && !(Number.isInteger(delai) && delai >= 0 && delai <= 60)) { erreur('« Prépare en » : un nombre de jours entre 0 et 60.'); return; }
     const bouton = q('[type=submit]');
     boutonOccupe(bouton, true, 'Création…');
     try {
       const r = await rpc('console_creer_boutique', {
         p_nom: nom, p_activite: activite, p_ville: ville, p_telephone: tel, p_proprietaire: proprietaire,
-        p_espace: choisi.code, p_commission: commission ? taux : null, p_mois_offerts: commission ? null : Number(q('#tv-mois').value)
+        p_espace: choisi.code, p_commission: commission ? taux : null, p_mois_offerts: commission ? null : Number(q('#tv-mois').value),
+        ...(commission ? { p_delai_jours: delai } : {})
       });
-      let ouvert = !commission;
+      let vendeur = null;
       if (commission) {
-        try { ouvert = Boolean((await rpc('ouvrir_vendeur', { p_boutique: r.id }))?.ok); } catch (err) { toast(`Vendeur créé, mais vitrine non ouverte : ${erreurConsole(err)}`, 'erreur', 8000); }
+        try { vendeur = await rpc('ouvrir_vendeur', { p_boutique: r.id }); } catch (err) { toast(`Vendeur créé, mais vitrine non ouverte : ${erreurConsole(err)}`, 'erreur', 8000); }
       }
       const fiche = await rpc('console_fiche_boutique', { p_boutique: r.id }).catch(() => null);
       boutonOccupe(bouton, false);
       q('form').hidden = true;
-      afficherPret({ id: r.id, nom: r.nom || nom, proprietaire, tel, slug: fiche?.slug || null, ouvert, commission });
+      afficherPret({
+        id: r.id, nom: r.nom || nom, proprietaire, tel: r.telephone || tel, slug: fiche?.slug || null, commission,
+        ouvert: commission ? Boolean(vendeur?.ok) : true, lienVendeur: vendeur?.lien_vendeur || null,
+        invitation: r.invitation || null, avertissement: r.avertissement || '', enAttente: Boolean(r.proprietaire_en_attente)
+      });
     } catch (err) {
       boutonOccupe(bouton, false);
       erreur(erreurConsole(err));
@@ -93,10 +104,21 @@ export function afficherTerrain(conteneur, { params }) {
   function afficherPret(b) {
     const lien = b.slug ? urlVitrine(b.slug) : null;
     const court = b.slug ? new URL(`../b/${encodeURIComponent(b.slug)}`, location.href.split('#')[0]).href.replace(/^https?:\/\//, '') : '';
-    const message = lien ? `Bonjour ${b.proprietaire}, voici votre boutique en ligne : ${lien}\nCollez le QR sur votre boutique : le client scanne, voit vos articles et commande.` : '';
+    const inv = b.invitation;
+    // Le message WhatsApp ne reprend que ce que la base a renvoyé : code d'invitation, lien vendeur, adresse publique.
+    const message = [
+      `Bonjour ${b.proprietaire}, votre boutique « ${b.nom} » est prête.`,
+      inv?.code ? `Ouvrez l’application YOUMMA Business avec votre numéro et ce code : ${inv.code}${inv.expire_at ? ` (valable jusqu’au ${formatDate(inv.expire_at, 'court')})` : ''}.` : '',
+      b.lienVendeur ? `Votre lien vendeur : ${b.lienVendeur}` : '',
+      lien ? `Votre boutique en ligne : ${lien}` : ''
+    ].filter(Boolean).join('\n');
+    const envoyer = `<a class="btn cs-btn-clair" href="${esc(lienWa(b.tel, message))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} Lui envoyer</a>`;
     q('[data-zone="pret"]').innerHTML = `
       <section class="cs-pret">
         <span class="etiquette-carte">${esc(b.nom)} est ${b.commission ? 'créé' : 'créée'}${b.commission ? (b.ouvert ? ' · vitrine et affiche ouvertes, sans date de fin' : '') : ''}</span>
+        ${inv?.code ? `<div class="cs-invitation"><span>Son code pour ouvrir l’application</span><strong data-ref="code">${esc(inv.code)}</strong>${inv.expire_at ? `<small>valable jusqu’au ${esc(formatDate(inv.expire_at, 'court'))}</small>` : ''}</div>` : ''}
+        ${b.enAttente && b.avertissement ? `<p class="cs-pret-avertissement">${icone('alerte', 16, 2)} ${esc(b.avertissement)}</p>` : ''}
+        ${b.lienVendeur ? `<p class="cs-pret-vendeur">Son lien vendeur, <strong>pour lui seul</strong> : <a href="${esc(b.lienVendeur)}" target="_blank" rel="noopener">${esc(b.lienVendeur.replace(/^https?:\/\//, ''))}</a></p>` : ''}
         ${lien ? `
           <div class="cs-pret-qr">
             <div class="cs-qr" data-ref="qr">${svgQr(lien, { couleur: '#0A3D33', titre: `QR de ${b.nom}`, marge: 2 })}</div>
@@ -104,10 +126,11 @@ export function afficherTerrain(conteneur, { params }) {
               <p>Elle colle le QR sur sa boutique. Le client scanne, voit tous ses articles, et commande.</p></div>
           </div>
           <div class="cs-pret-actions">
-            <a class="btn cs-btn-clair" href="${esc(lienWa(b.tel, message))}" target="_blank" rel="noopener">${icone('whatsapp', 18, 2)} Lui envoyer</a>
+            ${envoyer}
             <button type="button" class="btn cs-btn-clair" data-action="imprimer">${icone('imprimante', 18, 2)} Imprimer le QR</button>
           </div>`
-        : '<p>Sa boutique n’a pas encore d’adresse publique : le lien et le QR apparaîtront sur sa fiche dès que la base la lui aura donnée.</p>'}
+        : `<p>Sa boutique n’a pas encore d’adresse publique : le QR à coller apparaîtra sur sa fiche dès que la base la lui aura donnée.</p>
+          <div class="cs-pret-actions">${envoyer}</div>`}
         <a class="cs-pret-fiche" href="#/fiche/${encodeURIComponent(b.id)}">Ouvrir sa fiche ›</a>
       </section>
       <section class="carte cs-photos">${icone('photo', 20, 2)}<p><strong>Photographiez 5 ou 6 articles avec elle, maintenant.</strong> Une boutique vide ne vend rien, et elle n’y reviendra pas seule.</p></section>
@@ -139,7 +162,7 @@ export function afficherTerrain(conteneur, { params }) {
     document.querySelector('#zone-qr-terrain')?.remove();
     const zone = document.createElement('div');
     zone.id = 'zone-qr-terrain';
-    zone.innerHTML = `${q('[data-ref="qr"]').innerHTML}<strong>${esc(q('.cs-pret .etiquette-carte').textContent.split(' est ')[0])}</strong><span>${esc(q('.cs-pret-lien').textContent)}</span><em>Scannez pour voir ses articles et commander</em>`;
+    zone.innerHTML = `${q('[data-ref="qr"]').innerHTML}<strong>${esc(q('.cs-pret .etiquette-carte').textContent.split(' est créé')[0])}</strong><span>${esc(q('.cs-pret-lien').textContent)}</span><em>Scannez pour voir ses articles et commander</em>`;
     document.body.appendChild(zone);
     document.body.classList.add('impression-qr-terrain');
     const fin = () => { document.body.classList.remove('impression-qr-terrain'); zone.remove(); window.removeEventListener('afterprint', fin); };

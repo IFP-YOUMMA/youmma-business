@@ -9,7 +9,7 @@
  * Puis, pour les deux : comment elle se sert de l'application (usage), ses colis, son journal.
  * Aucun montant n'est calculé ici : tout est lu tel que la base le renvoie.
  */
-import { esc, icone, formatNombre, formatGNF, formatDate, confirmer, toast } from '../../utils.js';
+import { esc, icone, formatNombre, formatGNF, formatDate, confirmer, toast, ouvrirModale, boutonOccupe } from '../../utils.js';
 import { rpc, initiales, telLocal, lienWa, ilYa } from '../commun.js';
 import { ouvrirEnregistrerPaiement } from '../licences.js';
 import { ouvrirSuspension, ouvrirDateLibre } from '../boutiques.js';
@@ -36,8 +36,8 @@ function blocCommission(f, c) {
     <div class="cs-ligne-fiche cs-ligne-total"><span>À lui verser</span><strong>${m(c.a_lui_verser)}</strong></div>
     <p class="cs-note">Elle ne vous doit rien et sa vitrine n’expire pas : si elle ne vend pas, vous ne gagnez rien. Votre seul levier est de la faire publier.</p>
     <div class="cs-actions-bloc">
-      <a class="btn btn-primaire" href="#/bientot/marche">La payer</a>
-      <button type="button" class="btn btn-secondaire" disabled title="La console n’a pas encore de fonction pour changer un taux">Changer sa commission</button>
+      <button type="button" class="btn btn-primaire" data-action="payer" ${c.fournisseur_id ? '' : 'disabled title="Ouvrez d’abord sa vitrine : elle crée sa fiche du marché"'}>La payer</button>
+      <button type="button" class="btn btn-secondaire" data-action="commission">Changer sa commission</button>
       ${c.vitrine_comprise ? '' : '<button type="button" class="btn btn-secondaire" data-action="ouvrir-vendeur">Ouvrir vitrine et affiche</button>'}
       <button type="button" class="btn btn-secondaire cs-btn-danger" data-action="suspendre">${f.suspendue ? 'Réactiver' : 'Suspendre'}</button>
     </div>
@@ -48,7 +48,8 @@ function blocMarche(f, c) {
   const u = f.usage || {};
   if (!c.fournisseur_id) {
     return `<section class="carte cs-bloc"><div class="cs-bloc-tete"><h2>Dans le marché</h2><span class="pastille-admin gris">Pas de fiche</span></div>
-      <p class="cs-note">Ce vendeur n’a pas encore de fiche fournisseur dans le marché : il n’y a rien à relier pour l’instant.</p></section>`;
+      <p class="cs-note">Ce vendeur n’a pas encore de fiche dans le marché. « Ouvrir vitrine et affiche » la crée et y relie sa boutique.</p>
+      <div class="cs-actions-bloc"><button type="button" class="btn btn-primaire" data-action="ouvrir-vendeur">Ouvrir vitrine et affiche</button></div></section>`;
   }
   return `<section class="carte cs-bloc" data-zone="marche">
     <div class="cs-bloc-tete"><h2>Dans le marché</h2>${c.relie ? '<span class="pastille-admin vert">Reliée</span>' : '<span class="pastille-admin orange">Pas reliée</span>'}</div>
@@ -120,6 +121,59 @@ function blocJournal(f) {
     ${j.length ? `<ul>${j.map((x) => `<li><span class="cs-point" style="background:${esc(x.couleur || '#9AA8A3')}"></span><span><strong>${esc(x.quoi)}</strong><small>${esc(ilYa(x.le))}</small></span></li>`).join('')}</ul>` : '<p class="col-vide">Rien encore.</p>'}
     <p class="cs-note">Le journal sert à préparer un appel : vous savez ce qu’elle a fait avant de composer son numéro.</p>
   </section>`;
+}
+
+/** changer_commission_vendeur(p_boutique, p_commission) : la base garde l'ancien taux pour les commandes déjà passées. */
+function ouvrirCommission(f, relire) {
+  const { el, fermer } = ouvrirModale({
+    titre: `Commission de « ${f.nom} »`,
+    contenu: `
+      <form class="form-modale" novalidate>
+        <p class="texte-modale">Taux actuel : <strong>${formatNombre(f.commission.taux, 2)} %</strong>. Le nouveau taux vaut pour les prochaines commandes.</p>
+        <div class="champ"><label for="cm-taux">Nouveau taux</label><div class="cs-champ-unite"><input id="cm-taux" class="input" type="text" inputmode="decimal" value="${esc(String(f.commission.taux))}"><span>%</span></div></div>
+        <p class="erreur-form" role="alert" hidden></p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Changer le taux</button></div>
+      </form>`
+  });
+  el.querySelector('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const z = el.querySelector('.erreur-form');
+    const taux = Number(el.querySelector('#cm-taux').value.trim().replace(',', '.'));
+    if (!(taux > 0 && taux < 100)) { z.textContent = 'Un pourcentage entre 0 et 100.'; z.hidden = false; return; }
+    const bouton = el.querySelector('[type=submit]');
+    boutonOccupe(bouton, true, 'Enregistrement…');
+    try {
+      const r = await rpc('changer_commission_vendeur', { p_boutique: f.id, p_commission: taux });
+      fermer();
+      relire(`Commission : ${formatNombre(r?.avant, 2)} % → ${formatNombre(r?.apres, 2)} %. ${r?.note || ''}`.trim());
+    } catch (err) { boutonOccupe(bouton, false); z.textContent = erreurConsole(err); z.hidden = false; }
+  });
+}
+
+/** regler_fournisseur(p_fournisseur, p_mode) : la base règle ce qui lui est dû et renvoie { montant, devise, lignes }. */
+const MODES_REGLEMENT = [['especes', 'Espèces'], ['orange_money', 'Orange Money'], ['wave', 'Wave'], ['mtn_momo', 'MoMo']];
+function ouvrirReglement(f, relire) {
+  const c = f.commission;
+  const { el, fermer } = ouvrirModale({
+    titre: `Payer « ${f.nom} »`,
+    contenu: `
+      <form class="form-modale" novalidate>
+        <p class="texte-modale">À lui verser, selon la base : <strong>${esc(montantDevise(c.a_lui_verser, c.devise))}</strong>. Votre commission est déjà retenue.</p>
+        <div class="champ"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${MODES_REGLEMENT.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></div>
+        <p class="erreur-form" role="alert" hidden></p>
+        <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer le règlement</button></div>
+      </form>`
+  });
+  el.querySelector('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const bouton = el.querySelector('[type=submit]');
+    boutonOccupe(bouton, true, 'Règlement…');
+    try {
+      const r = await rpc('regler_fournisseur', { p_fournisseur: c.fournisseur_id, p_mode: el.querySelector('#rg-mode').value });
+      fermer();
+      relire(Number(r?.lignes) ? `${montantDevise(r.montant, r.devise)} réglés à ${r.fournisseur || f.nom} (${formatNombre(r.lignes)} commande${Number(r.lignes) > 1 ? 's' : ''}).` : 'Rien à lui verser pour l’instant.');
+    } catch (err) { boutonOccupe(bouton, false); const z = el.querySelector('.erreur-form'); z.textContent = erreurConsole(err); z.hidden = false; }
+  });
 }
 
 export function afficherFiche(conteneur, { id }) {
@@ -197,8 +251,10 @@ export function afficherFiche(conteneur, { id }) {
       }
       if (action === 'ouvrir-vendeur') {
         await rpc('ouvrir_vendeur', { p_boutique: f.id });
-        relire('Vitrine et affiche ouvertes, sans date de fin.');
+        relire('Vitrine et affiche ouvertes, sans date de fin. Sa fiche du marché est reliée.');
       }
+      if (action === 'commission') ouvrirCommission(f, relire);
+      if (action === 'payer') ouvrirReglement(f, relire);
       if (action === 'lier' || action === 'delier') {
         const lier = action === 'lier';
         if (!lier && !(await confirmer(`Délier la boutique de « ${f.nom} » ? Ses articles sortiront du marché.`, { titre: 'Délier', libelleOk: 'Délier', danger: true }))) return;
