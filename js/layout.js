@@ -10,7 +10,7 @@ import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
-import { moduleVisible, aModule, enOption, vocab, activite, chargerModules, donneesModules, infoModule } from './modules.js';
+import { moduleVisible, aModule, aAcheter, vocab, activite, chargerModules, donneesModules, infoModule } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
 } from './utils.js';
@@ -44,30 +44,37 @@ const ECRANS = {
 };
 
 /**
- * Entrées du menu : codes de actifs dans l'ordre de la base, puis ceux de lecture_seule (grisés), filtrés par le rôle.
- * Rien d'autre : un code absent de ces deux listes n'a aucune entrée dans la page.
+ * Entrées du menu, trois familles dans cet ordre, filtrées par le rôle :
+ *  1. actifs, dans l'ordre de la base ; 2. lecture_seule, grisées ; 3. modules du catalogue à l'état « option » ou
+ *  « formule », avec un cadenas (ils mènent à la page qui dit ce qu'ils apportent et ce qu'ils coûtent).
+ * Rien d'autre : inactif (coupé par la boutique), bientot et bloque n'ont aucune entrée dans la page.
  */
 function sectionsVisibles() {
   const d = donneesModules();
   const actifs = d?.actifs || [];
-  const codes = [...actifs.map((code) => [code, false]), ...(d?.lecture_seule || []).filter((c) => !actifs.includes(c)).map((code) => [code, true])];
-  return codes.map(([code, lecture]) => ({ code, lecture, ...ECRANS[code] }))
+  const lecture = (d?.lecture_seule || []).filter((c) => !actifs.includes(c));
+  const achats = (d?.modules || []).map((m) => m.code).filter((c) => !actifs.includes(c) && !lecture.includes(c) && aAcheter(c));
+  const codes = [...actifs.map((code) => [code, false, false]), ...lecture.map((code) => [code, true, false]), ...achats.map((code) => [code, false, true])];
+  return codes.map(([code, lecture, achat]) => ({ code, lecture, achat, ...ECRANS[code] }))
     .filter((s) => s.route && !(s.dans && actifs.includes(s.dans)) && (!s.droit || peut(s.droit)));
 }
 
 /** Route de l'accueil : première entrée du menu (Aujourd'hui), sinon Paramètres (toujours ouvert). */
 export function routeAccueil() {
-  return sectionsVisibles().find((s) => !s.lecture)?.route || 'parametres';
+  return sectionsVisibles().find((s) => !s.lecture && !s.achat)?.route || 'parametres';
 }
 
-/** Option payante pas encore payée (grisée avec un cadenas, mène à la page d'activation). */
+/** Module à acheter (option non payée ou formule trop basse) : grisé avec un cadenas. */
 function verrouillee(section) {
-  return Boolean(section.code && enOption(section.code));
+  return Boolean(section.achat);
 }
+
+/** Libellé et icône d'un module, pour sa page d'achat. */
+export const ecranModule = (code) => ECRANS[code] || null;
 
 /** Barre du bas (téléphone) : l'accueil, puis les trois premiers modules d'usage courant que la base a activés. */
 function onglets() {
-  const visibles = sectionsVisibles().filter((s) => !s.lecture);
+  const visibles = sectionsVisibles().filter((s) => !s.lecture && !s.achat);
   return [...visibles.slice(0, 1), ...visibles.slice(1).filter((s) => s.onglet).slice(0, 3)];
 }
 const libelleOnglet = (s) => (s.code === 'stock' ? vocab('menu') : s.court || libelleSection(s));
@@ -272,7 +279,7 @@ function lienMenu(section) {
       <span class="lien-menu-libelle">${esc(libelleSection(section))}</span>
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
       ${section.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
-      ${verrouillee(section) ? `<span class="cadenas-menu" title="Option à activer">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+      ${verrouillee(section) ? `<span class="cadenas-menu" title="À activer">${icone('cadenas', 14, 1.9)}<span class="sr-only">à activer</span></span>` : section.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
       ${section.lecture ? '<span class="lecture-menu">lecture seule</span>' : ''}
     </a>`;
 }
@@ -406,7 +413,7 @@ function ouvrirPanneauPlus() {
           <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''} ${s.lecture ? 'en-lecture' : ''}" data-module="${esc(s.code)}">
             ${icone(s.icone, 20, 1.7)}<span>${esc(libelleSection(s))}</span>
             ${s.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
-            ${verrouillee(s) ? `<span class="cadenas-menu">${icone('cadenas', 14, 1.9)}<span class="sr-only">option à activer</span></span>` : s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
+            ${verrouillee(s) ? `<span class="cadenas-menu">${icone('cadenas', 14, 1.9)}<span class="sr-only">à activer</span></span>` : s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}
             ${s.lecture ? '<span class="lecture-menu">lecture seule</span>' : ''}
           </a>`).join('')}
         <a href="#/aide" class="plus-lien">${icone('aide', 20, 1.7)}<span>Aide</span><span class="badge-commandes" data-ref="badge-aide"></span></a>

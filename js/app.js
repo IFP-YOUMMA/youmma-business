@@ -7,7 +7,7 @@ import { etat, chargerSession, chargerBoutiques, viderEtat, peut } from './state
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
-import { preparerShell, retirerShell, afficherBientot, routeAccueil } from './layout.js';
+import { preparerShell, retirerShell, afficherBientot, routeAccueil, ecranModule } from './layout.js';
 import { afficherAujourdhui } from './aujourdhui.js';
 import { afficherCaisse } from './caisse.js';
 import { afficherStock } from './stock.js';
@@ -32,6 +32,7 @@ import { afficherMesModules } from './mes-modules.js';
 import { chargerModes } from './modes-paiement.js';
 import { verrouillerModule } from './plateforme.js';
 import { afficherAgences } from './colis/reglages.js';
+import { afficherModuleAAcheter } from './module-a-acheter.js';
 import { afficherColisTableau } from './colis/tableau.js';
 import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
@@ -168,6 +169,12 @@ function resoudre() {
     const lecture = accesRoute(nom) === 'lecture' && !LECTURE_GEREE.includes(nom) ? moduleDeRoute(nom) : null;
     conteneur = preparerShell({ route: nom, pleinEcran, lecture });
     verrouillerModule(Boolean(lecture));
+  }
+  // Module à acheter (cadenas) : la page qui dit ce qu'il apporte et ce qu'il coûte. La boutique en ligne a la sienne.
+  const acces = route.publique || route.horsShell ? 'ok' : accesRoute(nom);
+  if (acces === 'formule' || (acces === 'option' && nom !== 'boutique-en-ligne')) {
+    afficherModuleAAcheter(conteneur, moduleDeRoute(nom), ecranModule(moduleDeRoute(nom)) || {});
+    return undefined;
   }
   const nettoyage = route.vue(conteneur, params);
   if (typeof nettoyage === 'function') nettoyerVue = nettoyage;

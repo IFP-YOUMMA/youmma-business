@@ -418,6 +418,7 @@ export function afficherCaisse(conteneur, params) {
   }
 
   function detailModeHTML(total) {
+    // Seul mode où l'on rend la monnaie : le champ « montant reçu » ne vaut que pour les espèces.
     if (s.mode === 'especes') {
       return `
         <div class="detail-mode">

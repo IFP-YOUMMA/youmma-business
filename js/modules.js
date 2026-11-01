@@ -148,6 +148,9 @@ export const formuleModules = () => courant.donnees?.formule || null;
 /** Option payante pas encore payée : l'écran affiche la page d'activation au lieu de refuser. */
 export const enOption = (code) => etatModule(code) === 'option';
 
+/** Module à acheter (menu à cadenas) : état « option » ou « formule » dans le catalogue, et ni actif ni en lecture seule. */
+export const aAcheter = (code) => !moduleVisible(code) && ['option', 'formule'].includes(courant.donnees?.modules?.find((m) => m.code === code)?.etat);
+
 export function activite() {
   return courant.donnees?.activite || null;
 }
@@ -167,13 +170,13 @@ export function unites() {
 /** Module d'une route (ou null). */
 export const moduleDeRoute = (route) => MODULE_DE_ROUTE[route] || null;
 
-/** Accès à une route : 'ok' | 'lecture' (module dans lecture_seule) | 'option' (page d'activation) | 'refuse'. */
+/** Accès à une route : 'ok' | 'lecture' (lecture_seule) | 'option' | 'formule' (page d'achat) | 'refuse'. */
 export function accesRoute(route) {
   const code = MODULE_DE_ROUTE[route];
   if (!code || !actifsConnus()) return 'ok';
   if (aModule(code)) return 'ok';
-  if (enOption(code)) return 'option';
   if (enLectureSeule(code)) return 'lecture';
+  if (aAcheter(code)) return enOption(code) ? 'option' : 'formule';
   return 'refuse';
 }
 
