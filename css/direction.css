@@ -1,0 +1,123 @@
+/* =============================================================================
+   Étape 20 — Tableau de bord de direction (#/), ses portes et sa coquille
+   ============================================================================= */
+.dir-num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.dir-page { display: flex; flex-direction: column; gap: 18px; padding: 22px 26px 40px; max-width: 1360px; width: 100%; margin: 0 auto; box-sizing: border-box; min-width: 0; }
+.dir-page-tete h1 { margin: 0; font-size: 24px; }
+
+/* Coquille : pastille de couleur des portes, bandeau téléphone */
+.dir-pastille-porte { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dir-barre-mobile { display: none; }
+@media (max-width: 899.98px) {
+  .dir-shell .colonne { padding-bottom: 0; }
+  .dir-barre-mobile { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #0A3D33; position: sticky; top: 0; z-index: 20; }
+  .dir-barre-logo { flex: none; display: flex; }
+  .dir-barre-liens { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .dir-barre-liens::-webkit-scrollbar { display: none; }
+  .dir-lien-mobile { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: 9px; color: #BFD9CF; text-decoration: none; font-size: 13px; font-weight: 700; white-space: nowrap; flex: none; }
+  .dir-lien-mobile.actif { background: rgba(19, 84, 68, .9); color: #FFFFFF; }
+  .dir-lien-mobile .lien-menu-libelle { overflow: visible; }
+  .dir-barre-sortie { color: #BFD9CF; flex: none; }
+  .dir-page { padding: 14px 16px 32px; gap: 14px; }
+}
+
+/* 1. Bandeau */
+.dir-bandeau { display: flex; align-items: center; gap: 16px; padding: 20px 22px; border-radius: 16px; background: #0A3D33; color: #FFFFFF; flex-wrap: wrap; }
+.dir-bandeau-textes { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.dir-bandeau h1 { margin: 0; font-size: 26px; font-weight: 800; color: #FFFFFF; }
+.dir-bandeau-textes span { color: #BFD9CF; font-size: 13.5px; font-weight: 600; }
+.dir-recherche { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); border-radius: 11px; padding: 0 12px; min-height: 42px; color: #BFD9CF; flex: 0 1 320px; min-width: 0; }
+.dir-recherche input { flex: 1; min-width: 0; border: none; background: transparent; color: #FFFFFF; font: inherit; font-size: 14px; outline: none; }
+.dir-recherche input::placeholder { color: #9CC3B6; }
+.dir-initiale { width: 40px; height: 40px; border-radius: 50%; background: #F2B33D; color: #0A3D33; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex: none; }
+
+/* Tons */
+.ton-bien { color: #0F7B5F; }
+.ton-attention { color: #B45309; }
+.ton-alerte { color: #B42318; }
+.ton-neutre { color: #1F2A27; }
+
+/* 2. KPI */
+.dir-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dir-kpi { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; min-width: 0; color: inherit; }
+.dir-kpi .etiquette-carte { color: #5B6B66; }
+.dir-kpi-valeur { font-size: clamp(19px, 1.9vw, 24px); font-weight: 800; line-height: 1.15; white-space: nowrap; }
+.dir-kpi.ton-bien .dir-kpi-valeur { color: #0F7B5F; }
+.dir-kpi.ton-attention .dir-kpi-valeur { color: #B45309; }
+.dir-kpi.ton-alerte .dir-kpi-valeur { color: #B42318; }
+.dir-kpi.ton-neutre .dir-kpi-valeur { color: #1F2A27; }
+.dir-kpi small { color: #5B6B66; font-size: 12px; font-weight: 600; }
+/* L'argent des clients : à part, hachuré, bordure en tirets — jamais la couleur ni l'allure du gain. */
+.dir-kpi-caisse { background: repeating-linear-gradient(135deg, #FFFFFF 0 10px, #F3F5F4 10px 20px); border: 1.5px dashed #9AA9A4; box-shadow: none; }
+.dir-kpi-caisse .dir-kpi-valeur { color: #33423E !important; }
+@media (max-width: 899.98px) { .dir-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .dir-kpis { grid-template-columns: minmax(0, 1fr); } }
+
+/* 3. Portes */
+.dir-portes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; }
+.dir-porte { display: flex; flex-direction: column; gap: 12px; padding: 0 0 14px; overflow: hidden; text-decoration: none; color: inherit; border-top: 0; min-width: 0; transition: box-shadow .15s; }
+.dir-porte:hover { box-shadow: 0 6px 18px rgba(14, 31, 26, .12); }
+.dir-porte-tete { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--dir-couleur); color: #FFFFFF; }
+.dir-porte-titres { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dir-porte-titres strong { font-size: 17px; font-weight: 800; }
+.dir-porte-titres span { font-size: 12.5px; opacity: .85; }
+.dir-porte-ligne { display: flex; flex-direction: column; gap: 6px; padding: 0 18px; }
+.dir-porte-ligne-titre { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #7C8C86; }
+.dir-cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr)); gap: 8px; }
+.dir-case { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #F6F8F7; min-width: 0; }
+/* Un montant ne se coupe jamais au milieu : il tient sur une ligne. */
+.dir-case strong { font-size: 18px; font-weight: 800; white-space: nowrap; }
+.dir-case span { font-size: 12px; color: #5B6B66; font-weight: 600; }
+.dir-porte-alerte { margin: 0 18px; padding: 9px 12px; border-radius: 10px; background: #FFF4E5; color: #7A4A00; font-size: 13px; font-weight: 700; display: flex; gap: 8px; align-items: flex-start; }
+.dir-porte-alerte svg { flex: none; margin-top: 1px; }
+
+/* 4. Décisions et métiers */
+.dir-deux { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 899.98px) { .dir-deux { grid-template-columns: minmax(0, 1fr); } }
+.dir-bloc { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dir-bloc-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dir-bloc-tete h2 { margin: 0; font-size: 16px; }
+.dir-liste-decisions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dir-liste-decisions li { display: flex; align-items: center; gap: 10px; padding: 11px 0 11px 12px; border-top: 1px solid #EEF2F0; border-left: 3px solid #F2B33D; flex-wrap: wrap; }
+.dir-liste-decisions li.urgence-rouge { border-left-color: #B42318; }
+.dir-liste-decisions li:first-child { border-top: 0; }
+.dir-decision-textes { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dir-decision-textes strong { font-size: 14px; }
+.dir-decision-textes span { font-size: 12.5px; color: #5B6B66; }
+.dir-etiquette-espace { display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #FFFFFF; background: var(--dir-couleur); white-space: nowrap; }
+.dir-barres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.dir-barres li { display: flex; flex-direction: column; gap: 5px; }
+.dir-barre-tete { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; font-weight: 700; }
+.dir-barre { height: 10px; border-radius: 999px; background: #EEF2F0; overflow: hidden; }
+.dir-barre span { display: block; height: 100%; border-radius: 999px; }
+.dir-barres small { color: #5B6B66; font-size: 12px; }
+.dir-parts { border-top: 1px solid #EEF2F0; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.dir-parts div { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.dir-parts strong { font-weight: 800; }
+
+/* 5. La chaîne */
+.dir-etapes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.dir-etapes li { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 4px solid var(--dir-trait); min-width: 0; }
+.dir-etape-n { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #5B6B66; }
+.dir-etapes strong { font-size: 22px; font-weight: 800; color: #1F2A27; white-space: nowrap; }
+.dir-etapes strong small { font-size: 12px; font-weight: 700; color: #5B6B66; }
+.dir-etapes li span:last-child { font-size: 12px; color: #5B6B66; }
+.dir-etapes li.vide strong { color: #9AA9A4; }
+@media (max-width: 1099.98px) { .dir-etapes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .dir-etapes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Écran d'une porte */
+.dir-porte-entete { padding: 18px 22px; border-radius: 16px; background: var(--dir-couleur); color: #FFFFFF; }
+.dir-porte-entete h1 { margin: 0; font-size: 24px; color: #FFFFFF; }
+.dir-porte-entete span { font-size: 13px; opacity: .85; }
+.dir-onglets { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.dir-onglet > .page, .dir-onglet > .cs-page { padding: 0; max-width: none; }
+.dir-arret { display: flex; flex-direction: column; gap: 6px; border-left: 4px solid #B45309; }
+.dir-arret p { margin: 0; color: #5B6B66; }
+.dir-resultats { list-style: none; margin: 0; padding: 0; }
+.dir-resultats a { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-top: 1px solid #EEF2F0; text-decoration: none; color: inherit; }
+.dir-resultats li:first-child a { border-top: 0; }
+.dir-resultats span { font-size: 12.5px; color: #5B6B66; }
+
+/* Retour à la direction depuis une boutique */
+a.dir-retour-direction { text-decoration: none; color: #FFFFFF; display: flex; align-items: center; }

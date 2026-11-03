@@ -3,7 +3,13 @@
  * protections d'accès (connexion, boutique) et enregistrement du service worker.
  */
 import { sb, configurationValide } from './supabase.js';
-import { etat, chargerSession, chargerBoutiques, viderEtat, peut } from './state.js';
+import { etat, chargerSession, chargerBoutiques, viderEtat, peut, chargerEntree, estDirection, routeEntree, dansBoutique, sortirDeBoutique } from './state.js';
+import { preparerDirection } from './direction/shell.js';
+import { afficherAccueilDirection } from './direction/accueil.js';
+import {
+  afficherBoutiquesDirection, afficherMarcheMonde, afficherFicheDirection, afficherTerrainDirection, afficherAccesDirection,
+  afficherEspaceDirection, afficherRechercheDirection
+} from './direction/portes.js';
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
@@ -120,6 +126,34 @@ const ROUTES = {
   marche: { vue: (conteneur) => afficherBientot(conteneur, { icone: 'panier', libelle: 'Marché', description: 'Vos articles sur le marché YOUMMA, vos commandes et ce qui vous sera versé.' }) }
 };
 
+/**
+ * Étape 20 — tableau de bord de direction (mon_entree → « direction ») : #/ et ses portes, dans leur coquille.
+ * Les écrans de boutique ne s'ouvrent qu'après être entré par une porte (dansBoutique) ; sinon retour à #/.
+ */
+const ROUTES_DIRECTION = {
+  '': (conteneur) => { sortirDeBoutique(); return afficherAccueilDirection(conteneur); },
+  boutiques: afficherBoutiquesDirection,
+  'marche-monde': afficherMarcheMonde,
+  fiche: afficherFicheDirection,
+  terrain: afficherTerrainDirection,
+  acces: afficherAccesDirection,
+  espace: afficherEspaceDirection,
+  chercher: afficherRechercheDirection,
+  // Liens de la console : son accueil est ici #/ ; les paiements à valider restent dans l'ancienne administration.
+  accueil: () => naviguer('', { remplacer: true }),
+  licences: () => location.assign('admin/#/licences')
+};
+
+function afficherDirection(nom, vue, params) {
+  nettoyerVue?.();
+  nettoyerVue = null;
+  fermerModales();
+  verrouillerModule(false);
+  const conteneur = preparerDirection(nom);
+  const nettoyage = vue(conteneur, params);
+  if (typeof nettoyage === 'function') nettoyerVue = nettoyage;
+}
+
 /** Écrans qui gèrent eux-mêmes leur lecture seule (chantiers : on peut encore encaisser un versement). */
 const LECTURE_GEREE = ['chantiers'];
 
@@ -134,12 +168,19 @@ function resoudre() {
   if (identifiant) params.set('id', decodeURIComponent(identifiant));
   if (sousVue) params.set('vue', sousVue);
   const route = ROUTES[nom];
-  const accueil = etat.boutique ? 'aujourdhui' : 'nouvelle-boutique';
+  const accueil = routeEntree();
+
+  // Étape 20 : la direction arrive sur #/ ; un gérant ou un vendeur ne voit jamais ces écrans.
+  const routeDirection = Object.prototype.hasOwnProperty.call(ROUTES_DIRECTION, nom) ? ROUTES_DIRECTION[nom] : null;
+  if (etat.session && estDirection()) {
+    if (routeDirection) return afficherDirection(nom, routeDirection, params);
+    if (!route || (!route.publique && !route.horsShell && (!etat.boutique || dansBoutique() !== etat.boutique.id))) return naviguer('', { remplacer: true });
+  } else if (routeDirection) return naviguer(etat.session ? accueil : 'connexion', { remplacer: true });
 
   if (!route) return naviguer(etat.session ? accueil : 'connexion', { remplacer: true });
   if (route.publique && etat.session) return naviguer(accueil, { remplacer: true });
   if (!route.publique && !etat.session) return naviguer('connexion', { remplacer: true });
-  if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('nouvelle-boutique', { remplacer: true });
+  if (!route.publique && !route.horsShell && !etat.boutique) return naviguer('rejoindre', { remplacer: true });
   if (route.redirection) return naviguer(route.redirection(params), { remplacer: true });
   if (route.droit && !peut(route.droit)) {
     toast('Accès réservé au gérant.', 'erreur');
@@ -189,7 +230,7 @@ function resoudre() {
 
 /** Modules modifiés (choix, activité, rechargement) : on quitte un écran devenu inaccessible, on redessine l'accueil. */
 window.addEventListener('modules:change', () => {
-  if (!etat.boutique || !document.querySelector('.shell')) return;
+  if (!etat.boutique || !document.querySelector('.shell') || document.querySelector('.dir-shell')) return;
   const nom = lireRoute().nom.split('/')[0];
   if (accesRoute(nom) === 'refuse') { toast(messageErreur('MODULE_INACTIF'), 'erreur', 6000); naviguer(routeAccueil(), { remplacer: true }); return; }
   if (nom === 'aujourdhui' || nom === 'colis' || nom === 'transit') resoudre();
@@ -232,6 +273,9 @@ function afficherErreurDemarrage(message) {
   });
 }
 
+/** Vrai si l'on travaille dans une boutique (la direction seulement après y être entrée par une porte). */
+const dansUneBoutique = () => Boolean(etat.boutique) && (!estDirection() || dansBoutique() === etat.boutique.id);
+
 async function demarrer() {
   if (!configurationValide) {
     afficherAideConfiguration();
@@ -240,7 +284,8 @@ async function demarrer() {
   try {
     await chargerSession();
     if (etat.session) await chargerBoutiques();
-    await Promise.all([chargerEtatPlateforme(), etat.boutique ? chargerEtatLicence() : null]);
+    if (etat.session) await chargerEntree(); // étape 20 : direction, boutique ou aucune
+    await Promise.all([chargerEtatPlateforme(), dansUneBoutique() ? chargerEtatLicence() : null]);
   } catch (err) {
     afficherErreurDemarrage(messageErreur(err));
     return;
@@ -254,9 +299,9 @@ async function demarrer() {
 
   // « Dernier usage » de la console de direction : un ping au chargement, pas à chaque écran (la base n'écrit que
   // toutes les 20 minutes). Sans attendre ni bloquer : une erreur ici ne doit jamais empêcher l'appli de s'ouvrir.
-  if (etat.boutique) sb.rpc('ping_boutique', { p_boutique: etat.boutique.id }).then(() => {}, () => {});
+  if (dansUneBoutique()) sb.rpc('ping_boutique', { p_boutique: etat.boutique.id }).then(() => {}, () => {});
   // Modes de paiement de la caisse et des remboursements, gardés pour les écrans (et hors ligne).
-  if (etat.boutique) ['vente', 'credit'].forEach((usage) => chargerModes(usage));
+  if (dansUneBoutique()) ['vente', 'credit'].forEach((usage) => chargerModes(usage));
 
   sb.auth.onAuthStateChange((evenement, session) => {
     if (evenement === 'SIGNED_OUT') {

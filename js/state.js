@@ -20,8 +20,52 @@ export const etat = {
   /** État de la licence de la boutique active (RPC etat_licence) : { formule, fin, jours_restants, etat, … }. */
   licence: null,
   /** État de la plateforme (RPC etat_plateforme) : { maintenance, message, support_whatsapp }. */
-  plateforme: null
+  plateforme: null,
+  /** Étape 20 — mon_entree() : { mode: 'direction' | 'boutique' | 'aucune', moi?, boutique?, raison? }. */
+  entree: null
 };
+
+const CLE_DANS_BOUTIQUE = 'yb_dans_boutique';
+
+/**
+ * Étape 20 — premier appel après la connexion : mon_entree() décide où l'on arrive.
+ * direction → tableau de bord #/ (même si la personne est aussi membre d'une boutique) ; boutique → cette boutique ;
+ * aucune → « Rejoindre une boutique avec un code ». Sans réponse (réseau), on garde l'entrée d'avant : la boutique.
+ */
+export async function chargerEntree() {
+  etat.entree = null;
+  try {
+    const { data, error } = await sb.rpc('mon_entree');
+    if (error) throw error;
+    etat.entree = (Array.isArray(data) ? data[0] : data) || null;
+  } catch (err) {
+    console.warn('[YOUMMA] mon_entree indisponible :', err?.message || err);
+  }
+  if (etat.entree?.mode === 'boutique' && etat.entree.boutique?.id) choisirBoutique(etat.entree.boutique.id);
+  if (etat.entree?.mode !== 'direction') sortirDeBoutique();
+  return etat.entree;
+}
+
+/** Vrai si la personne arrive sur le tableau de bord de direction. */
+export const estDirection = () => etat.entree?.mode === 'direction';
+
+/** Route d'arrivée après la connexion. */
+export function routeEntree() {
+  if (estDirection()) return '';
+  if (etat.entree?.mode === 'aucune' || !etat.boutique) return 'rejoindre';
+  return 'aujourdhui';
+}
+
+/** Direction : boutique dans laquelle on est entré par une porte (sinon, les écrans de boutique renvoient à #/). */
+export function dansBoutique() {
+  try { return sessionStorage.getItem(CLE_DANS_BOUTIQUE); } catch { return null; }
+}
+export function entrerDansBoutique(id) {
+  try { sessionStorage.setItem(CLE_DANS_BOUTIQUE, id); } catch { /* navigation privée */ }
+}
+export function sortirDeBoutique() {
+  try { sessionStorage.removeItem(CLE_DANS_BOUTIQUE); } catch { /* navigation privée */ }
+}
 
 /** Utilisateur Supabase connecté (ou null). */
 export function utilisateur() {
@@ -98,6 +142,8 @@ export function viderEtat() {
   etat.boutiques = [];
   etat.boutique = null;
   etat.membre = null;
+  etat.entree = null;
+  sortirDeBoutique();
 }
 
 /** Vrai si le membre courant peut gérer le stock et les articles (propriétaire ou gérant). */

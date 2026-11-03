@@ -31,7 +31,8 @@ function etatLicence(b) {
   return pastille('Active', 'vert');
 }
 
-export function afficherEspace(conteneur, { id }) {
+/** ouvrirBoutique(ligne) : bouton « Ouvrir la boutique » sur chaque ligne (tableau de bord de direction, étape 20). */
+export function afficherEspace(conteneur, { id, ouvrirBoutique = null }) {
   const e = espace(id);
   if (!e) { location.replace('#/accueil'); return; }
   const vendeurs = e.facturation === 'commission';
@@ -137,7 +138,8 @@ export function afficherEspace(conteneur, { id }) {
       ['Par mois', (b) => { const p = b.prix_mois ?? s.formules[b.licence_formule]?.prix_mois; return p === null || p === undefined ? '—' : esc(formatGNF(p)); }, { droite: true }],
       ['Finit dans', (b) => `<strong class="${Number(b.jours_restants) <= 15 ? 'rouge' : 'vert'}">${esc(finDans(b.jours_restants))}</strong>`],
       ['Dernier usage', usage],
-      ['État', etatLicence]
+      ['État', etatLicence],
+      ...(ouvrirBoutique ? [['', (b) => `<button type="button" class="btn btn-secondaire btn-petit" data-ouvrir="${esc(b.id)}">Ouvrir la boutique</button>`]] : [])
     ];
     q('[data-zone="tableau"]').innerHTML = tableau(colonnes, lignes, {
       classe: 'cs-tableau', attributsLigne: ouvrir,
@@ -188,6 +190,8 @@ export function afficherEspace(conteneur, { id }) {
       charger();
       return;
     }
+    const bouton = ev.target.closest('[data-ouvrir]');
+    if (bouton && ouvrirBoutique) { const b = s.lignes.find((x) => x.id === bouton.dataset.ouvrir); if (b) ouvrirBoutique(b); return; }
     const ligne = ev.target.closest('tr[data-fiche]');
     if (ligne && !ev.target.closest('a')) location.hash = `#/fiche/${encodeURIComponent(ligne.dataset.fiche)}`;
   });

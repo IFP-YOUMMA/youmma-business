@@ -3,7 +3,7 @@
  * en-tête et barre du bas (téléphone), panneau « Plus », carte licence,
  * bandeau de licence expirée et écran « Bientôt disponible ».
  */
-import { etat, infosLicence, choisirBoutique, peut } from './state.js';
+import { etat, infosLicence, choisirBoutique, peut, estDirection } from './state.js';
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import { majCreditSmsAffiche } from './sms.js';
@@ -238,7 +238,7 @@ function couleurActivite() {
 
 /** Redessine les liens du menu, la barre du bas et la touche de couleur (modules ou activité changés). */
 export function majMenu() {
-  const shell = document.querySelector('.shell');
+  const shell = document.querySelector('.shell:not(.dir-shell)');
   if (!shell) return;
   const actif = shell.querySelector('.menu-liens .lien-menu.actif')?.dataset.route;
   const liens = shell.querySelector('.menu-liens');
@@ -288,6 +288,16 @@ function lienMenu(section) {
 /** Bouton « boutique active » + liste déroulante des autres boutiques. */
 function selecteurBoutique() {
   const b = etat.boutique;
+  // Direction (étape 20) : on est entré par une porte, on en ressort par elle ; pas de changement de boutique ici.
+  if (estDirection()) {
+    return `
+    <div class="selecteur-boutique">
+      <a class="selecteur-bouton dir-retour-direction" href="#/" style="--couleur-activite:${esc(couleurActivite())}">
+        <span class="selecteur-initiales" aria-hidden="true">${esc(initiales(b.nom))}</span>
+        <span class="selecteur-textes"><span class="selecteur-nom">${esc(b.nom)}</span><span class="selecteur-sous">‹ Retour à la direction</span></span>
+      </a>
+    </div>`;
+  }
   const autres = etat.boutiques.filter((x) => x.boutique.id !== b.id);
   return `
     <div class="selecteur-boutique">
@@ -391,7 +401,7 @@ export function carteLicence(theme = 'sombre') {
 /* ------------------------------------------------------------ Panneau « Plus » (téléphone) */
 
 function ouvrirPanneauPlus() {
-  const autres = etat.boutiques.filter((x) => x.boutique.id !== etat.boutique.id);
+  const autres = estDirection() ? [] : etat.boutiques.filter((x) => x.boutique.id !== etat.boutique.id);
   const sections = sectionsVisibles().filter((s) => !routesBarreBas().includes(s.route));
   const { el, fermer } = ouvrirModale({
     titre: 'Menu',
@@ -418,8 +428,8 @@ function ouvrirPanneauPlus() {
             ${s.lecture ? '<span class="lecture-menu">lecture seule</span>' : ''}
           </a>`).join('')}
         <a href="#/aide" class="plus-lien">${icone('aide', 20, 1.7)}<span>Aide</span><span class="badge-commandes" data-ref="badge-aide"></span></a>
-        ${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
-        <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>
+        ${estDirection() ? `<a href="#/" class="plus-lien">${icone('retour', 20)}<span>Retour à la direction</span></a>` : `${peut('ouvrir_boutique') ? `<a href="#/nouvelle-boutique?creer=1" class="plus-lien">${icone('plus', 20)}<span>Créer une autre boutique</span></a>` : ''}
+        <a href="#/rejoindre" class="plus-lien">${icone('connexion', 20)}<span>Rejoindre une boutique avec un code</span></a>`}
       </div>
       ${carteLicence('clair')}
       <button type="button" class="btn btn-secondaire btn-bloc" data-action="deconnexion-plus">

@@ -5,7 +5,7 @@
  * du numéro normalisé (224XXXXXXXXX@tel.yoummabusiness.app).
  */
 import { sb } from './supabase.js';
-import { etat, chargerBoutiques, viderEtat } from './state.js';
+import { etat, chargerBoutiques, viderEtat, chargerEntree, routeEntree, estDirection, sortirDeBoutique } from './state.js';
 import { naviguer } from './router.js';
 import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion } from './plateforme.js';
 import {
@@ -68,10 +68,12 @@ function afficherErreur(formulaire, message) {
 async function entrerDansLApplication(session) {
   etat.session = session;
   await chargerBoutiques();
-  await Promise.all([chargerEtatPlateforme(), etat.boutique ? chargerEtatLicence() : null]);
+  await chargerEntree(); // étape 20 : direction, boutique ou aucune
+  sortirDeBoutique(); // direction : toujours le tableau de bord, jamais « reprendre où j'en étais »
+  await Promise.all([chargerEtatPlateforme(), etat.boutique && !estDirection() ? chargerEtatLicence() : null]);
   // Maintenance (sauf équipe YOUMMA) ou mot de passe provisoire à changer : écran bloquant.
   if (await controlesApresConnexion(() => location.reload())) return;
-  naviguer(etat.boutique ? 'aujourdhui' : 'nouvelle-boutique', { remplacer: true });
+  naviguer(routeEntree(), { remplacer: true });
 }
 
 /* ---------------------------------------------------------------- Connexion */

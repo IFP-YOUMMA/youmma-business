@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v36';
+const VERSION_CACHE = 'yb-statique-v37';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -63,6 +63,11 @@ const FICHIERS_STATIQUES = [
   './admin/index.html',
   './css/admin.css',
   './css/console.css',
+  './css/direction.css',
+  './js/direction/commun.js',
+  './js/direction/shell.js',
+  './js/direction/accueil.js',
+  './js/direction/portes.js',
   './js/admin/console/commun.js',
   './js/admin/console/accueil.js',
   './js/admin/console/espace.js',

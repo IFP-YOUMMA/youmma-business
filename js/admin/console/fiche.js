@@ -181,7 +181,8 @@ async function ouvrirReglement(f, relire) {
   });
 }
 
-export function afficherFiche(conteneur, { id }) {
+/** payer : ouvre tout de suite le règlement du vendeur (décision « Payer » du tableau de bord de direction). */
+export function afficherFiche(conteneur, { id, payer = false }) {
   conteneur.innerHTML = '<div class="cs-page"><span class="squelette" style="height:400px"></span></div>';
   let f = null;
 
@@ -192,6 +193,7 @@ export function afficherFiche(conteneur, { id }) {
       if (!conteneur.isConnected) return;
       if (!f) { conteneur.innerHTML = '<div class="cs-page"><p class="bloc-erreur">Boutique introuvable.</p></div>'; return; }
       rendre(formules);
+      if (payer && f.commission?.fournisseur_id) { payer = false; ouvrirReglement(f, relire); }
     } catch (err) {
       conteneur.innerHTML = `<div class="cs-page"><p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(erreurConsole(err))}</p><a class="btn btn-secondaire" href="#/accueil">Retour à l’accueil</a></div>`;
     }
