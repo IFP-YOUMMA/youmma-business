@@ -16,6 +16,7 @@ import { svgQr } from '../qr.js';
 import {
   api, chargerAgences, agenceSelon, codePays, formatTel, montant, numeroSansTirets, iconeColis, lienSuivi, MODES
 } from './commun.js';
+import { drapeauSvg, codeDuDrapeau } from '../lib/drapeaux.js';
 import { libelleMode } from '../modes-paiement.js';
 
 /** QR des étiquettes : noir sur blanc, niveau Q (rattrape un pli, une trace, une impression pâle), zone calme 4. */
@@ -51,13 +52,19 @@ const telAgence = (a) => (a?.telephone ? `${a.ville || a.nom} ${formatTel(a.tele
 const logo = () => (etat.boutique.logo_url ? `<img src="${esc(etat.boutique.logo_url)}" alt="">` : `<span>${esc(initiales(etat.boutique.nom))}</span>`);
 const libVehicule = (d) => ({ avion: 'Vol', bateau: 'Navire' }[d.mode] || 'Camion');
 
-/** Bandeau du trajet : drapeau (emoji de la base, en texte) + ville, flèche, icône du mode, flèche. */
+/**
+ * Drapeau imprimé : dessiné en SVG (lib/drapeaux.js) pour que Windows n'écrive pas « SN » sur le carton ;
+ * un pays non dessiné garde l'emoji de la base ; vide : rien.
+ */
+const drapeauImprime = (a) => (a?.drapeau ? `<span class="et-code">${drapeauSvg(codeDuDrapeau(a.drapeau)) || esc(a.drapeau)}</span>` : '');
+
+/** Bandeau du trajet : drapeau + ville, flèche, icône du mode, flèche. */
 function bandeau(d, grand = false) {
   return `
     <div class="et-trajet ${grand ? 'grand' : ''}">
-      <div class="et-bout">${d.depart?.drapeau ? `<span class="et-code">${esc(d.depart.drapeau)}</span>` : ''}<span><strong>${esc(ville(d.depart))}</strong>${grand ? `<small>${esc(d.depart?.nom && d.depart.nom !== d.depart.ville ? d.depart.nom : '')}</small>` : ''}</span></div>
+      <div class="et-bout">${drapeauImprime(d.depart)}<span><strong>${esc(ville(d.depart))}</strong>${grand ? `<small>${esc(d.depart?.nom && d.depart.nom !== d.depart.ville ? d.depart.nom : '')}</small>` : ''}</span></div>
       <div class="et-milieu"><span class="et-fleche">→</span><span class="et-rond">${iconeColis(MODES[d.mode]?.icone || 'colis', grand ? 22 : 15)}</span><span class="et-fleche">→</span>${grand ? `<small>PAR ${esc((MODES[d.mode]?.libelle || '').toUpperCase())}</small>` : ''}</div>
-      <div class="et-bout droite"><span><strong>${esc(ville(d.arrivee))}</strong>${grand ? `<small>${esc(bureau(d.arrivee))}</small>` : ''}</span>${d.arrivee?.drapeau ? `<span class="et-code">${esc(d.arrivee.drapeau)}</span>` : ''}</div>
+      <div class="et-bout droite"><span><strong>${esc(ville(d.arrivee))}</strong>${grand ? `<small>${esc(bureau(d.arrivee))}</small>` : ''}</span>${drapeauImprime(d.arrivee)}</div>
     </div>`;
 }
 

@@ -27,12 +27,14 @@ import { afficherProformas } from './proformas.js';
 import { afficherReglagesDocuments } from './documents/reglages.js';
 import { afficherIdentite } from './identite.js';
 import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
-import { chargerModules, modulesPour, accesRoute, moduleDeRoute, estLogistique } from './modules.js';
+import { chargerModules, modulesPour, accesRoute, moduleDeRoute, estLogistique, infoModule } from './modules.js';
 import { afficherMesModules } from './mes-modules.js';
 import { chargerModes } from './modes-paiement.js';
 import { verrouillerModule } from './plateforme.js';
 import { afficherAgences } from './colis/reglages.js';
 import { afficherModuleAAcheter } from './module-a-acheter.js';
+import { afficherAfficheJour } from './affiche-jour.js';
+import { afficherActivationOption, CODE_OPTION } from './option-boutique.js';
 import { afficherColisTableau } from './colis/tableau.js';
 import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
@@ -90,7 +92,9 @@ const ROUTES = {
   // #/boutique-en-ligne/<id> : détail d'une commande (en page sur téléphone).
   'boutique-en-ligne': { vue: afficherBoutiqueOnglets, droit: 'commandes.voir', pleinEcran: detailPleinEcran },
   commandes: { redirection: (params) => (params.get('id') ? `boutique-en-ligne/${encodeURIComponent(params.get('id'))}` : 'boutique-en-ligne') },
-  affiche: { redirection: () => 'boutique-en-ligne?onglet=affiche' },
+  affiche: { redirection: () => 'affiches' },
+  // Étape 15b — l'affiche du jour a sa route (module « affiche »), hors de la boutique en ligne.
+  affiches: { vue: afficherAfficheJour, droit: 'affiche.partager' },
   // #/proformas (liste), #/proformas/nouveau, #/proformas/<id> (éditeur)
   proformas: { vue: afficherProformas, droit: 'devis.creer', pleinEcran: detailPleinEcran },
   // Paramètres → Documents (réglages des factures, reçus, devis)
@@ -173,6 +177,8 @@ function resoudre() {
   // Module à acheter (cadenas) : la page qui dit ce qu'il apporte et ce qu'il coûte. La boutique en ligne a la sienne.
   const acces = route.publique || route.horsShell ? 'ok' : accesRoute(nom);
   if (acces === 'formule' || (acces === 'option' && nom !== 'boutique-en-ligne')) {
+    // Module qui dépend de la vitrine (l'affiche) : la page d'activation de la boutique en ligne.
+    if (acces === 'option' && infoModule(moduleDeRoute(nom))?.depend_de === CODE_OPTION) return afficherActivationOption(conteneur);
     afficherModuleAAcheter(conteneur, moduleDeRoute(nom), ecranModule(moduleDeRoute(nom)) || {});
     return undefined;
   }

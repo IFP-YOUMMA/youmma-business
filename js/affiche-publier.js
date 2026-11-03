@@ -202,7 +202,7 @@ export async function connecterReseau(reseau) {
     });
     return;
   }
-  const retour = `${location.href.split('#')[0]}#/boutique-en-ligne?onglet=affiche&vue=mois`;
+  const retour = `${location.href.split('#')[0]}#/affiches?vue=mois`;
   const { data, error } = await sb.functions.invoke('connecter-reseau', { body: { action: 'debut', reseau, boutique: etat.boutique.id, retour } });
   if (error || !data?.url) { toast('Connexion impossible pour le moment. Réessayez plus tard.', 'erreur'); return; }
   window.location.href = data.url;

@@ -225,6 +225,8 @@
 .et-bout strong { font-size: 10pt; font-weight: 800; }
 .et-bout small { display: block; font-size: 7pt; opacity: .85; }
 .et-code { font-size: 8pt; font-weight: 800; }
+.et-code .drapeau-svg { display: block; height: 1.6em !important; border-radius: 1px; }
+.et-trajet.grand .et-code .drapeau-svg { height: 1.5em !important; }
 .et-milieu { display: flex; align-items: center; gap: 1.2mm; color: #F2B33D; font-weight: 800; flex-wrap: wrap; justify-content: center; }
 .et-milieu small { flex-basis: 100%; text-align: center; font-size: 7pt; letter-spacing: .06em; }
 .et-rond { width: 7mm; height: 7mm; border-radius: 50%; background: #F2B33D; color: #3A2600; display: inline-flex; align-items: center; justify-content: center; }

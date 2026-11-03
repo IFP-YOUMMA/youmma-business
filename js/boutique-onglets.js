@@ -7,7 +7,7 @@
  *    son en-tête masqué au profit de l'en-tête commun ;
  *  - colonne de droite (onglet Commandes) : affiche du jour (Publier / Changer) + « Cette semaine »
  *    (stats_boutique_en_ligne sur 7 jours).
- * L'affiche du jour dépend de la boutique en ligne : la base renvoie son module inactif sinon → onglet masqué.
+ * L'affiche du jour a sa route, #/affiches (étape 15b) : l'onglet « Affiche du jour » n'est plus qu'un raccourci vers elle.
  * Étape 14b : option payante non payée (état « option ») → page d'activation à la place des onglets.
  */
 import { sb } from './supabase.js';
@@ -17,7 +17,7 @@ import { afficherActivationOption, bandeauOptionHTML, CODE_OPTION } from './opti
 import { esc, icone, formatNombre, formatGNF, dateISO, lienBoutique, lienCourtBoutique } from './utils.js';
 import { afficherCommandes } from './commandes.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
-import { afficherAfficheJour } from './affiche-jour.js';
+import { naviguer } from './router.js';
 
 const estMobile = () => window.matchMedia('(max-width: 899.98px)').matches;
 const premiere = (d) => (Array.isArray(d) ? d[0] : d) || null;
@@ -35,6 +35,12 @@ function ongletsDisponibles() {
 
 export function afficherBoutiqueOnglets(conteneur, params) {
   if (enOption(CODE_OPTION)) return afficherActivationOption(conteneur);
+  // Ancienne adresse de l'onglet (favori, retour d'un réseau connecté) : la route des affiches, mêmes paramètres.
+  if (params.get('onglet') === 'affiche') {
+    const suite = new URLSearchParams(params); suite.delete('onglet');
+    naviguer(`affiches${suite.toString() ? `?${suite}` : ''}`, { remplacer: true });
+    return undefined;
+  }
   const idCommande = params.get('id');
   // Téléphone : la commande s'ouvre en page entière (comme avant).
   if (idCommande && estMobile()) return afficherCommandes(conteneur, params);
@@ -57,7 +63,7 @@ export function afficherBoutiqueOnglets(conteneur, params) {
       </header>
       ${bandeauOptionHTML()}
       <nav class="onglets-pastilles bo-onglets" aria-label="Boutique en ligne">
-        ${onglets.map(([code, libelle]) => `<a class="onglet-pastille ${code === onglet ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=${code}" ${code === onglet ? 'aria-current="page"' : ''}>${esc(libelle)}${code === 'commandes' ? '<span class="pastille-compte" data-zone="compte-commandes" hidden></span>' : ''}</a>`).join('')}
+        ${onglets.map(([code, libelle]) => `<a class="onglet-pastille ${code === onglet ? 'actif' : ''}" href="${code === 'affiche' ? '#/affiches' : `#/boutique-en-ligne?onglet=${code}`}" ${code === onglet ? 'aria-current="page"' : ''}>${esc(libelle)}${code === 'commandes' ? '<span class="pastille-compte" data-zone="compte-commandes" hidden></span>' : ''}</a>`).join('')}
       </nav>
       <div class="bo-corps ${avecCote ? 'avec-cote' : ''}">
         <div class="bo-principal bo-onglet-${onglet}" data-zone="contenu"></div>
@@ -70,7 +76,6 @@ export function afficherBoutiqueOnglets(conteneur, params) {
   // Écran de l'onglet (écrans existants, inchangés).
   let nettoyer;
   if (onglet === 'commandes') nettoyer = afficherCommandes(contenu, params);
-  else if (onglet === 'affiche') nettoyer = afficherAfficheJour(contenu, params);
   else {
     nettoyer = afficherBoutiqueEnLigne(contenu);
     contenu.dataset.section = onglet;
@@ -144,8 +149,8 @@ export function afficherBoutiqueOnglets(conteneur, params) {
         <strong>${esc([p.nom, prix ? formatGNF(prix) : ''].filter(Boolean).join(' · '))}</strong>
         <span class="discret">Prête pour WhatsApp et Facebook.</span>
         <div class="bo-affiche-boutons">
-          <a class="btn btn-whatsapp btn-petit" href="#/boutique-en-ligne?onglet=affiche">Publier</a>
-          <a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne?onglet=affiche">Changer</a>
+          <a class="btn btn-whatsapp btn-petit" href="#/affiches">Publier</a>
+          <a class="btn btn-secondaire btn-petit" href="#/affiches">Changer</a>
         </div>
       </div>`;
   }

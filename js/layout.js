@@ -26,6 +26,7 @@ const ECRANS = {
   tableau_de_bord: { route: 'aujourdhui', routes: ['aujourdhui', 'transit'], libelle: 'Aujourd’hui', court: 'Accueil', icone: 'maison' },
   caisse: { route: 'caisse', routes: ['caisse', 'ventes'], libelle: 'Caisse & ventes', court: 'Caisse', icone: 'caisse', onglet: true },
   ventes: { route: 'ventes', libelle: 'Ventes', icone: 'ventes', dans: 'caisse' },
+  affiche: { route: 'affiches', libelle: 'Affiche du jour', icone: 'image', droit: 'affiche.partager' },
   devis: { route: 'proformas', libelle: 'Devis', icone: 'document', droit: 'devis.creer', badgeDevis: true },
   boutique_en_ligne: { route: 'boutique-en-ligne', libelle: 'Boutique en ligne', icone: 'enLigne', droit: 'commandes.voir', badgeCommandes: true },
   stock: { route: 'stock', libelle: 'Articles & stock', court: 'Stock', icone: 'stock', onglet: true },

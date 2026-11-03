@@ -1,6 +1,6 @@
 /**
- * affiche-jour.js — « Affiche du jour » (étape 15, maquettes AfficheJourV2 et AfficheCalendrier), onglet de
- * #/boutique-en-ligne. Deux vues : Aujourd'hui (écran du matin) et Mois (calendrier, affiche-calendrier.js).
+ * affiche-jour.js — « Affiche du jour » (étape 15, maquettes AfficheJourV2 et AfficheCalendrier), route #/affiches
+ * (étape 15b : entrée du menu, module « affiche »). Deux vues : Aujourd'hui (écran du matin) et Mois (affiche-calendrier.js).
  *
  * Écran du matin : affiche_du_jour → dessin des 3 formats sur le téléphone (affiche.js), bande « Habillage »
  * (vignettes des habillages permis par le thème, modifier_affiche p_style ; « Choisir les 3 articles » pour Sélection), texte et hashtags,
@@ -54,10 +54,11 @@ export function afficherAfficheJour(conteneur, params = new URLSearchParams()) {
   const modifier = peut('affiche.modifier');
   conteneur.innerHTML = `
     <div class="page page-aff">
+      <header class="page-entete"><div class="page-titres"><h1>Affiche du jour</h1></div></header>
       <div class="aff-barre">
         <nav class="onglets-pastilles" aria-label="Vue">
-          <a class="onglet-pastille ${vue === 'jour' ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=affiche" ${vue === 'jour' ? 'aria-current="page"' : ''}>Aujourd’hui</a>
-          <a class="onglet-pastille ${vue === 'mois' ? 'actif' : ''}" href="#/boutique-en-ligne?onglet=affiche&vue=mois" ${vue === 'mois' ? 'aria-current="page"' : ''}>${icone('horloge', 15, 2)} Mois</a>
+          <a class="onglet-pastille ${vue === 'jour' ? 'actif' : ''}" href="#/affiches" ${vue === 'jour' ? 'aria-current="page"' : ''}>Aujourd’hui</a>
+          <a class="onglet-pastille ${vue === 'mois' ? 'actif' : ''}" href="#/affiches?vue=mois" ${vue === 'mois' ? 'aria-current="page"' : ''}>${icone('horloge', 15, 2)} Mois</a>
         </nav>
         <span class="aff-date">${esc(capitaliser(formatDate(new Date(), 'long')))}</span>
       </div>
@@ -151,7 +152,7 @@ function monterJour(zone, { boutique, modifier }) {
         <p><strong>Pas d’affiche prévue aujourd’hui.</strong> C’est un jour de repos dans votre rythme de publication.</p>
         <div class="aff-vide-actions">
           ${modifier ? '<button type="button" class="btn btn-primaire" data-action="suggestion">Préparer une affiche</button>' : ''}
-          <a class="btn btn-secondaire" href="#/boutique-en-ligne?onglet=affiche&vue=mois">Voir le mois</a>
+          <a class="btn btn-secondaire" href="#/affiches?vue=mois">Voir le mois</a>
         </div>
       </div>`;
   }
@@ -217,7 +218,7 @@ function monterJour(zone, { boutique, modifier }) {
               <span class="aff-reseau-textes"><strong>Télécharger l’image</strong><span>Pour publier ailleurs</span></span>
               <span class="aff-reseau-etat">${icone('chevronDroite', 18, 2.4)}</span>
             </button>
-            <a class="aff-lien-reseaux" href="#/boutique-en-ligne?onglet=affiche&vue=mois">Publier en un seul clic : connecter mes réseaux ›</a>
+            <a class="aff-lien-reseaux" href="#/affiches?vue=mois">Publier en un seul clic : connecter mes réseaux ›</a>
           </div>
           <section class="carte aff-auto ${autoPossible ? '' : 'grise'}">
             <div class="aff-auto-textes"><strong>Publier tout seul chaque matin</strong>

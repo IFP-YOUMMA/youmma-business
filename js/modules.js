@@ -39,7 +39,8 @@ export const MODULE_DE_ROUTE = {
   proformas: 'devis',
   devis: 'devis',
   messages: 'messages',
-  'boutique-en-ligne': 'boutique_en_ligne'
+  'boutique-en-ligne': 'boutique_en_ligne',
+  affiches: 'affiche'
 };
 
 const VOCAB_DEFAUT = { article: 'Article', articles: 'Articles', menu: 'Stock', sans_stock: false };

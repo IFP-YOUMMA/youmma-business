@@ -111,7 +111,7 @@ export function afficherCommandes(conteneur, params) {
       </header>
       <div class="liens-commandes">
         ${peut('boutique_en_ligne.gerer') ? `<a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne">${icone('enLigne', 16, 2)} Ma boutique en ligne</a>` : ''}
-        <a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne?onglet=affiche">${icone('image', 16, 2)} Affiche du jour</a>
+        <a class="btn btn-secondaire btn-petit" href="#/affiches">${icone('image', 16, 2)} Affiche du jour</a>
       </div>
       <nav class="onglets" role="tablist" aria-label="Statut" data-zone="onglets"></nav>
       <div class="commandes-corps">

@@ -139,7 +139,7 @@ export function afficherAujourdhui(conteneur) {
     const r = a.retards;
     if (r && n(r.nb)) lignes.push(ligne('rouge', 'client', `${r.nb} crédit${r.nb > 1 ? 's' : ''} en retard`, n(r.total) ? formatGNF(r.total) : '', 'Relancer', '#/clients'));
     const af = a.affiche;
-    if (af && aModule('affiche')) lignes.push(ligne('vert', 'image', 'Affiche du jour prête', [af.produit, n(af.prix) ? formatGNF(af.prix) : ''].filter(Boolean).join(' · '), 'Publier', '#/boutique-en-ligne?onglet=affiche'));
+    if (af && aModule('affiche')) lignes.push(ligne('vert', 'image', 'Affiche du jour prête', [af.produit, n(af.prix) ? formatGNF(af.prix) : ''].filter(Boolean).join(' · '), 'Publier', '#/affiches'));
     zone('afaire').innerHTML = `
       <div class="auj-carte-entete"><h2>À faire aujourd’hui</h2>${lignes.length ? `<span class="auj-compteur">${lignes.length}</span>` : ''}</div>
       ${lignes.length ? lignes.join('') : `
@@ -198,8 +198,8 @@ export function afficherAujourdhui(conteneur) {
         <div class="auj-affiche-textes"><span class="auj-etiquette">Affiche du jour</span>
           <strong>${esc([af.produit, n(af.prix) ? formatGNF(af.prix) : ''].filter(Boolean).join(' · '))}</strong>
           <span class="auj-sous-titre">Prête pour WhatsApp et Facebook.</span>
-          <div class="auj-affiche-boutons"><a class="btn btn-whatsapp btn-petit" href="#/boutique-en-ligne?onglet=affiche">Publier</a>
-            <a class="btn btn-secondaire btn-petit" href="#/boutique-en-ligne?onglet=affiche">Changer</a></div></div>
+          <div class="auj-affiche-boutons"><a class="btn btn-whatsapp btn-petit" href="#/affiches">Publier</a>
+            <a class="btn btn-secondaire btn-petit" href="#/affiches">Changer</a></div></div>
       </div>`;
   }
 
