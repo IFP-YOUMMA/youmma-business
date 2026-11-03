@@ -278,6 +278,33 @@
 
 /* Étape 19c : code d'invitation, lien vendeur, drapeaux des listes */
 .cs-drapeau { font-size: 15px; line-height: 1; }
+
+/* Étape 21 — ouvertures des vendeurs (six points) */
+.cs-terrain-onglets { align-self: flex-start; }
+.cs-ouv-resume { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; }
+.cs-ouv-resume strong { font-size: 24px; font-weight: 800; white-space: nowrap; }
+.cs-ouv-resume span { color: var(--muted); font-size: 13.5px; }
+.cs-ouv-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cs-ouv-liste > li { background: #FFFFFF; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.cs-ouv-liste > li.complet { border-color: #A9D7B9; background: #F2FAF5; }
+.cs-ouv-ligne { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.cs-ouv-nom { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cs-ouv-nom span { font-size: 12.5px; color: var(--muted); }
+.cs-ouv-compte { display: flex; align-items: center; gap: 8px; flex: none; }
+.cs-ouv-barre { width: 70px; height: 6px; border-radius: 9px; background: #EEF2F0; overflow: hidden; }
+.cs-ouv-barre span { display: block; height: 100%; background: #B45309; border-radius: 9px; }
+.complet .cs-ouv-barre span { background: #0F7B5F; }
+.complet .cs-ouv-compte strong { color: #0F7B5F; }
+.cs-ouv-points { padding: 0 14px 14px; }
+.cs-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cs-points > li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--separateur); }
+.cs-point-etat { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #C9D3CF; display: grid; place-items: center; color: #FFFFFF; }
+.cs-points > li.fait .cs-point-etat { background: #0F7B5F; border-color: #0F7B5F; }
+.cs-point-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-point-textes > span { font-size: 12.5px; color: var(--muted); }
+.cs-point-constate { font-size: 11px; font-weight: 800; color: var(--muted); background: #EEF2F0; border-radius: 999px; padding: 2px 8px; }
+.cs-installation { gap: 8px; }
+.cs-installation .btn { align-self: flex-start; }
 .cs-invitation { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--navy-2); border: 1px solid var(--navy-border); }
 .cs-invitation span { font-size: 12px; color: var(--navy-text); font-weight: 700; }
 .cs-invitation strong { font-size: 34px; font-weight: 800; letter-spacing: .14em; color: var(--accent-light); }

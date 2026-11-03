@@ -1,100 +1,153 @@
 /* =============================================================================
-   Étape 21 — Le marché, page publique a/ (catalogue, commande, suivi), téléphone d'abord.
-   Jamais de texte blanc sur l'or : sur le bandeau or, le texte est brun foncé.
+   Étape 21 — Le marché, page publique a/ (accueil, rayons, panier, mon compte, suivi). Téléphone d'abord.
+   Jamais de texte blanc sur l'or : sur l'or, le texte est brun foncé.
    ============================================================================= */
 :root {
   --vert: #0F7B5F; --vert-fonce: #0A3D33; --vert-doux: #E3F2EC; --or: #F2B33D; --or-encre: #3A2600; --or-pale: #FFF4DC;
   --texte: #0E1F1A; --texte-2: #2F453D; --doux: #5B6B65; --trait: #E6ECE9; --fond: #F6F8F7; --carte: #FFFFFF;
-  --rouge: #A51C1C; --rouge-pale: #FDE7E5; --rayon: 14px;
+  --rouge: #A51C1C; --rouge-pale: #FDE7E5; --rayon: 14px; --onglets: 62px;
 }
 * { box-sizing: border-box; }
+/* Un élément masqué le reste, même quand un style lui donne un display (formulaires, listes). */
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body { font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; }
+h1, h2 { text-wrap: balance; }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.mk-page { max-width: 1080px; margin: 0 auto; min-height: 100vh; padding-bottom: 120px; }
+.mk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mk-page { max-width: 1080px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(var(--onglets) + 96px + env(safe-area-inset-bottom, 0px)); }
 .mk-chargement { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 60vh; color: var(--doux); }
-.mk-rond { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--trait); border-top-color: var(--vert); animation: mk-tourne .8s linear infinite; }
+.mk-chargement .mk-rond { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--trait); border-top-color: var(--vert); animation: mk-tourne .8s linear infinite; background: none; }
 @keyframes mk-tourne { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .mk-rond { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mk-chargement .mk-rond { animation: none; } }
+svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
 
-/* En-tête */
+/* En-tête vert (accueil, compte, suivi) */
 .mk-entete { background: var(--vert-fonce); color: #FFFFFF; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
 .mk-entete-haut { display: flex; align-items: center; gap: 12px; }
+.mk-logo, .mk-avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--or); color: var(--or-encre); display: grid; place-items: center; font-weight: 800; flex: none; overflow: hidden; }
+.mk-logo img { width: 100%; height: 100%; object-fit: cover; }
+.mk-avatar { width: 52px; height: 52px; border-radius: 50%; font-size: 18px; }
 .mk-entete-titres { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.mk-entete h1 { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; }
+.mk-entete h1, .mk-entete-blanc h1 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; }
 .mk-entete-titres span { font-size: 13px; color: #BFE0D3; }
-.mk-retour { width: 40px; height: 40px; border-radius: 12px; border: none; background: rgba(255, 255, 255, .12); color: #FFFFFF; display: grid; place-items: center; cursor: pointer; flex: none; }
-.mk-panier-btn { position: relative; width: 44px; height: 44px; border-radius: 12px; border: none; background: rgba(255, 255, 255, .12); color: #FFFFFF; display: grid; place-items: center; cursor: pointer; flex: none; }
-.mk-panier-btn b { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--or); color: var(--or-encre); font-size: 11.5px; display: grid; place-items: center; }
-.mk-recherche { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: #FFFFFF; color: var(--doux); }
-.mk-recherche input { border: none; outline: none; flex: 1; min-width: 0; font-size: 15px; color: var(--texte); background: transparent; }
-svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.mk-recherche { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .22); color: #DCEBE5; }
+.mk-recherche input { border: none; outline: none; flex: 1; min-width: 0; font-size: 15px; color: #FFFFFF; background: transparent; }
+.mk-recherche input::placeholder { color: #A9CBBE; }
+/* En-tête blanc (rayon, rayons, panier) */
+.mk-entete-blanc { background: var(--carte); border-bottom: 1px solid var(--trait); padding: 12px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+.mk-entete-blanc .mk-entete-titres span { color: var(--doux); }
+.mk-retour { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--trait); background: #FFFFFF; color: var(--texte); display: grid; place-items: center; cursor: pointer; flex: none; }
 
-/* Le bandeau qui fait vendre */
-.mk-bandeau { margin: 12px 16px 0; padding: 12px 14px; border-radius: var(--rayon); background: var(--or); color: var(--or-encre); display: flex; flex-direction: column; gap: 2px; }
-.mk-bandeau strong { font-size: 16px; font-weight: 800; }
-.mk-bandeau span { font-size: 13.5px; font-weight: 600; }
+/* La bannière : un chiffre, pas un slogan */
+.mk-banniere { margin: 12px 16px 0; padding: 16px; border-radius: 18px; background: linear-gradient(135deg, #0F7B5F 0%, #0A5E48 55%, #0A3D33 100%); color: #FFFFFF; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden; }
+.mk-banniere::after { content: ""; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; background: rgba(242, 179, 61, .16); }
+.mk-banniere-etiq { font-size: 12.5px; font-weight: 800; color: #CDE9DE; letter-spacing: .01em; }
+.mk-banniere-prix { font-size: 34px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.mk-banniere-sous { font-size: 13px; color: #DCEBE5; }
+.mk-banniere-depart { font-size: 13px; color: #DCEBE5; }
+.mk-banniere-depart strong { color: #FFFFFF; }
+.mk-bouton-or { margin-top: 10px; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 18px; border-radius: 12px; border: none; background: var(--or); color: var(--or-encre); font-weight: 800; font-size: 15px; text-decoration: none; cursor: pointer; position: relative; z-index: 1; }
+.mk-bouton-sombre { min-height: 44px; padding: 0 16px; border-radius: 12px; border: none; background: var(--or-encre); color: var(--or); font-weight: 800; cursor: pointer; }
 
-.mk-corps { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.mk-corps { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.mk-corps > section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .mk-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .mk-section-tete h2 { margin: 0; font-size: 17px; }
 .mk-section-tete span, .mk-section-tete button { font-size: 13px; color: var(--doux); }
 .mk-lien { border: none; background: none; padding: 0; color: var(--vert) !important; font-weight: 800; cursor: pointer; }
 
-/* Fournisseurs */
-.mk-fournisseurs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-.mk-fournisseur { flex: 0 0 210px; text-align: left; background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; color: inherit; }
-.mk-fournisseur.actif { border-color: var(--vert); box-shadow: 0 0 0 2px var(--vert-doux); }
-.mk-fournisseur strong { font-size: 14.5px; }
-.mk-fournisseur span { font-size: 12.5px; color: var(--doux); }
-.mk-fournisseur .mk-prepare { color: var(--vert); font-weight: 800; }
+/* Rayons : ronds colorés qui défilent */
+.mk-rayons { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.mk-rayons::-webkit-scrollbar { display: none; }
+.mk-rayon { flex: 0 0 72px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: none; background: none; cursor: pointer; color: var(--texte); font-size: 12.5px; font-weight: 700; text-align: center; }
+.mk-rond { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 800; color: #FFFFFF; background: var(--teinte); box-shadow: inset 0 -6px 0 rgba(0, 0, 0, .12); flex: none; }
 
-/* Articles */
-.mk-articles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-@media (min-width: 640px) { .mk-articles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 900px) { .mk-articles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Vendeurs : des personnes */
+.mk-vendeurs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.mk-vendeurs::-webkit-scrollbar { display: none; }
+.mk-vendeur { flex: 0 0 200px; text-align: left; background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 14px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; color: inherit; }
+.mk-vendeur-logo { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--teinte); color: #FFFFFF; font-weight: 800; font-size: 17px; margin-bottom: 6px; overflow: hidden; }
+.mk-vendeur-logo img { width: 100%; height: 100%; object-fit: cover; }
+.mk-vendeur strong { font-size: 14.5px; line-height: 1.25; }
+.mk-vendeur span { font-size: 12.5px; color: var(--doux); }
+.mk-vendeur .mk-prepare { color: var(--vert); font-weight: 800; }
+
+/* Grille des articles */
+.mk-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 640px) { .mk-grille { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .mk-grille { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .mk-article { background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
-.mk-photo { aspect-ratio: 4 / 3; background: linear-gradient(140deg, var(--vert-doux), #EEF2F0); position: relative; display: grid; place-items: center; color: var(--doux); font-size: 12px; max-width: 100%; }
-.mk-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.mk-populaire { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--or); color: var(--or-encre); font-size: 11px; font-weight: 800; }
-.mk-article-corps { padding: 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.mk-article-corps strong { font-size: 14px; line-height: 1.3; }
-.mk-article-corps .mk-de { font-size: 12px; color: var(--doux); }
-.mk-prix { font-size: 16px; font-weight: 800; color: var(--vert-fonce); margin-top: 4px; white-space: nowrap; }
-.mk-prix-local { font-size: 12px; color: var(--doux); white-space: nowrap; }
-.mk-ajouter { margin-top: 8px; min-height: 40px; border-radius: 10px; border: none; background: var(--vert); color: #FFFFFF; font-weight: 800; cursor: pointer; }
-.mk-quantite { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mk-photo { aspect-ratio: 1 / 1; background: #F3F6F4; position: relative; display: grid; place-items: center; max-width: 100%; }
+.mk-photo img { width: 86%; height: 86%; object-fit: contain; display: block; }
+.mk-photo-vide { font-size: 12px; color: var(--doux); }
+.mk-top { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 6px; background: var(--or); color: var(--or-encre); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.mk-article-corps { padding: 10px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.mk-article-corps strong { font-size: 13.5px; line-height: 1.3; }
+.mk-de { font-size: 12px; color: var(--doux); }
+.mk-prix { font-size: 16px; font-weight: 800; color: var(--vert-fonce); margin-top: 6px; white-space: nowrap; }
+.mk-prix-local { font-size: 12px; color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-ajouter { margin-top: auto; min-height: 40px; border-radius: 10px; border: 1.5px solid var(--vert); background: #FFFFFF; color: var(--vert); font-weight: 800; cursor: pointer; }
+.mk-article-corps .mk-ajouter, .mk-article-corps .mk-quantite { margin-top: 8px; }
+.mk-quantite { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .mk-quantite button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--trait); background: #FFFFFF; font-size: 18px; font-weight: 800; cursor: pointer; color: var(--texte); }
-.mk-quantite strong { font-size: 15px; }
-.mk-taux { font-size: 12.5px; color: var(--doux); }
-.mk-vide { color: var(--doux); text-align: center; padding: 24px 8px; }
+.mk-vide { color: var(--doux); text-align: center; padding: 20px 8px; margin: 0; }
+.mk-vide-bloc { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 
-/* Barre basse */
-.mk-barre { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--carte); border-top: 1px solid var(--trait); box-shadow: 0 -6px 18px rgba(14, 31, 26, .08);
-  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
-.mk-barre-int { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
-.mk-barre-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.mk-barre-textes strong { font-size: 15px; }
-.mk-barre-textes span { font-size: 12.5px; color: var(--doux); }
-.mk-bouton { min-height: 48px; padding: 0 20px; border-radius: 12px; border: none; background: var(--vert); color: #FFFFFF; font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; }
+/* Bandeau jaune, après les produits */
+.mk-bandeau { padding: 14px 16px; border-radius: var(--rayon); background: var(--or); color: var(--or-encre); display: flex; flex-direction: column; gap: 2px; }
+.mk-bandeau strong { font-size: 16px; font-weight: 800; }
+.mk-bandeau span { font-size: 13.5px; font-weight: 600; }
+.mk-pied { text-align: center; font-size: 12px; color: var(--doux); margin: 0; }
+
+/* Filtres en pastilles (rayon) */
+.mk-pastilles { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.mk-pastilles::-webkit-scrollbar { display: none; }
+.mk-pastille { flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--trait); background: #FFFFFF; color: var(--texte-2); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.mk-pastille.actif { background: var(--vert-fonce); border-color: var(--vert-fonce); color: #FFFFFF; }
+.mk-ligne-rayon { display: grid; grid-template-columns: 52px minmax(0, 1fr) 20px; gap: 12px; align-items: center; padding: 10px 12px; background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); cursor: pointer; text-align: left; color: inherit; }
+.mk-ligne-rayon .mk-rond { width: 48px; height: 48px; font-size: 18px; }
+.mk-ligne-rayon span span { display: block; font-size: 12.5px; color: var(--doux); }
+.mk-corps > .mk-ligne-rayon + .mk-ligne-rayon { margin-top: -10px; }
+
+/* Barre de panier flottante (au-dessus des onglets) */
+.mk-flottant { position: fixed; left: 0; right: 0; bottom: calc(var(--onglets) + env(safe-area-inset-bottom, 0px)); z-index: 19; padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px)); }
+.mk-flottant-int { max-width: 1056px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 14px; border-radius: 16px; background: var(--vert-fonce); color: #FFFFFF; box-shadow: 0 10px 24px rgba(10, 61, 51, .3); }
+.mk-flottant-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mk-flottant-textes strong { font-size: 15px; }
+.mk-flottant-textes span { font-size: 12px; color: #CDE9DE; }
+.mk-flottant .mk-bouton { background: var(--or); color: var(--or-encre); }
+
+/* Barre du bas, quatre onglets */
+.mk-onglets { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; height: calc(var(--onglets) + env(safe-area-inset-bottom, 0px)); padding: 0 max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(0px, env(safe-area-inset-left, 0px));
+  background: var(--carte); border-top: 1px solid var(--trait); display: grid; grid-template-columns: repeat(4, 1fr); }
+.mk-onglet { border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; font-weight: 700; color: var(--doux); cursor: pointer; height: var(--onglets); }
+.mk-onglet.actif { color: var(--vert); }
+.mk-onglet-ico { position: relative; display: grid; place-items: center; }
+.mk-onglet-ico b { position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--or); color: var(--or-encre); font-size: 10.5px; display: grid; place-items: center; }
+
+/* Boutons, cartes, formulaires */
+.mk-bouton { min-height: 48px; padding: 0 20px; border-radius: 12px; border: none; background: var(--vert); color: #FFFFFF; font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .mk-bouton:disabled { background: #9DBFB2; cursor: default; }
 .mk-bouton.bloc { width: 100%; }
 .mk-bouton.second { background: #FFFFFF; color: var(--vert-fonce); border: 1px solid var(--trait); }
-.mk-note-transport { font-size: 12.5px; color: var(--doux); margin: 0; }
-
-/* Commande */
+.mk-note { font-size: 12.5px; color: var(--doux); margin: 0; }
 .mk-carte { background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .mk-carte h2 { margin: 0; font-size: 16px; }
+.mk-p { margin: 0; }
 .mk-ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--trait); }
-.mk-ligne:first-of-type { border-top: 0; }
+.mk-ligne:first-child { border-top: 0; }
 .mk-ligne strong { font-size: 14px; }
 .mk-ligne span { font-size: 12.5px; color: var(--doux); }
-.mk-ligne .num { text-align: right; font-weight: 800; white-space: nowrap; }
+.mk-ligne .num { text-align: right; white-space: nowrap; }
+.mk-ligne .fort { font-weight: 800; color: var(--texte); font-size: 14px; }
 .mk-ligne .mk-quantite { grid-column: 1 / -1; justify-content: flex-start; margin-top: 4px; }
 .mk-total { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
 .mk-total.fort { font-size: 18px; font-weight: 800; border-top: 1px solid var(--trait); padding-top: 8px; }
-.mk-transport { background: var(--or-pale); border: 1px solid #F0D894; }
+.mk-local { color: var(--doux); font-size: 13px; margin-top: -6px; }
+.mk-transport { background: var(--or-pale); border-color: #F0D894; }
 .mk-transport p { margin: 0; font-size: 13.5px; color: #5C4300; }
 .mk-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: etape; }
 .mk-etapes li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; counter-increment: etape; }
@@ -103,7 +156,7 @@ svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .mk-etapes span { font-size: 13px; color: var(--doux); }
 .mk-form { display: flex; flex-direction: column; gap: 12px; }
 .mk-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
-.mk-form input, .mk-form select, .mk-form textarea { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font-size: 16px; color: var(--texte); background: #FFFFFF; }
+.mk-form input, .mk-form select, .mk-form textarea, .mk-form-compte input { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font-size: 16px; color: var(--texte); background: #FFFFFF; width: 100%; }
 .mk-form textarea { padding: 10px 14px; min-height: 70px; resize: vertical; }
 .mk-erreur { padding: 12px 14px; border-radius: 12px; background: var(--rouge-pale); color: var(--rouge); font-weight: 700; font-size: 14px; }
 .mk-info { padding: 12px 14px; border-radius: 12px; background: var(--or-pale); color: #5C4300; font-weight: 700; font-size: 14px; }
@@ -114,13 +167,39 @@ svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .mk-code strong { font-size: 40px; font-weight: 800; letter-spacing: .05em; color: var(--or); font-variant-numeric: tabular-nums; }
 .mk-code p { margin: 0; font-size: 14px; color: #DCEBE5; }
 .mk-code p b { color: #FFFFFF; }
-.mk-lien-suivi { display: flex; flex-direction: column; gap: 8px; }
 .mk-lien-suivi code { display: block; padding: 10px 12px; border-radius: 10px; background: var(--fond); border: 1px solid var(--trait); font-size: 13px; word-break: break-all; }
 .mk-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
 .mk-boutons .mk-bouton { flex: 1 1 140px; }
 
+/* Mon compte */
+.mk-entete-compte { padding-bottom: 20px; }
+.mk-sans-mdp { text-align: center; }
+.mk-deux-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mk-gros-bouton { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border-radius: var(--rayon); border: 1px solid var(--trait); background: var(--carte); color: var(--texte); text-decoration: none; cursor: pointer; text-align: left; }
+.mk-gros-bouton svg { width: 26px; height: 26px; color: var(--vert); }
+.mk-gros-bouton strong { font-size: 15px; }
+.mk-gros-bouton span { font-size: 12.5px; color: var(--doux); }
+.mk-carte-or { background: linear-gradient(135deg, #F7C75A, #F2B33D); color: var(--or-encre); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.mk-carte-or .etiq { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.mk-code-client { font-size: 28px; font-weight: 800; letter-spacing: .04em; }
+.mk-solde { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mk-solde strong { font-size: 22px; font-weight: 800; }
+.mk-note-or { font-size: 12.5px; font-weight: 600; }
+.mk-form-compte { display: flex; flex-direction: column; gap: 10px; }
+.mk-form-compte-champs { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.mk-form-compte label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 800; }
+.mk-form-compte input { border-color: rgba(58, 38, 0, .25); }
+.mk-liste-compte { padding: 4px 14px; gap: 0; }
+.mk-liste-compte > a, .mk-liste-compte > button { display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; gap: 12px; align-items: center; padding: 12px 0; border: none; border-top: 1px solid var(--trait); background: none; color: inherit; text-decoration: none; text-align: left; cursor: pointer; width: 100%; }
+.mk-liste-compte > a:first-child, .mk-liste-compte > button:first-child { border-top: 0; }
+.mk-liste-compte svg:first-child { color: var(--vert); }
+.mk-liste-compte strong { display: block; font-size: 14.5px; }
+.mk-liste-compte span span { display: block; font-size: 12.5px; color: var(--doux); }
+.mk-sous-liste { padding: 0 0 12px 36px; }
+.mk-sous-liste p { margin: 0 0 8px; font-size: 13.5px; }
+
 /* Suivi */
-.mk-suivi-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.mk-suivi-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .mk-suivi-etapes li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding-bottom: 12px; position: relative; color: var(--doux); }
 .mk-suivi-etapes li::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--trait); background: #FFFFFF; margin-top: 3px; }
 .mk-suivi-etapes li::after { content: ""; position: absolute; left: 8px; top: 20px; bottom: 0; width: 2px; background: var(--trait); }
@@ -130,7 +209,5 @@ svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .mk-suivi-etapes li.fait::after { background: var(--vert); }
 .mk-suivi-etapes strong { font-size: 14px; display: block; }
 .mk-suivi-etapes span { font-size: 12.5px; }
-.mk-pied { text-align: center; font-size: 12px; color: var(--doux); padding: 18px 16px 8px; }
-.mk-toasts { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 30; display: flex; flex-direction: column; gap: 6px; width: min(92vw, 420px); }
+.mk-toasts { position: fixed; left: 50%; bottom: calc(var(--onglets) + 90px); transform: translateX(-50%); z-index: 30; display: flex; flex-direction: column; gap: 6px; width: min(92vw, 420px); }
 .mk-toast { background: var(--vert-fonce); color: #FFFFFF; padding: 10px 14px; border-radius: 10px; font-size: 14px; text-align: center; }
-:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }

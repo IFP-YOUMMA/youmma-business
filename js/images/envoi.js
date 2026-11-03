@@ -89,6 +89,15 @@ export async function retirerPhotoArticle(produit) {
   await supprimerPublics(produit.photo_url, produit.photo_mini_url);
 }
 
+/** Photo d'un article du marché (articles_marche, étape 21) : déjà détourée par l'outil, grande + miniature. */
+export async function enregistrerPhotoMarche(article, sorties) {
+  const { chemins, urls } = await envoyerSorties(`marche-${article.id}`, sorties);
+  const { error } = await sb.from('articles_marche').update({ photo_url: urls.grande, photo_mini_url: urls.mini || null }).eq('id', article.id);
+  if (error) { await supprimerPublics(Object.values(chemins)); throw error; }
+  await supprimerPublics([article.photo_url, article.photo_mini_url].filter((u) => u && u !== urls.grande && u !== urls.mini));
+  return { url: urls.grande, mini: urls.mini || null };
+}
+
 /** Miniature seule (« Générer les miniatures manquantes ») : la grande photo est gardée. */
 export async function enregistrerMiniature(produit, sortie) {
   const { chemins, urls } = await envoyerSorties(produit.id, { mini: sortie });

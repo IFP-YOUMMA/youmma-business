@@ -9,6 +9,10 @@
  *   enregistrer(sorties) : async, reçoit { grande: { blob, type, extension, largeur, hauteur }, mini? } ;
  *     une erreur levée est affichée dans la fenêtre (rien n'est perdu).
  * Rien n'est envoyé tant que l'on n'a pas cliqué sur le bouton final ; fermer = annuler.
+ *
+ * detourageObligatoire (étape 21, articles du marché et des boutiques de vendeurs) : l'étape « Nettoyer » détoure
+ * toute seule (modèle chargé à ce moment-là, jamais avant), sans option « garder l'original » ; si le détourage
+ * échoue, on ferme sans photo : une case vide est plus propre qu'un fond sale.
  */
 import { esc, icone, ouvrirModale, boutonOccupe, messageErreur, formatNombre } from '../utils.js';
 import { PREREGLAGES, FORMES } from './prereglages.js';
@@ -17,7 +21,7 @@ import { detourer, detourageDisponible, messageDetourage } from '../detourage.js
 
 const ETAPES = ['Choisir', 'Recadrer', 'Nettoyer', 'Enregistrer'];
 
-export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregistrer, titre = null }) {
+export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregistrer, titre = null, detourageObligatoire = false }) {
   const p = PREREGLAGES[usage];
   if (!p) throw new Error(`Usage d’image inconnu : ${usage}`);
   const s = {
@@ -45,7 +49,7 @@ export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregist
 
   function aller(etape) {
     montrerErreur('');
-    if (etape === 2 && p.fond === 'non') etape = s.etape < 2 ? 3 : 1;
+    if (etape === 2 && p.fond === 'non' && !detourageObligatoire) etape = s.etape < 2 ? 3 : 1;
     s.etape = etape;
     el.querySelectorAll('.outil-etapes li').forEach((li, i) => {
       li.classList.toggle('faite', i < etape || (i === 2 && p.fond === 'non' && etape > 2));
@@ -296,6 +300,7 @@ export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregist
   /* ------------------------------------------------------------ 3. Nettoyer */
 
   function renderNettoyer() {
+    if (detourageObligatoire) { renderDetourageObligatoire(); return; }
     const iaPossible = p.ia && detourageDisponible();
     corps.innerHTML = `
       <div class="outil-nettoyer">
@@ -328,6 +333,53 @@ export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregist
     const c = s.propre;
     c.classList.add('outil-net');
     zone.append(c);
+  }
+
+  /** Détourage obligatoire : lancé tout seul, barre de progression, « Suivant » seulement une fois détouré. */
+  function renderDetourageObligatoire() {
+    corps.innerHTML = `
+      <div class="outil-nettoyer">
+        <div class="damier outil-apercu-net" data-zone="net"></div>
+        <div class="outil-reglage">
+          <p class="gras">Le fond est retiré automatiquement</p>
+          <p class="discret" data-zone="ia-texte">${s.ia ? 'Fond retiré : l’article apparaîtra sur fond clair, comme les autres.' : 'Toutes les photos du marché sont détourées : une seule photo avec le carrelage derrière, et la page perd sa tenue.'}</p>
+          <div class="barre-progres" data-zone="ia-progres" ${s.ia ? 'hidden' : ''}><span></span></div>
+        </div>
+      </div>`;
+    pied(`<button type="button" class="btn btn-secondaire" data-action="precedent">Retour</button>
+      <button type="button" class="btn btn-primaire" data-action="suivant" ${s.ia ? '' : 'disabled'}>Suivant</button>`);
+    if (s.ia) { majNettoyage(); return; }
+    const zone = q('[data-zone="net"]');
+    const apercu = s.coupe;
+    apercu.classList.add('outil-net');
+    zone.append(apercu);
+    lancerIaObligatoire();
+  }
+
+  async function lancerIaObligatoire() {
+    const barre = q('[data-zone="ia-progres"]');
+    const texte = q('[data-zone="ia-texte"]');
+    try {
+      if (!detourageDisponible()) throw Object.assign(new Error('NON_SUPPORTE'), { code: 'NON_SUPPORTE' });
+      const blob = await new Promise((ok) => s.coupe.toBlob(ok, 'image/png'));
+      const r = await detourer(blob, {
+        signal: s.controle.signal,
+        onProgres: ({ etape, valeur, texte: t }) => {
+          const poids = { modele: [0, 0.6], preparation: [0.6, 0.7], analyse: [0.7, 0.9], finition: [0.9, 1] }[etape] || [0, 1];
+          if (barre) barre.querySelector('span').style.width = `${Math.round((poids[0] + (poids[1] - poids[0]) * (valeur || 0)) * 100)}%`;
+          if (texte && t) texte.textContent = t;
+        }
+      });
+      if (!el.isConnected) return;
+      s.ia = await chargerCanvas(r.blob);
+      s.fond = false;
+      renderDetourageObligatoire();
+    } catch (err) {
+      if (err?.name === 'AbortError' || !el.isConnected) return;
+      if (barre) barre.hidden = true;
+      montrerErreur(`${messageDetourage(err).replace(/ ?La photo d’origine est gardée.?/, '')} L’article reste sans photo : une case vide est plus propre qu’un fond sale.`);
+      pied('<button type="button" class="btn btn-secondaire" data-action="precedent">Reprendre une photo</button><button type="button" class="btn btn-primaire" data-action="fermer-sans-photo">Fermer sans photo</button>');
+    }
   }
 
   async function lancerIa(bouton) {
@@ -440,8 +492,9 @@ export function ouvrirOutilImage({ usage, source = null, contexte = {}, enregist
     const bouton = e.target.closest('button');
     if (action === 'pivoter') { s.image = pivoter(s.image); placer(true); return; }
     if (action === 'retour-choix') { s.dessin = false; aller(0); return; }
-    if (action === 'precedent') { aller(s.etape === 3 && p.fond === 'non' ? 1 : s.etape - 1); return; }
+    if (action === 'precedent') { if (detourageObligatoire && s.etape === 2) s.controle.abort(); if (detourageObligatoire && s.etape === 2) s.controle = new AbortController(); aller(s.etape === 3 && p.fond === 'non' && !detourageObligatoire ? 1 : s.etape - 1); return; }
     if (action === 'ia') { if (!s.ia) lancerIa(bouton); return; }
+    if (action === 'fermer-sans-photo') { fermer(); return; }
     if (action === 'dessiner') { renderDessin(); return; }
     if (action === 'effacer') { renderDessin(); return; }
     if (action === 'valider-dessin') {

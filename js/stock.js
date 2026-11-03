@@ -6,7 +6,7 @@
  * change que par la fonction serveur mouvement_stock (ou par les ventes).
  */
 import { sb } from './supabase.js';
-import { etat, peut } from './state.js';
+import { etat, peut, espaceBoutique } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
@@ -368,7 +368,9 @@ export function afficherStock(conteneur, params) {
       if (action === 'modifier') ouvrirFormulaire(produit, rafraichir);
       if (action === 'photo' || action === 'retoucher') {
         // Outil d'image : recadrer, nettoyer le fond (blanc ou détourage automatique), grande photo + miniature.
+        // Boutique d'un vendeur du marché : détourage obligatoire (étape 21).
         modifierPhotoArticle(produit, {
+          detourageObligatoire: (await espaceBoutique()) === 'marche_monde',
           source: action === 'retoucher' ? produit.photo_url : null,
           apres: ({ url, mini }) => { remplacerProduit({ ...produit, photo_url: url, photo_mini_url: mini }); rafraichir(); }
         });

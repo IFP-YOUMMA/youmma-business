@@ -17,11 +17,13 @@ export function signalerQuota(err) {
 /**
  * Photo d'un article : nouvelle photo (source null) ou retouche de la photo actuelle (source = URL).
  * apres({ url, mini, taille, tailleMini }) quand c'est enregistré.
+ * detourageObligatoire : boutique d'un vendeur du marché (étape 21), la photo est détourée ou n'est pas envoyée.
  */
-export function modifierPhotoArticle(produit, { source = null, apres = () => {} } = {}) {
+export function modifierPhotoArticle(produit, { source = null, apres = () => {}, detourageObligatoire = false } = {}) {
   return ouvrirOutilImage({
     usage: 'article',
     source,
+    detourageObligatoire,
     titre: source ? 'Retoucher la photo' : (produit.photo_url ? 'Changer la photo' : 'Ajouter une photo'),
     contexte: { nom: produit.nom, prix: produit.prix_detail || produit.prix },
     enregistrer: async (sorties) => {

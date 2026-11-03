@@ -42,6 +42,7 @@ import { afficherModuleAAcheter } from './module-a-acheter.js';
 import { afficherAfficheJour } from './affiche-jour.js';
 import { afficherActivationOption, CODE_OPTION } from './option-boutique.js';
 import { afficherMarche } from './marche/bureau.js';
+import { surveillerUsage } from './installation.js';
 import { afficherColisTableau } from './colis/tableau.js';
 import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
@@ -303,6 +304,8 @@ async function demarrer() {
   if (dansUneBoutique()) sb.rpc('ping_boutique', { p_boutique: etat.boutique.id }).then(() => {}, () => {});
   // Modes de paiement de la caisse et des remboursements, gardés pour les écrans (et hors ligne).
   if (dansUneBoutique()) ['vente', 'credit'].forEach((usage) => chargerModes(usage));
+  // Espace de travail : invitation à installer au troisième jour d'utilisation (jamais sur les pages publiques).
+  if (etat.session) setTimeout(surveillerUsage, 4000);
 
   sb.auth.onAuthStateChange((evenement, session) => {
     if (evenement === 'SIGNED_OUT') {

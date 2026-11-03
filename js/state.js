@@ -46,6 +46,20 @@ export async function chargerEntree() {
   return etat.entree;
 }
 
+/**
+ * Espace de la boutique active (« marche_monde » pour les boutiques des vendeurs du marché), lu une fois par boutique.
+ * Lecture à part, sans toucher au chargement des boutiques ; en cas d'échec : null.
+ */
+const espaces = new Map();
+export async function espaceBoutique(id = etat.boutique?.id) {
+  if (!id) return null;
+  if (!espaces.has(id)) {
+    espaces.set(id, sb.from('boutiques').select('espace').eq('id', id).maybeSingle()
+      .then(({ data, error }) => (error ? null : data?.espace || null), () => null));
+  }
+  return espaces.get(id);
+}
+
 /** Vrai si la personne arrive sur le tableau de bord de direction. */
 export const estDirection = () => etat.entree?.mode === 'direction';
 

@@ -13,10 +13,29 @@ import { esc, icone, boutonOccupe, toast, formatDate } from '../../utils.js';
 import { svgQr } from '../../qr.js';
 import { rpc, chargerActivites, lienWa, urlVitrine } from '../commun.js';
 import { espaces, espace, erreurConsole, telInternational } from './commun.js';
+import { monterOuvertures } from './ouvertures.js';
 
 export function afficherTerrain(conteneur, { params }) {
   const choisi = espace(params.get('espace')) || espaces()[0];
   const commission = choisi.facturation === 'commission';
+  // Étape 21 : onglet « Ouvertures » (les six points de chaque vendeur), pour les espaces à commission.
+  const vue = commission && params.get('vue') === 'ouvertures' ? 'ouvertures' : 'creer';
+  const onglets = commission ? `<nav class="onglets-pastilles cs-terrain-onglets" aria-label="Terrain">
+      <a class="onglet-pastille ${vue === 'creer' ? 'actif' : ''}" href="#/terrain?espace=${encodeURIComponent(choisi.code)}">Nouveau vendeur</a>
+      <a class="onglet-pastille ${vue === 'ouvertures' ? 'actif' : ''}" href="#/terrain?espace=${encodeURIComponent(choisi.code)}&vue=ouvertures">Ouvertures</a></nav>` : '';
+  if (vue === 'ouvertures') {
+    conteneur.innerHTML = `
+    <div class="cs-page cs-terrain" style="--cs-couleur:${esc(choisi.couleur)}">
+      <header class="cs-terrain-tete">
+        <a class="cs-retour" href="#/accueil" aria-label="Retour">${icone('retour', 20, 2)}</a>
+        <div><h1>Ouvertures des vendeurs</h1><span>${esc(choisi.nom_public)} · les six points avant de quitter sa boutique</span></div>
+      </header>
+      ${onglets}
+      <div data-zone="ouvertures"></div>
+    </div>`;
+    monterOuvertures(conteneur.querySelector('[data-zone="ouvertures"]'), choisi.code);
+    return;
+  }
   conteneur.innerHTML = `
     <div class="cs-page cs-terrain" style="--cs-couleur:${esc(choisi.couleur)}">
       <header class="cs-terrain-tete">
@@ -24,6 +43,7 @@ export function afficherTerrain(conteneur, { params }) {
         <div><h1>${commission ? 'Nouveau vendeur' : 'Nouvelle boutique'}</h1><span>${esc(choisi.nom_public)} · tournée du ${esc(formatDate(new Date(), 'court'))}</span></div>
         <span class="cs-badge-entete">3 min</span>
       </header>
+      ${onglets}
       ${espaces().length > 1 ? `<div class="cs-puces cs-terrain-espaces" role="group" aria-label="Espace">${espaces().map((e) => `<a class="cs-puce ${e.code === choisi.code ? 'actif' : ''}" href="#/terrain?espace=${encodeURIComponent(e.code)}" aria-pressed="${e.code === choisi.code}">${esc(e.nom_public)}</a>`).join('')}</div>` : ''}
       <p class="cs-promesse">${commission
         ? 'Ce que vous lui promettez : <strong>sa boutique en ligne et son affiche, sans date de fin</strong>, une affiche de ses articles chaque jour, et des acheteurs de Conakry qui paient d’avance. Elle ne paie rien : vous gagnez quand elle vend.'

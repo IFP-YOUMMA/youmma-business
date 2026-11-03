@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v39';
+const VERSION_CACHE = 'yb-statique-v40';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -153,6 +153,9 @@ const FICHIERS_STATIQUES = [
   './js/marche/bureau.js',
   './js/marche/reglements.js',
   './js/marche/recu.js',
+  './js/marche/articles.js',
+  './js/installation.js',
+  './js/admin/console/ouvertures.js',
   './a/index.html',
   './css/marche-client.css',
   './js/marche-client.js',
