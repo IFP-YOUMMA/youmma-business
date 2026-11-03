@@ -18,6 +18,9 @@ const ACTIONS = {
   a_peser: () => ['Peser', '#/marche-monde?onglet=colis&filtre=a_peser']
 };
 
+/** Sous-titre de l'en-tête : les trois nombres de resume, dans cet ordre (les agences n'y figurent pas). */
+const RESUME = [['boutiques', 'boutique', 'boutiques'], ['vendeurs', 'vendeur', 'vendeurs'], ['corridors', 'corridor', 'corridors']];
+
 /** Couleurs des traits de la chaîne, de l'affiche au retrait. */
 const TRAITS = ['#F2B33D', '#0F7B5F', '#1F3A5F', '#5B2A8C', '#C2410C', '#0E7490'];
 
@@ -55,7 +58,10 @@ export function afficherAccueilDirection(conteneur) {
 function bandeau(d) {
   const m = d.moi || {};
   const jour = d.jour ? capitaliser(formatDate(`${String(d.jour).slice(0, 10)}T12:00:00Z`, 'long')) : '';
-  const resume = Object.entries(d.resume || {}).map(([cle, n]) => `${formatNombre(Number(n) || 0)} ${cle}`).join(' · ');
+  // Trois nombres, accordés ; une valeur à 0 reste (« 0 vendeur ») ; une clé absente de la réponse n'est pas inventée.
+  const r = d.resume || {};
+  const resume = RESUME.filter(([cle]) => r[cle] !== undefined && r[cle] !== null)
+    .map(([cle, un, plusieurs]) => { const n = Number(r[cle]) || 0; return `${formatNombre(n)} ${n > 1 ? plusieurs : un}`; }).join(' · ');
   return `
     <header class="dir-bandeau">
       <div class="dir-bandeau-textes">
@@ -92,7 +98,7 @@ function cartePorte(p) {
       ${(p.lignes || []).map((l) => `
         <span class="dir-porte-ligne">
           ${l.titre ? `<span class="dir-porte-ligne-titre">${esc(l.titre)}</span>` : ''}
-          <span class="dir-cases">${(l.cases || []).map((c) => `
+          <span class="dir-cases" data-n="${(l.cases || []).length}">${(l.cases || []).map((c) => `
             <span class="dir-case"><strong class="dir-num ${classeTon(c.ton)}">${valeurCase(c)}</strong><span>${esc(c.libelle || '')}</span></span>`).join('')}
           </span>
         </span>`).join('')}
