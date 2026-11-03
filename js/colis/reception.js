@@ -23,7 +23,7 @@ const kg = (n) => `${formatNombre(n, 2).replace(/,00$/, '')} kg`;
 const prenom = (nom) => String(nom || '').trim().split(/\s+/)[0] || 'le client';
 
 /** Corridors ouverts de la boutique (une ligne de tarifs_colis = un départ + une arrivée + un mode). */
-async function chargerCorridors() {
+export async function chargerCorridors() {
   const { data, error } = await sb.from('tarifs_colis').select('id, nom, agence_depart, agence_arrivee, mode, delai_jours, devise, actif, ordre')
     .eq('boutique_id', etat.boutique.id).eq('actif', true).order('ordre');
   if (error) throw error;
@@ -34,8 +34,8 @@ async function chargerCorridors() {
    Le calcul tourné vers le client (commun à la réception et à la pesée)
    ========================================================================= */
 
-/** Champs poids · L · l · h + nombre de cartons, avec l'avertissement sur les cartons multiples. */
-function champsMesure({ poids = '', longueur = '', largeur = '', hauteur = '', nb = 1 } = {}) {
+/** Champs poids · L · l · h + nombre de cartons, avec l'avertissement sur les cartons multiples. Réutilisé par l'expédition du marché. */
+export function champsMesure({ poids = '', longueur = '', largeur = '', hauteur = '', nb = 1 } = {}) {
   const champ = (id, libelle, unite, valeur, mode = 'decimal') => `<div class="champ col-mesure"><label for="${id}">${libelle}</label>
     <span class="col-unite"><input id="${id}" class="input col-gros" type="text" inputmode="${mode}" value="${esc(String(valeur ?? ''))}" placeholder="0"><span>${unite}</span></span></div>`;
   return `
@@ -46,7 +46,7 @@ function champsMesure({ poids = '', longueur = '', largeur = '', hauteur = '', n
     </div>`;
 }
 
-function lireMesure(racine) {
+export function lireMesure(racine) {
   const v = (id) => lireNombre(racine.querySelector(`#${id}`)?.value || '');
   const nb = Math.max(1, Math.round(Number(racine.querySelector('#rc-nb')?.value) || 1));
   const dims = [v('rc-long'), v('rc-larg'), v('rc-haut')];
@@ -55,7 +55,7 @@ function lireMesure(racine) {
 }
 
 /** La phrase sous les champs suit le nombre : « Poids total des 2 cartons · dimensions d'UN carton ». */
-function majPhraseCartons(racine) {
+export function majPhraseCartons(racine) {
   const nb = Math.max(1, Math.round(Number(racine.querySelector('#rc-nb')?.value) || 1));
   const z = racine.querySelector('[data-ref="phrase-cartons"]');
   if (z) z.textContent = nb > 1 ? `Poids total des ${nb} cartons · dimensions d’UN carton` : 'Poids du carton · ses dimensions';
@@ -63,7 +63,7 @@ function majPhraseCartons(racine) {
 }
 
 /** Le bloc « Poids taxable » : le chiffre en très gros, le prix, puis le détail en quatre lignes. */
-function calculHTML(t, m, { titre = 'Poids taxable' } = {}) {
+export function calculHTML(t, m, { titre = 'Poids taxable' } = {}) {
   if (!t) return `<span class="etiquette-carte">${esc(titre)}</span><p class="discret">Saisissez le poids (et les dimensions) pour voir ce qui sera facturé.</p>`;
   const c = t.calcul;
   const ligne = (g, d, fort = false) => `<div class="col-calcul-ligne ${fort ? 'fort' : ''}"><span>${g}</span><strong>${d}</strong></div>`;
@@ -84,7 +84,7 @@ function calculHTML(t, m, { titre = 'Poids taxable' } = {}) {
 }
 
 /** « Pourquoi 14 kg et pas 4,2 ? » : écrit pour l'employé, fait pour être montré au client. */
-function pourquoiHTML(t) {
+export function pourquoiHTML(t) {
   if (!t) return '';
   const c = t.calcul;
   const taxable = formatNombre(c.poids_taxable, 2).replace(/,00$/, '');

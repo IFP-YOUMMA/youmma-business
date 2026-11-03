@@ -1,0 +1,109 @@
+/* =============================================================================
+   Étape 21 — Le marché du monde, côté bureau (#/marche) et reçu A5 du versement
+   ============================================================================= */
+.mc-page { gap: 16px; }
+.mc-num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.mc-entete { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mc-titres h1 { margin: 0; font-size: 24px; }
+.mc-titres span { font-size: 13px; color: var(--muted); }
+
+.mc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.mc-kpi { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; min-width: 0; }
+.mc-kpi strong { font-size: 22px; font-weight: 800; white-space: nowrap; }
+.mc-kpi small { font-size: 12px; color: var(--muted); font-weight: 600; }
+/* L'argent des clients : à part, hachuré, jamais l'allure d'un gain. */
+.mc-kpi-caisse { background: repeating-linear-gradient(135deg, #FFFFFF 0 10px, #F3F5F4 10px 20px); border: 1.5px dashed #9AA9A4; box-shadow: none; }
+.mc-kpi-alerte strong { color: #B42318; }
+
+.mc-corps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 14px; align-items: start; }
+.mc-corps:has(.mc-fiche[hidden]) { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1099.98px) { .mc-corps { grid-template-columns: minmax(0, 1fr); } }
+.mc-liste { padding: 0; overflow: hidden; min-width: 0; }
+.mc-outils { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.mc-h2 { margin: 0; font-size: 15px; }
+.mc-filtres { display: flex; gap: 6px; flex-wrap: wrap; }
+.mc-filtre { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; color: var(--text-2); cursor: pointer; }
+.mc-filtre.actif { background: var(--navy); border-color: var(--navy); color: #FFFFFF; }
+.mc-recherche { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 10px; border: 1px solid var(--border-input); border-radius: 10px; background: #FFFFFF; color: var(--muted); flex: 0 1 260px; min-width: 0; }
+.mc-recherche input { border: none; outline: none; font: inherit; font-size: 14px; flex: 1; min-width: 0; background: transparent; color: var(--text); }
+.mc-tableau-cadre { overflow-x: auto; }
+.mc-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mc-tableau th { text-align: left; font-size: 11.5px; font-weight: 800; color: var(--muted); padding: 9px 14px; background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.mc-tableau td { padding: 11px 14px; border-bottom: 1px solid var(--separateur); vertical-align: middle; }
+.mc-tableau tr:last-child td { border-bottom: 0; }
+.mc-tableau tbody tr[data-id] { cursor: pointer; }
+.mc-tableau tbody tr[data-id]:hover td, .mc-tableau tr.choisie td { background: var(--primary-soft); }
+.mc-tableau .droite { text-align: right; white-space: nowrap; }
+.mc-code { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.mc-fournisseurs, .mc-mouvement { color: var(--text-2); font-size: 13px; }
+.mc-sous-ligne { display: block; font-size: 12px; color: var(--muted); }
+.mc-statut { display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+.mc-statut.orange { background: #FFF2DB; color: #7A4B00; }
+.mc-statut.vert { background: #E3F5EA; color: #1A6B33; }
+.mc-statut.bleu { background: #E5EFFB; color: #1D4E8A; }
+.mc-statut.rouge { background: #FDE8E6; color: #A3231A; }
+.mc-statut.gris { background: #EEF2F0; color: #42564F; }
+
+.mc-fiche { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 12px; }
+.mc-fiche-tete { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mc-fiche-tete > div { flex: 1; min-width: 0; font-size: 16px; }
+.mc-client { color: var(--text-2); font-weight: 600; }
+.mc-sous { margin: -6px 0 0; font-size: 12.5px; color: var(--muted); }
+.mc-motif { margin: 0; padding: 8px 10px; border-radius: 10px; background: #FDE8E6; color: #A3231A; font-weight: 700; font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.mc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mc-lignes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mc-lignes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; padding: 10px 0; border-top: 1px solid var(--separateur); }
+.mc-lignes li:first-child { border-top: 0; }
+.mc-ligne-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mc-ligne-textes span { font-size: 12.5px; color: var(--muted); }
+.mc-ligne-montant { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+.mc-ligne-montant small { font-size: 11.5px; color: var(--muted); }
+.mc-ligne-etat { grid-column: 1 / -1; }
+.mc-compte { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg); }
+.mc-compte h3 { margin: 0 0 4px; font-size: 13px; }
+.mc-compte > div { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.mc-compte > div.fort { font-weight: 800; border-top: 1px solid var(--border); padding-top: 6px; }
+.mc-compte .mc-discret { color: var(--muted); font-size: 12.5px; }
+.mc-transport strong small { font-weight: 700; color: var(--muted); }
+.mc-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.mc-colis { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.mc-arret { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; margin: 0; border-left: 4px solid #B45309; background: #FFF8EC; border-radius: 0 10px 10px 0; font-size: 13px; }
+.mc-encarts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.mc-encart h3 { margin: 0 0 6px; font-size: 14px; }
+.mc-encart p { margin: 0; font-size: 13px; color: var(--text-2); }
+.mc-confirmer { font-weight: 700; }
+.mc-expedition .col-photos { margin: 0; }
+
+/* =============================================================================
+   Reçu A5 du versement (impression)
+   ============================================================================= */
+@media print {
+  @page recu-a5 { size: A5 portrait; margin: 8mm; }
+  body.impression-recu-marche #recu.recu-marche { page: recu-a5; width: auto; margin: 0; font-size: 9pt; line-height: 1.3; color: #000000; }
+  .rm-page { display: flex; flex-direction: column; gap: 2.6mm; break-inside: avoid; }
+  .rm-tete { display: flex; justify-content: space-between; gap: 6mm; border-bottom: 1.5pt solid #000000; padding-bottom: 3mm; }
+  .rm-tete > div { display: flex; flex-direction: column; gap: 1mm; }
+  .rm-entreprise { font-size: 12pt; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+  .rm-titre { text-align: right; }
+  .rm-titre span:first-child { font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 9pt; }
+  .rm-titre strong { font-size: 15pt; font-weight: 800; letter-spacing: .03em; }
+  .rm-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .rm-parties > div { display: flex; flex-direction: column; gap: .5mm; }
+  .rm-etiq { font-size: 8pt; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #333333; }
+  .rm-lignes { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  .rm-lignes th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1pt solid #000000; padding: 1mm 0; }
+  .rm-lignes th:not(:first-child), .rm-lignes td:not(:first-child) { text-align: right; white-space: nowrap; padding-left: 3mm; }
+  .rm-lignes td { padding: 1mm 0; border-bottom: .5pt solid #999999; vertical-align: top; }
+  .rm-lignes td span { display: block; font-size: 8.5pt; color: #333333; }
+  .rm-verse { display: flex; flex-direction: column; gap: .6mm; padding: 2.2mm 3mm; border: 1.5pt solid #000000; border-radius: 2mm; }
+  .rm-verse strong { font-size: 15pt; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .rm-lettres { font-style: italic; }
+  .rm-reste { display: flex; flex-direction: column; gap: .6mm; padding: 2.2mm 3mm; border: 1pt dashed #000000; border-radius: 2mm; }
+  .rm-totaux { display: flex; flex-direction: column; gap: 1mm; font-variant-numeric: tabular-nums; }
+  .rm-totaux div { display: flex; justify-content: space-between; }
+  .rm-bas { display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; }
+  .rm-signature { flex: 1; display: flex; flex-direction: column; gap: 1mm; padding-bottom: 10mm; border-bottom: 1pt solid #000000; }
+  .rm-qr { display: flex; flex-direction: column; align-items: center; gap: 1mm; font-size: 7.5pt; }
+  .rm-qr svg { width: 22mm; height: 22mm; }
+  .rm-mention { margin: 0; font-weight: 800; text-align: center; }
+}

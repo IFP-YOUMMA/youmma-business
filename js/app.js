@@ -13,7 +13,7 @@ import {
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
 import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
-import { preparerShell, retirerShell, afficherBientot, routeAccueil, ecranModule } from './layout.js';
+import { preparerShell, retirerShell, routeAccueil, ecranModule } from './layout.js';
 import { afficherAujourdhui } from './aujourdhui.js';
 import { afficherCaisse } from './caisse.js';
 import { afficherStock } from './stock.js';
@@ -41,6 +41,7 @@ import { afficherAgences } from './colis/reglages.js';
 import { afficherModuleAAcheter } from './module-a-acheter.js';
 import { afficherAfficheJour } from './affiche-jour.js';
 import { afficherActivationOption, CODE_OPTION } from './option-boutique.js';
+import { afficherMarche } from './marche/bureau.js';
 import { afficherColisTableau } from './colis/tableau.js';
 import { afficherNouveauColis } from './colis/nouveau.js';
 import { afficherFicheColis } from './colis/fiche.js';
@@ -122,8 +123,8 @@ const ROUTES = {
   comptes: { vue: afficherComptes },
   // Étape 18f — modules « agences » et « marche » du menu de la logistique.
   agences: { vue: afficherAgences },
-  // Le marché (vitrine des vendeurs, relevés /f/) arrive avec son étape : écran « Bientôt » d'ici là.
-  marche: { vue: (conteneur) => afficherBientot(conteneur, { icone: 'panier', libelle: 'Marché', description: 'Vos articles sur le marché YOUMMA, vos commandes et ce qui vous sera versé.' }) }
+  // Étape 21 — le marché : bureau de Conakry (commandes, versements, fournisseurs, expédition) et règlements.
+  marche: { vue: afficherMarche }
 };
 
 /**

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A3D33">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Mon relevé · YOUMMA Business</title>
+  <link rel="icon" href="../img/logo/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+  <style>
+    /* Relevé public d'un vendeur du marché (étape 21, maquette MarcheFournisseur) : un seul fichier, aucune session.
+       Le jeton EST l'accès du vendeur. Le titre de la page ne contient jamais son nom, et la page n'est pas indexée.
+       Lui a le droit de voir sa commission : c'est la sienne. */
+    :root { --vert: #0F7B5F; --fonce: #0A3D33; --or: #F2B33D; --or-encre: #3A2600; --texte: #0E1F1A; --doux: #5B6B65; --trait: #E6ECE9; --fond: #F6F8F7; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font-family: 'Manrope', system-ui, sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+    .num { font-variant-numeric: tabular-nums; }
+    .page { max-width: 640px; margin: 0 auto; padding-bottom: 28px; }
+    .entete { background: var(--fonce); color: #FFFFFF; padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 6px; }
+    .qui { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 44px; height: 44px; border-radius: 12px; background: var(--or); color: var(--or-encre); display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
+    .qui strong { display: block; font-size: 17px; }
+    .qui span { font-size: 13px; color: #BFE0D3; }
+    .corps { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .compteurs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .compteur { background: #FFFFFF; border: 1px solid var(--trait); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .compteur .etiq { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--doux); }
+    .compteur strong { font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .compteur span { font-size: 12.5px; color: var(--doux); }
+    .compteur.recevoir { background: #E8F5EF; border-color: #A9D7B9; }
+    .compteur.recevoir strong { color: #0A5A45; }
+    .section-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 6px 0 -4px; }
+    .section-tete h2 { margin: 0; font-size: 16px; }
+    .section-tete span { font-size: 12.5px; color: var(--doux); }
+    .carte { background: #FFFFFF; border: 1px solid var(--trait); border-radius: 14px; padding: 4px 14px; }
+    .ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 11px 0; border-top: 1px solid var(--trait); }
+    .ligne:first-child { border-top: 0; }
+    .ligne strong { font-size: 14.5px; }
+    .ligne .code { font-size: 12px; font-weight: 800; color: var(--vert); letter-spacing: .03em; }
+    .ligne .droite { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .ligne .vous { font-size: 12.5px; color: #0A5A45; font-weight: 800; }
+    .ligne span { font-size: 12.5px; color: var(--doux); }
+    .reglement { background: #FFFFFF; border: 1px solid var(--trait); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .reglement .total { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .reglement .total.fort { font-size: 18px; font-weight: 800; border-top: 1px solid var(--trait); padding-top: 8px; color: #0A5A45; }
+    .reglement p { margin: 0; font-size: 13px; color: var(--doux); }
+    .vide { color: var(--doux); font-size: 13.5px; padding: 12px 0; }
+    .neutre { margin: 40px 16px; padding: 18px; border-radius: 14px; background: #FFFFFF; border: 1px solid var(--trait); text-align: center; color: var(--doux); }
+    .pied { text-align: center; font-size: 12px; color: var(--doux); padding: 18px 16px 8px; }
+  </style>
+</head>
+<body>
+  <main class="page" id="releve"><div class="corps"><p class="vide">Chargement de votre relevé…</p></div></main>
+  <footer class="pied">Relevé propulsé par <strong>YOUMMA Business</strong></footer>
+  <noscript><p style="padding:24px">Cette page a besoin de JavaScript.</p></noscript>
+  <script type="module">
+    // releve_fournisseur(p_jeton) : lecture publique du relevé d'un vendeur du marché, sans compte.
+    // Aucun montant calculé ici : chaque chiffre est celui de la base, dans la monnaie du vendeur.
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-releve' }
+    });
+    const racine = document.getElementById('releve');
+    const jeton = (new URLSearchParams(location.search).get('j') || location.pathname.match(/\/f\/([A-Za-z0-9_-]{6,120})\/?$/)?.[1] || '').trim();
+    // Un seul message, que le jeton n'ait jamais existé, soit faux ou que le réseau manque : rien n'est révélé.
+    const NEUTRE = 'Ce lien ne permet pas d’ouvrir un relevé. Demandez votre lien au bureau.';
+
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: dec }).replace(/[  ]/g, ' ');
+    const devise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
+    const montant = (n, d) => `${nombre(n)} ${devise(d)}`.trim();
+    const jour = (iso) => { try { return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(new Date(iso)); } catch { return ''; } };
+    const initiales = (n) => String(n || '').split(/\s+/).filter((m) => /\p{L}/u.test(m)).slice(0, 2).map((m) => m[0]).join('').toUpperCase();
+    /** Noms des modes de paiement, lus dans la base (modes_de_paiement('fournisseur')), jamais écrits ici. */
+    let MODES = {};
+
+    function neutre() { racine.innerHTML = `<p class="neutre">${esc(NEUTRE)}</p>`; }
+
+    function afficher(r) {
+      const d = r.devise;
+      const res = r.resume || {};
+      const preparer = r.a_preparer || [];
+      const regles = r.regles || [];
+      racine.innerHTML = `
+        <header class="entete">
+          <div class="qui"><span class="avatar">${esc(initiales(r.nom))}</span><span><strong>${esc(r.nom)}</strong><span>${esc([r.specialite, r.commission !== null && r.commission !== undefined ? `commission ${nombre(r.commission, 2)} %` : ''].filter(Boolean).join(' · '))}</span></span></div>
+          <span style="font-size:13px;color:#DCEBE5">Vous vendez avec ${esc(r.entreprise?.nom || '')}</span>
+        </header>
+        <div class="corps">
+          <div class="compteurs">
+            <div class="compteur"><span class="etiq">À préparer</span><strong>${nombre(res.a_preparer)}</strong><span>commande${Number(res.a_preparer) > 1 ? 's' : ''} déjà payée${Number(res.a_preparer) > 1 ? 's' : ''} par le client</span></div>
+            <div class="compteur recevoir"><span class="etiq">Vous recevrez</span><strong>${esc(montant(res.du, d))}</strong><span>au prochain règlement</span></div>
+            <div class="compteur"><span class="etiq">Vendu, 30 jours</span><strong>${esc(montant(res.vendu_30j, d))}</strong><span>vos prix affichés</span></div>
+            <div class="compteur"><span class="etiq">Articles en ligne</span><strong>${nombre(res.articles)}</strong><span>sur le marché</span></div>
+          </div>
+
+          <div class="section-tete"><h2>À préparer aujourd’hui</h2><span>déjà payées par le client</span></div>
+          <div class="carte">${preparer.length ? preparer.map((x) => `
+            <div class="ligne">
+              <span class="code">${esc(x.code || '')}</span><span></span>
+              <strong>${esc(x.nom || '')}${x.quantite ? ` · ${esc(nombre(x.quantite, 2))}` : ''}</strong><span class="droite">${esc(montant(x.montant, d))}</span>
+              <span>${x.recue_le ? `Remise au bureau le ${esc(jour(x.recue_le))}` : 'À remettre au bureau'}</span>${x.a_reverser !== null && x.a_reverser !== undefined ? `<span class="droite vous">vous : ${esc(montant(x.a_reverser, d))}</span>` : '<span></span>'}
+            </div>`).join('') : '<p class="vide">Rien à préparer pour le moment.</p>'}</div>
+
+          <div class="section-tete"><h2>Votre prochain règlement</h2></div>
+          <div class="reglement">
+            ${r.commission !== null && r.commission !== undefined ? `<div class="total"><span>Commission ${esc(r.entreprise?.nom || '')}</span><span>${esc(nombre(r.commission, 2))} %</span></div>` : ''}
+            ${res.commission_30j !== undefined && res.commission_30j !== null ? `<div class="total"><span>Commission retenue sur 30 jours</span><span>${esc(montant(res.commission_30j, d))}</span></div>` : ''}
+            <div class="total fort"><span>Vous recevez</span><span>${esc(montant(res.du, d))}</span></div>
+            <p>La commission est retenue sur ce qui vous est versé ; le client paie le prix affiché. Dès que la marchandise est remise au bureau, elle vous est due : vous n’attendez pas le retrait du client.</p>
+          </div>
+
+          <div class="section-tete"><h2>Vos derniers règlements</h2></div>
+          <div class="carte">${regles.length ? regles.map((x) => `
+            <div class="ligne">
+              <span class="code">${esc(x.code || '')}</span><span class="droite">${x.paye_le ? `payé le ${esc(jour(x.paye_le))}` : ''}</span>
+              <strong>${esc(x.nom || '')}</strong><span class="droite">${esc(montant(x.montant, d))}</span>
+              <span>${x.mode ? esc(MODES[x.mode] || x.mode) : ''}</span>${x.a_reverser !== null && x.a_reverser !== undefined ? `<span class="droite vous">reçu : ${esc(montant(x.a_reverser, d))}</span>` : '<span></span>'}
+            </div>`).join('') : '<p class="vide">Aucun règlement pour le moment.</p>'}</div>
+        </div>`;
+    }
+
+    (async () => {
+      if (!jeton) { neutre(); return; }
+      try {
+        const [{ data, error }, modes] = await Promise.all([
+          sb.rpc('releve_fournisseur', { p_jeton: jeton }),
+          sb.rpc('modes_de_paiement', { p_usage: 'fournisseur' }).then((x) => x.data || [], () => [])
+        ]);
+        MODES = Object.fromEntries((modes || []).map((m) => [m.code, m.nom]));
+        const r = Array.isArray(data) ? data[0] : data;
+        if (error || !r || r.introuvable) { neutre(); return; }
+        afficher(r);
+      } catch { neutre(); }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+/* =============================================================================
+   Étape 21 — Le marché, page publique a/ (catalogue, commande, suivi), téléphone d'abord.
+   Jamais de texte blanc sur l'or : sur le bandeau or, le texte est brun foncé.
+   ============================================================================= */
+:root {
+  --vert: #0F7B5F; --vert-fonce: #0A3D33; --vert-doux: #E3F2EC; --or: #F2B33D; --or-encre: #3A2600; --or-pale: #FFF4DC;
+  --texte: #0E1F1A; --texte-2: #2F453D; --doux: #5B6B65; --trait: #E6ECE9; --fond: #F6F8F7; --carte: #FFFFFF;
+  --rouge: #A51C1C; --rouge-pale: #FDE7E5; --rayon: 14px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--fond); color: var(--texte); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+button, input, select, textarea { font: inherit; }
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.mk-page { max-width: 1080px; margin: 0 auto; min-height: 100vh; padding-bottom: 120px; }
+.mk-chargement { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 60vh; color: var(--doux); }
+.mk-rond { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--trait); border-top-color: var(--vert); animation: mk-tourne .8s linear infinite; }
+@keyframes mk-tourne { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mk-rond { animation: none; } }
+
+/* En-tête */
+.mk-entete { background: var(--vert-fonce); color: #FFFFFF; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.mk-entete-haut { display: flex; align-items: center; gap: 12px; }
+.mk-entete-titres { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mk-entete h1 { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; }
+.mk-entete-titres span { font-size: 13px; color: #BFE0D3; }
+.mk-retour { width: 40px; height: 40px; border-radius: 12px; border: none; background: rgba(255, 255, 255, .12); color: #FFFFFF; display: grid; place-items: center; cursor: pointer; flex: none; }
+.mk-panier-btn { position: relative; width: 44px; height: 44px; border-radius: 12px; border: none; background: rgba(255, 255, 255, .12); color: #FFFFFF; display: grid; place-items: center; cursor: pointer; flex: none; }
+.mk-panier-btn b { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--or); color: var(--or-encre); font-size: 11.5px; display: grid; place-items: center; }
+.mk-recherche { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: #FFFFFF; color: var(--doux); }
+.mk-recherche input { border: none; outline: none; flex: 1; min-width: 0; font-size: 15px; color: var(--texte); background: transparent; }
+svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Le bandeau qui fait vendre */
+.mk-bandeau { margin: 12px 16px 0; padding: 12px 14px; border-radius: var(--rayon); background: var(--or); color: var(--or-encre); display: flex; flex-direction: column; gap: 2px; }
+.mk-bandeau strong { font-size: 16px; font-weight: 800; }
+.mk-bandeau span { font-size: 13.5px; font-weight: 600; }
+
+.mk-corps { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.mk-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mk-section-tete h2 { margin: 0; font-size: 17px; }
+.mk-section-tete span, .mk-section-tete button { font-size: 13px; color: var(--doux); }
+.mk-lien { border: none; background: none; padding: 0; color: var(--vert) !important; font-weight: 800; cursor: pointer; }
+
+/* Fournisseurs */
+.mk-fournisseurs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.mk-fournisseur { flex: 0 0 210px; text-align: left; background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; color: inherit; }
+.mk-fournisseur.actif { border-color: var(--vert); box-shadow: 0 0 0 2px var(--vert-doux); }
+.mk-fournisseur strong { font-size: 14.5px; }
+.mk-fournisseur span { font-size: 12.5px; color: var(--doux); }
+.mk-fournisseur .mk-prepare { color: var(--vert); font-weight: 800; }
+
+/* Articles */
+.mk-articles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 640px) { .mk-articles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .mk-articles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.mk-article { background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.mk-photo { aspect-ratio: 4 / 3; background: linear-gradient(140deg, var(--vert-doux), #EEF2F0); position: relative; display: grid; place-items: center; color: var(--doux); font-size: 12px; max-width: 100%; }
+.mk-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mk-populaire { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--or); color: var(--or-encre); font-size: 11px; font-weight: 800; }
+.mk-article-corps { padding: 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.mk-article-corps strong { font-size: 14px; line-height: 1.3; }
+.mk-article-corps .mk-de { font-size: 12px; color: var(--doux); }
+.mk-prix { font-size: 16px; font-weight: 800; color: var(--vert-fonce); margin-top: 4px; white-space: nowrap; }
+.mk-prix-local { font-size: 12px; color: var(--doux); white-space: nowrap; }
+.mk-ajouter { margin-top: 8px; min-height: 40px; border-radius: 10px; border: none; background: var(--vert); color: #FFFFFF; font-weight: 800; cursor: pointer; }
+.mk-quantite { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mk-quantite button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--trait); background: #FFFFFF; font-size: 18px; font-weight: 800; cursor: pointer; color: var(--texte); }
+.mk-quantite strong { font-size: 15px; }
+.mk-taux { font-size: 12.5px; color: var(--doux); }
+.mk-vide { color: var(--doux); text-align: center; padding: 24px 8px; }
+
+/* Barre basse */
+.mk-barre { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--carte); border-top: 1px solid var(--trait); box-shadow: 0 -6px 18px rgba(14, 31, 26, .08);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.mk-barre-int { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.mk-barre-textes { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mk-barre-textes strong { font-size: 15px; }
+.mk-barre-textes span { font-size: 12.5px; color: var(--doux); }
+.mk-bouton { min-height: 48px; padding: 0 20px; border-radius: 12px; border: none; background: var(--vert); color: #FFFFFF; font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; }
+.mk-bouton:disabled { background: #9DBFB2; cursor: default; }
+.mk-bouton.bloc { width: 100%; }
+.mk-bouton.second { background: #FFFFFF; color: var(--vert-fonce); border: 1px solid var(--trait); }
+.mk-note-transport { font-size: 12.5px; color: var(--doux); margin: 0; }
+
+/* Commande */
+.mk-carte { background: var(--carte); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mk-carte h2 { margin: 0; font-size: 16px; }
+.mk-ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--trait); }
+.mk-ligne:first-of-type { border-top: 0; }
+.mk-ligne strong { font-size: 14px; }
+.mk-ligne span { font-size: 12.5px; color: var(--doux); }
+.mk-ligne .num { text-align: right; font-weight: 800; white-space: nowrap; }
+.mk-ligne .mk-quantite { grid-column: 1 / -1; justify-content: flex-start; margin-top: 4px; }
+.mk-total { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.mk-total.fort { font-size: 18px; font-weight: 800; border-top: 1px solid var(--trait); padding-top: 8px; }
+.mk-transport { background: var(--or-pale); border: 1px solid #F0D894; }
+.mk-transport p { margin: 0; font-size: 13.5px; color: #5C4300; }
+.mk-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: etape; }
+.mk-etapes li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; counter-increment: etape; }
+.mk-etapes li::before { content: counter(etape); width: 30px; height: 30px; border-radius: 50%; background: var(--vert); color: #FFFFFF; display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+.mk-etapes strong { display: block; font-size: 14px; }
+.mk-etapes span { font-size: 13px; color: var(--doux); }
+.mk-form { display: flex; flex-direction: column; gap: 12px; }
+.mk-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
+.mk-form input, .mk-form select, .mk-form textarea { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font-size: 16px; color: var(--texte); background: #FFFFFF; }
+.mk-form textarea { padding: 10px 14px; min-height: 70px; resize: vertical; }
+.mk-erreur { padding: 12px 14px; border-radius: 12px; background: var(--rouge-pale); color: var(--rouge); font-weight: 700; font-size: 14px; }
+.mk-info { padding: 12px 14px; border-radius: 12px; background: var(--or-pale); color: #5C4300; font-weight: 700; font-size: 14px; }
+
+/* Code à présenter */
+.mk-code { background: var(--vert-fonce); color: #FFFFFF; border-radius: var(--rayon); padding: 18px 16px; display: flex; flex-direction: column; gap: 6px; text-align: center; align-items: center; }
+.mk-code .etiq { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #BFE0D3; }
+.mk-code strong { font-size: 40px; font-weight: 800; letter-spacing: .05em; color: var(--or); font-variant-numeric: tabular-nums; }
+.mk-code p { margin: 0; font-size: 14px; color: #DCEBE5; }
+.mk-code p b { color: #FFFFFF; }
+.mk-lien-suivi { display: flex; flex-direction: column; gap: 8px; }
+.mk-lien-suivi code { display: block; padding: 10px 12px; border-radius: 10px; background: var(--fond); border: 1px solid var(--trait); font-size: 13px; word-break: break-all; }
+.mk-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.mk-boutons .mk-bouton { flex: 1 1 140px; }
+
+/* Suivi */
+.mk-suivi-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.mk-suivi-etapes li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding-bottom: 12px; position: relative; color: var(--doux); }
+.mk-suivi-etapes li::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--trait); background: #FFFFFF; margin-top: 3px; }
+.mk-suivi-etapes li::after { content: ""; position: absolute; left: 8px; top: 20px; bottom: 0; width: 2px; background: var(--trait); }
+.mk-suivi-etapes li:last-child::after { display: none; }
+.mk-suivi-etapes li.fait { color: var(--texte); }
+.mk-suivi-etapes li.fait::before { background: var(--vert); border-color: var(--vert); }
+.mk-suivi-etapes li.fait::after { background: var(--vert); }
+.mk-suivi-etapes strong { font-size: 14px; display: block; }
+.mk-suivi-etapes span { font-size: 12.5px; }
+.mk-pied { text-align: center; font-size: 12px; color: var(--doux); padding: 18px 16px 8px; }
+.mk-toasts { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 30; display: flex; flex-direction: column; gap: 6px; width: min(92vw, 420px); }
+.mk-toast { background: var(--vert-fonce); color: #FFFFFF; padding: 10px 14px; border-radius: 10px; font-size: 14px; text-align: center; }
+:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }

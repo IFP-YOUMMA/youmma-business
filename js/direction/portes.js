@@ -2,8 +2,8 @@
  * direction/portes.js — Les écrans derrière les portes (étape 20), en réutilisant ceux qui existent :
  *  - #/boutiques (porte des licences) : la liste de la console (console_boutiques), la fiche, la création. C'est ici,
  *    et nulle part ailleurs, qu'on entre dans une boutique pour y travailler (« Ouvrir la boutique ») ;
- *  - #/marche-monde (porte de la commission) : onglets Colis · Envois · Agences (pages de la boutique logistique),
- *    Marché (page actuelle du marché) et Vendeurs (console_boutiques de l'espace) ;
+ *  - #/marche-monde (porte de la commission) : onglets Colis · Envois · Agences · Marché (pages de la boutique
+ *    logistique, dont le bureau du marché, étape 21) et Vendeurs (console_boutiques de l'espace) ;
  *  - #/fiche/<id>, #/terrain, #/acces, #/chercher : écrans de la console, dans la coquille de direction.
  * Une porte absente des réponses du serveur n'a pas d'écran : on revient à #/.
  */
@@ -20,7 +20,7 @@ import { afficherAcces } from '../admin/console/acces.js';
 import { afficherColisTableau } from '../colis/tableau.js';
 import { afficherEnvois } from '../colis/envois.js';
 import { afficherAgences } from '../colis/reglages.js';
-import { afficherBientot } from '../layout.js';
+import { afficherMarche } from '../marche/bureau.js';
 import { assurerConsole, porte, porteDeRoute, routePorte, portes, moi } from './commun.js';
 import { majLiens } from './shell.js';
 
@@ -129,12 +129,7 @@ export function afficherMarcheMonde(conteneur, params) {
       afficherEspace(zone, { id: p.code });
       return;
     }
-    if (onglet === 'marche') {
-      sortirDeBoutique();
-      afficherBientot(zone, { icone: 'panier', libelle: 'Marché', description: 'Vos articles sur le marché YOUMMA, vos commandes et ce qui vous sera versé.' });
-      return;
-    }
-    // Colis, Envois, Agences : les pages de la boutique logistique, dans laquelle on entre (ses liens y mènent).
+    // Colis, Envois, Agences, Marché : les pages de la boutique logistique, dans laquelle on entre (ses liens y mènent).
     let log;
     try { log = await boutiqueLogistique(p.code); } catch (err) { erreur(zone, err); return; }
     if (!zone.isConnected) return;
@@ -146,7 +141,8 @@ export function afficherMarcheMonde(conteneur, params) {
     entrerDansBoutique(log.id);
     await chargerModules(log.id, { annoncer: false });
     if (!zone.isConnected) return;
-    if (onglet === 'colis') afficherColisTableau(zone, params);
+    if (onglet === 'marche') afficherMarche(zone, params, { adresse: (q) => `#/marche-monde?onglet=marche${q ? `&${q}` : ''}` });
+    else if (onglet === 'colis') afficherColisTableau(zone, params);
     else if (onglet === 'envois') afficherEnvois(zone, params);
     else afficherAgences(zone);
   });

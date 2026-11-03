@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v38';
+const VERSION_CACHE = 'yb-statique-v39';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -147,6 +147,16 @@ const FICHIERS_STATIQUES = [
   './js/colis/comptes.js',
   './m/index.html',
   './s/index.html',
+  // Étape 21 : le marché (bureau #/marche, reçu A5) et ses pages publiques a/ (acheter) et f/ (relevé du vendeur)
+  './css/marche.css',
+  './js/marche/commun.js',
+  './js/marche/bureau.js',
+  './js/marche/reglements.js',
+  './js/marche/recu.js',
+  './a/index.html',
+  './css/marche-client.css',
+  './js/marche-client.js',
+  './f/index.html',
   // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
   // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
   './js/detourage.js',
@@ -244,7 +254,8 @@ async function limiterImages(cache) {
  *  - panneau d'administration (admin/…) → admin/index.html (jamais l'appli) ;
  *  - vérification d'un document (v/…) → v/index.html (jamais l'appli) ;
  *  - page du chauffeur (d/…) → d/index.html (jamais l'appli) ;
- *  - suivi d'un colis (c/…), photos au téléphone (p/…), relevé d'un compte (m/…), simulateur (s/…) → leur propre page ;
+ *  - suivi d'un colis (c/…), photos au téléphone (p/…), relevé d'un compte (m/…), simulateur (s/…), marché (a/…),
+ *    relevé d'un vendeur (f/…) → leur propre page ;
  *  - page d'impression (document.html) → elle-même si elle est en cache ;
  *  - 404.html et fichiers (JS, CSS, images…) → erreur réseau normale ;
  *  - autre navigation dans l'appli → index.html.
@@ -267,7 +278,7 @@ function repli(requete, url) {
     return requete.mode === 'navigate' ? caches.match('./d/index.html').then((r) => r || Response.error()) : Response.error();
   }
   // Suivi public d'un colis et photos prises au téléphone : leurs propres pages.
-  for (const dossier of ['c', 'p', 'm', 's']) {
+  for (const dossier of ['c', 'p', 'm', 's', 'a', 'f']) {
     if (chemin === dossier || chemin.startsWith(`${dossier}/`)) {
       return requete.mode === 'navigate' ? caches.match(`./${dossier}/index.html`).then((r) => r || Response.error()) : Response.error();
     }
