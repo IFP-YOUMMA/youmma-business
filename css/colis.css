@@ -491,5 +491,3 @@
 .col-corridors tr.cible { background: #FFF8E6; box-shadow: inset 3px 0 0 var(--accent-light); }
 .et-bout strong { text-transform: uppercase; }
 /* Drapeaux en image sur Windows (drapeauHTML) : même taille que l'emoji. */
-.drapeau-img { width: 1.15em; height: 1.15em; vertical-align: -0.18em; }
-.col-pays .drapeau-img { width: 16px; height: 16px; }

@@ -71,7 +71,7 @@ export function monterReglagesColis(zone) {
     sous('bureaux').innerHTML = `
       <div class="col-carte-entete"><h2>Mes bureaux</h2>${gerant ? '<button type="button" class="btn btn-secondaire btn-petit" data-bureau="">+ Ajouter un bureau</button>' : ''}</div>
       ${s.agences.map((a) => `<div class="col-bureau-ligne">
-        <span class="col-pays" title="${esc(codePays(a))}">${drapeauHTML(a.drapeau, codePays(a))}</span>
+        <span class="col-pays" title="${esc(codePays(a))}">${drapeauHTML(a.drapeau)}</span>
         <span class="col-bureau-textes"><strong>${esc(a.code)} · ${esc(a.ville || '')}${a.nom && a.nom !== a.ville ? ` — ${esc(a.nom)}` : ''}</strong>
           <span>${esc([a.adresse, formatTel(a.telephone), a.horaires, nomDevise(a.devise)].filter(Boolean).join(' · '))}</span></span>
         ${gerant ? `<button type="button" class="btn btn-secondaire btn-petit" data-bureau="${esc(a.id)}">Modifier</button>` : ''}

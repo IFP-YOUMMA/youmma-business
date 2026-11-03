@@ -25,9 +25,8 @@ export const estSuperAdmin = () => moi().role === 'super_admin';
 export const montantEspace = (e, n) => (e?.facturation === 'licence' ? formatGNF(Number(n) || 0) : `${formatNombre(Number(n) || 0)} FCFA`);
 export const montantDevise = (n, devise) => (devise === 'GNF' ? formatGNF(Number(n) || 0) : `${formatNombre(Number(n) || 0)} ${devise === 'XOF' ? 'FCFA' : esc(devise || '')}`);
 
-/** Drapeau renvoyé par la base : emoji, ou image Twemoji sur Windows (qui affiche « SN » à la place des drapeaux). */
-export const drapeau = (d) => (!d ? '' : !/Windows/.test(navigator.userAgent) ? `<span class="cs-drapeau">${esc(d)}</span>`
-  : `<img class="cs-drapeau" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${[...d].map((c) => c.codePointAt(0).toString(16)).join('-')}.svg" alt="${esc(d)}" width="16" height="16">`);
+/** Drapeau renvoyé par la base : l'emoji, affiché comme du texte, jamais en image ; vide : rien. */
+export const drapeau = (d) => (d ? `<span class="cs-drapeau">${esc(d)}</span>` : '');
 
 /** Un visage par personne concernée : deux pour une affaire commune, un pour l'affaire seule. */
 export const visages = (e) => `<span class="cs-visages" title="${e.commun ? 'Affaire commune' : 'Votre affaire seule'}">${icone('client', 15, 2)}${e.commun ? icone('client', 15, 2) : ''}</span>`;

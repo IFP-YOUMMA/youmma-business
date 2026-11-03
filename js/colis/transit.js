@@ -100,7 +100,7 @@ export function afficherTransit(conteneur) {
       const p = pourcent(c);
       const bas = p !== null && p < SEUIL_REMPLISSAGE;
       return `<article class="carte tr-corridor">
-        <header class="tr-corridor-tete"><span class="tr-drapeau" title="${esc(c.pays)}">${drapeauHTML(c.drapeau, c.pays)}</span>
+        <header class="tr-corridor-tete"><span class="tr-drapeau" title="${esc(c.pays)}">${drapeauHTML(c.drapeau)}</span>
           <span class="tr-corridor-titres"><strong>${esc(c.ville)} → ${esc(c.vers)}</strong><span>${esc(MODES[c.mode]?.libelle || c.mode)} · ${formatNombre(c.delai_jours)} j · ${formatNombre(c.prix_kg)} ${esc(nomDevise(c.devise))}/kg</span></span></header>
         <div class="tr-corridor-chiffres">
           <div><span class="etiquette">En attente</span><strong class="nombre-moyen">${formatNombre(c.en_attente)}</strong> <span class="discret">colis</span></div>

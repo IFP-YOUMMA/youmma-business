@@ -95,16 +95,11 @@ export const api = {
 };
 
 /**
- * Drapeau d'un bureau : agences.drapeau (« 🇸🇳 ») tel que la base l'envoie, le code pays seulement s'il est vide.
- * Windows ne dessine pas les drapeaux emoji (il écrit « SN ») : là seulement, on montre l'image Twemoji du même emoji
- * (SVG de 300 octets environ, version figée). Une police emoji complète pesait des centaines de Ko par tranche.
+ * Drapeau d'un bureau : l'emoji (« 🇸🇳 ») que la base renvoie, affiché comme du texte, jamais en image.
+ * Vide : rien du tout (la base le remplit elle-même depuis le code pays de l'agence).
  */
-const SANS_DRAPEAUX = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent);
-export function drapeauHTML(drapeau, repli = '') {
-  if (!drapeau) return esc(repli);
-  if (!SANS_DRAPEAUX) return esc(drapeau);
-  const code = [...drapeau].map((c) => c.codePointAt(0).toString(16)).join('-');
-  return `<img class="drapeau-img" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${code}.svg" alt="${esc(drapeau)}" width="20" height="20" loading="lazy">`;
+export function drapeauHTML(drapeau) {
+  return drapeau ? esc(drapeau) : '';
 }
 
 /** Jours de départ des corridors (tarifs_colis.jours_depart) : ISO, 1 = lundi … 7 = dimanche. */
