@@ -562,7 +562,7 @@ function monterFiche(zone, clientInitial, { mode, nomsMembres, onMaj }) {
           <input type="checkbox" disabled>
           <span>Envoyer un reçu de paiement par SMS <small>(bientôt)</small></span>
         </label>
-        <button type="button" class="btn btn-primaire btn-grand" data-action="valider-remb" disabled>Valider le remboursement</button>
+        <button type="button" class="btn btn-primaire btn-grand" data-action="valider-remb" data-gerant disabled>Valider le remboursement</button>
       </section>`;
   }
 

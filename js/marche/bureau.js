@@ -155,7 +155,7 @@ function monterCommandes(zone) {
       <p class="mc-sous">${versee ? `Versée le ${esc(quand(c.verse_le))}${c.verse_mode ? ` · ${esc(libelleMode(c.verse_mode))}` : ''}` : `Commandée le ${esc(quand(c.created_at))} · pas encore versée`}</p>
       ${c.motif ? `<p class="mc-motif">${icone('alerte', 15, 2)} ${esc(c.motif)}</p>` : ''}
       <div class="mc-actions">
-        ${!versee ? `<button type="button" class="btn btn-primaire" data-action="encaisser">${icone('caisse', 16, 2)} Encaisser ${esc(montant(c.montant_client, c.devise_client))}</button>` : ''}
+        ${!versee ? `<button type="button" class="btn btn-primaire" data-action="encaisser" data-gerant>${icone('caisse', 16, 2)} Encaisser ${esc(montant(c.montant_client, c.devise_client))}</button>` : ''}
         ${versee && toutPaye && !c.colis ? `<button type="button" class="btn btn-primaire" data-action="expedier">${icone('camion', 16, 2)} Expédier</button>` : ''}
         ${versee ? `<button type="button" class="btn btn-secondaire" data-action="recu">${icone('imprimante', 16, 2)} Reçu</button>` : ''}
         ${c.statut !== 'litige' ? '<button type="button" class="btn btn-secondaire" data-action="litige">Signaler un litige</button>' : ''}

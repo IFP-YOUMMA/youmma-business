@@ -295,7 +295,7 @@ export function afficherCaisse(conteneur, params) {
           <span class="total-grand"><span data-ref="total">${formatNombre(total)}</span> <span class="unite-gnf">GNF</span></span>
         </div>
         ${modesHTML(true)}
-        <button type="button" class="btn btn-primaire btn-valider" data-action="valider" ${!lignes.length || expiree || s.enCours ? 'disabled' : ''}>
+        <button type="button" class="btn btn-primaire btn-valider" data-action="valider" data-gerant ${!lignes.length || expiree || s.enCours ? 'disabled' : ''}>
           ${s.enCours ? '<span class="spinner" aria-hidden="true"></span>Enregistrement…' : 'Valider la vente'}
         </button>
       </div>
@@ -344,7 +344,7 @@ export function afficherCaisse(conteneur, params) {
 
         <div class="panier-actions">
           <button type="button" class="btn btn-secondaire btn-grand" data-action="mettre-en-attente" ${lignes.length ? '' : 'disabled'}>Mettre en attente</button>
-          <button type="button" class="btn btn-primaire btn-grand btn-valider" data-action="valider" ${!lignes.length || expiree || s.enCours ? 'disabled' : ''}>
+          <button type="button" class="btn btn-primaire btn-grand btn-valider" data-action="valider" data-gerant ${!lignes.length || expiree || s.enCours ? 'disabled' : ''}>
             ${s.enCours ? '<span class="spinner" aria-hidden="true"></span>Enregistrement…' : `Valider · <span data-ref="total">${formatNombre(total)}</span> GNF`}
           </button>
         </div>

@@ -9,6 +9,7 @@
  */
 import { sb } from '../supabase.js';
 import { etat, choisirBoutique, entrerDansBoutique, sortirDeBoutique } from '../state.js';
+import { demanderEntree } from '../depannage.js';
 import { naviguer } from '../router.js';
 import { chargerEtatLicence } from '../plateforme.js';
 import { chargerModules } from '../modules.js';
@@ -45,14 +46,13 @@ async function avecConsole(conteneur, route, rendre) {
 /* ------------------------------------------------------------ Entrer dans une boutique */
 
 /**
- * « Ouvrir la boutique » : bascule dans l'interface boutique actuelle, inchangée. Elle lit les tables de la boutique
- * avec les droits d'un MEMBRE : on ne peut y entrer que si l'on en est membre (etat.boutiques, chargé à la connexion).
+ * « Ouvrir la boutique » : bascule dans l'interface boutique actuelle, inchangée. Membre : on entre sans question.
+ * Sinon : accès de dépannage (depannage.js), motif d'abord, avec les droits d'un vendeur et un bandeau ambre.
  */
 export async function ouvrirBoutique(b) {
-  if (!choisirBoutique(b.id)) {
-    toast(`Vous n’êtes pas membre de « ${b.nom} » : l’application ne sait pas encore vous y faire entrer depuis la direction.`, 'erreur', 7000);
-    return;
-  }
+  let ok = false;
+  try { ok = await demanderEntree(b); } catch (err) { toast(String(err?.message || err), 'erreur', 7000); return; }
+  if (!ok) return;
   entrerDansBoutique(b.id);
   await Promise.all([chargerEtatLicence(), chargerModules(b.id, { annoncer: false })]);
   document.querySelector('.dir-shell')?.remove();

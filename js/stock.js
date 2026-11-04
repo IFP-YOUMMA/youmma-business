@@ -6,7 +6,7 @@
  * change que par la fonction serveur mouvement_stock (ou par les ventes).
  */
 import { sb } from './supabase.js';
-import { etat, peut, espaceBoutique } from './state.js';
+import { etat, peut, montrerGeste, espaceBoutique } from './state.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, lireNombre, capitaliser,
   formatNombre, formatGNF, formatQuantite, formatDate, uniteDivisible, UNITES, promoActive, dateISO
@@ -105,7 +105,7 @@ export function afficherStock(conteneur, params) {
           <h1>${esc(vocab('menu') === 'Stock' ? `${vocab('articles')} & stock` : vocab('menu'))}</h1>
           <span data-zone="resume">Chargement…</span>
         </div>
-        ${gerer ? `<button type="button" class="btn btn-primaire" data-action="ajouter">${icone('plus', 18, 2.4)} Ajouter ${esc(unArticle())}</button>` : ''}
+        ${montrerGeste('gerer_stock') ? `<button type="button" class="btn btn-primaire" data-action="ajouter" data-gerant>${icone('plus', 18, 2.4)} Ajouter ${esc(unArticle())}</button>` : ''}
       </header>
       <section class="carte valeur-stock" data-zone="valeur-stock" aria-label="Valeur du stock" hidden></section>
 
@@ -454,8 +454,8 @@ export function afficherStock(conteneur, params) {
           ${info('Code-barres', esc(p.code_barre || '—'))}
           ${gerer && aModule('fournisseurs') ? info('Fournisseur', esc(s.fournisseurs.find((f) => f.id === p.fournisseur_id)?.nom || '—')) : ''}
         </dl>
-        ${gerer ? `
-          <div class="fiche-actions">
+        ${montrerGeste('gerer_stock') ? `
+          <div class="fiche-actions" data-gerant>
             ${p.sur_commande || !p.actif ? '' : modele ? `
               <button type="button" class="btn btn-primaire" data-action-fiche="entree">${icone('entree', 18, 2)} Arrivage</button>
               <button type="button" class="btn btn-secondaire" data-action-fiche="ajustement">${icone('inventaire', 18, 2)} Inventaire</button>

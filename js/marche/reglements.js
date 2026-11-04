@@ -54,7 +54,7 @@ export function afficherReglements(zone) {
               <td class="droite mc-num">${formatNombre(f.commandes)}</td>
               <td class="droite mc-num">${esc(montant(f.commission_gagnee, f.devise))}</td>
               <td class="droite mc-num"><strong>${esc(montant(f.du, f.devise))}</strong></td>
-              <td class="mc-reglement">${Number(f.du) > 0 ? `<button type="button" class="btn btn-primaire btn-petit" data-regler="${esc(f.id)}">Régler</button>` : '<span class="mc-statut vert">À jour</span>'}<button type="button" class="btn btn-secondaire btn-petit" data-articles="${esc(f.id)}">Articles</button></td>
+              <td class="mc-reglement">${Number(f.du) > 0 ? `<button type="button" class="btn btn-primaire btn-petit" data-gerant data-regler="${esc(f.id)}">Régler</button>` : '<span class="mc-statut vert">À jour</span>'}<button type="button" class="btn btn-secondaire btn-petit" data-articles="${esc(f.id)}">Articles</button></td>
             </tr>`).join('')}</tbody>
         </table></div>` : '<p class="col-vide">Aucun fournisseur dans le marché pour l’instant.</p>'}
       </section>

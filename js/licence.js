@@ -4,7 +4,7 @@
  * WhatsApp au support YOUMMA (paiement en ligne bientôt disponible).
  */
 import { sb } from './supabase.js';
-import { etat, peut } from './state.js';
+import { etat, montrerGeste } from './state.js';
 import { chargerEtatLicence, lienSupport } from './plateforme.js';
 import { esc, icone, formatGNF, formatDate, formatTelephone, messageErreur } from './utils.js';
 
@@ -34,8 +34,8 @@ export function afficherLicence(conteneur) {
         <div class="formules-licence" data-zone="formules"><span class="squelette" style="height:120px"></span></div>
         <p class="discret">Paiement à YOUMMA par Orange Money, MTN MoMo ou en espèces. Paiement en ligne bientôt disponible.</p>
       </section>
-      ${peut('parametres_boutique') ? `
-        <section class="carte section-parametres" data-zone="renouveler">
+      ${montrerGeste('parametres_boutique') ? `
+        <section class="carte section-parametres" data-zone="renouveler" data-gerant>
           <h2>Renouveler</h2>
           <div class="champ"><span class="etiquette">Durée</span>
             <div class="segments segments-cadre" role="group" aria-label="Durée">

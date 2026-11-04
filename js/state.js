@@ -22,7 +22,9 @@ export const etat = {
   /** État de la plateforme (RPC etat_plateforme) : { maintenance, message, support_whatsapp }. */
   plateforme: null,
   /** Étape 20 — mon_entree() : { mode: 'direction' | 'boutique' | 'aucune', moi?, boutique?, raison? }. */
-  entree: null
+  entree: null,
+  /** Accès de dépannage ouvert depuis la direction (entrer_dans_boutique) : { id, boutique_id, expire_le, droits }. */
+  depannage: null
 };
 
 const CLE_DANS_BOUTIQUE = 'yb_dans_boutique';
@@ -157,6 +159,7 @@ export function viderEtat() {
   etat.boutique = null;
   etat.membre = null;
   etat.entree = null;
+  etat.depannage = null;
   sortirDeBoutique();
 }
 
@@ -219,6 +222,29 @@ export function estGerant() {
 
 export function estProprietaire() {
   return etat.membre?.role === 'proprietaire';
+}
+
+/* ------------------------------------------------------------ Accès de dépannage (direction) */
+
+/**
+ * Pendant un dépannage, la boutique est ouverte avec les droits d'un VENDEUR (ceux que le serveur accorde) : elle
+ * figure dans etat.boutiques avec un membre fictif { role: 'vendeur', depannage: true }, qui n'existe pas en base.
+ */
+export const enDepannage = () => Boolean(etat.depannage && etat.boutique && etat.depannage.boutique_id === etat.boutique.id);
+
+/** Bouton de gérant : affiché selon le rôle, et pendant un dépannage affiché éteint (data-gerant, voir depannage.js). */
+export const montrerGeste = (action) => peut(action) || enDepannage();
+
+export function ajouterBoutiqueDepannage(boutique, acces, nom = '') {
+  etat.boutiques = etat.boutiques.filter((x) => x.boutique.id !== boutique.id)
+    .concat({ boutique, membre: { role: 'vendeur', nom, depannage: true } });
+  etat.depannage = { ...acces, boutique_id: boutique.id };
+}
+
+export function oublierDepannage() {
+  etat.boutiques = etat.boutiques.filter((x) => !x.membre?.depannage);
+  if (etat.membre?.depannage) { etat.boutique = null; etat.membre = null; etat.licence = null; }
+  etat.depannage = null;
 }
 
 export const LIBELLES_ROLES = { proprietaire: 'Propriétaire', gerant: 'Gérant', vendeur: 'Vendeur' };

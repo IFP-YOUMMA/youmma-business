@@ -8,7 +8,8 @@
  *  - Licence (tous, lecture) · Mes boutiques (gérant / propriétaire) · Déconnexion.
  */
 import { sb } from './supabase.js';
-import { etat, utilisateur, peut, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLES } from './state.js';
+import { etat, utilisateur, peut, montrerGeste, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLES } from './state.js';
+import { sectionQuiEstEntreHTML, chargerQuiEstEntre } from './depannage.js';
 import { deconnecter } from './auth.js';
 import { modifierLogo } from './images/actions.js';
 import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
@@ -33,6 +34,8 @@ function telephoneConnexion() {
 export function afficherParametres(conteneur) {
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   const gerer = peut('parametres_boutique');
+  // Dépannage : les réglages restent visibles, éteints (data-gerant), pour qu'on sache pourquoi on ne peut pas.
+  const gerant = (action) => (peut(action) ? '' : 'data-gerant');
 
   conteneur.innerHTML = `
     <div class="page page-parametres">
@@ -45,17 +48,18 @@ export function afficherParametres(conteneur) {
         <div class="parametres-gauche">
           ${gerer ? '<section class="carte section-parametres" aria-labelledby="titre-boutique" data-zone="boutique"></section>' : ''}
           <section class="carte section-parametres" aria-labelledby="titre-compte" data-zone="compte"></section>
+          ${sectionQuiEstEntreHTML()}
         </div>
         <div class="parametres-droite">
-          ${peut('parametres_boutique') ? `<a class="carte lien-reglages-documents" href="#/modules">
+          ${montrerGeste('parametres_boutique') ? `<a class="carte lien-reglages-documents" href="#/modules" ${gerant('parametres_boutique')}>
             <span class="avatar">${icone('tableau', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Mes modules</span><span class="discret">Fonctions affichées selon votre activité : crédits, devis, chantiers, boutique en ligne…</span></span>
             ${icone('chevronDroite', 18, 2)}</a>` : ''}
-          ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/identite">
+          ${montrerGeste('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/identite" ${gerant('documents.reglages')}>
             <span class="avatar">${icone('image', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Logo &amp; images</span><span class="discret">Logo partout, photo de couverture, logos Orange Money / MTN MoMo et partenaires</span></span>
             ${icone('chevronDroite', 18, 2)}</a>` : ''}
-          ${peut('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/documents">
+          ${montrerGeste('documents.reglages') ? `<a class="carte lien-reglages-documents" href="#/documents" ${gerant('documents.reglages')}>
             <span class="avatar">${icone('document', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Documents : factures, reçus, devis</span><span class="discret">Modèle, couleurs, logo, RCCM/NIF, cachet et signature, QR de vérification</span></span>
             ${icone('chevronDroite', 18, 2)}</a>` : ''}
@@ -291,5 +295,6 @@ export function afficherParametres(conteneur) {
   if (gerer) { renderBoutique(); renderBoutiques(); }
   renderCompte();
   renderLicence();
+  chargerQuiEstEntre(conteneur);
   if (zone('reglages-colis')) monterReglagesColis(zone('reglages-colis'));
 }

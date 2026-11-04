@@ -37,6 +37,7 @@ import { chargerModules, modulesPour, accesRoute, moduleDeRoute, estLogistique, 
 import { afficherMesModules } from './mes-modules.js';
 import { chargerModes } from './modes-paiement.js';
 import { verrouillerModule } from './plateforme.js';
+import { reprendreDepannage } from './depannage.js';
 import { afficherAgences } from './colis/reglages.js';
 import { afficherModuleAAcheter } from './module-a-acheter.js';
 import { afficherAfficheJour } from './affiche-jour.js';
@@ -287,6 +288,7 @@ async function demarrer() {
     await chargerSession();
     if (etat.session) await chargerBoutiques();
     if (etat.session) await chargerEntree(); // étape 20 : direction, boutique ou aucune
+    if (etat.session && estDirection() && dansBoutique()) await reprendreDepannage(dansBoutique()); // page rechargée pendant un dépannage
     await Promise.all([chargerEtatPlateforme(), dansUneBoutique() ? chargerEtatLicence() : null]);
   } catch (err) {
     afficherErreurDemarrage(messageErreur(err));

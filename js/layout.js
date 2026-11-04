@@ -3,13 +3,14 @@
  * en-tête et barre du bas (téléphone), panneau « Plus », carte licence,
  * bandeau de licence expirée et écran « Bientôt disponible ».
  */
-import { etat, infosLicence, choisirBoutique, peut, estDirection } from './state.js';
+import { etat, infosLicence, choisirBoutique, peut, estDirection, enDepannage } from './state.js';
 import { naviguer } from './router.js';
 import { deconnecter } from './auth.js';
 import { majCreditSmsAffiche } from './sms.js';
 import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-commandes.js';
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
+import { appliquerDepannage } from './depannage.js';
 import { moduleVisible, aModule, aAcheter, vocab, activite, chargerModules, donneesModules, infoModule } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
@@ -56,8 +57,10 @@ function sectionsVisibles() {
   const lecture = (d?.lecture_seule || []).filter((c) => !actifs.includes(c));
   const achats = (d?.modules || []).map((m) => m.code).filter((c) => !actifs.includes(c) && !lecture.includes(c) && aAcheter(c));
   const codes = [...actifs.map((code) => [code, false, false]), ...lecture.map((code) => [code, true, false]), ...achats.map((code) => [code, false, true])];
+  // Dépannage : l'équipe (geste de gérant) reste au menu, éteinte, pour qu'on sache pourquoi on ne peut pas.
   return codes.map(([code, lecture, achat]) => ({ code, lecture, achat, ...ECRANS[code] }))
-    .filter((s) => s.route && !(s.dans && actifs.includes(s.dans)) && (!s.droit || peut(s.droit)));
+    .map((s) => ({ ...s, gerant: Boolean(s.droit === 'equipe' && !peut(s.droit) && enDepannage()) }))
+    .filter((s) => s.route && !(s.dans && actifs.includes(s.dans)) && (!s.droit || peut(s.droit) || s.gerant));
 }
 
 /** Route de l'accueil : première entrée du menu (Aujourd'hui), sinon Paramètres (toujours ouvert). */
@@ -109,6 +112,7 @@ export function preparerShell({ route, pleinEcran = false, lecture = null }) {
   }
   shell.classList.toggle('plein', pleinEcran);
   bandeauModule(shell, lecture);
+  appliquerDepannage(shell); // accès de dépannage : bandeau ambre et gestes de gérant éteints
   shell.querySelectorAll('[data-route]').forEach((lien) => {
     const actif = (lien.dataset.routes || lien.dataset.route).split(' ').includes(route);
     lien.classList.toggle('actif', actif);
@@ -158,6 +162,7 @@ function construireShell() {
             <span class="entete-mobile-sous">${esc(descriptionBoutique(b))}${licence.joursRestants !== null && licence.joursRestants <= 15 ? ` · ${esc(licence.formule)} ${licence.joursRestants} j` : ''}</span>
           </div>
         </header>
+        <div data-zone="bandeau-depannage"></div>
         <div data-zone="bandeau-plateforme">${bandeauMaintenanceHTML()}</div>
         <div data-zone="bandeau-licence">${bandeauLicenceHTML()}</div>
         <div data-zone="bandeau-annonce"></div>
@@ -275,7 +280,7 @@ function libelleSection(section) {
 
 function lienMenu(section) {
   return `
-    <a href="#/${section.route}" class="lien-menu ${verrouillee(section) ? 'verrouille' : ''} ${section.lecture ? 'en-lecture' : ''}" data-route="${section.route}" data-module="${esc(section.code)}" ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
+    <a href="#/${section.route}" class="lien-menu ${verrouillee(section) ? 'verrouille' : ''} ${section.lecture ? 'en-lecture' : ''}" data-route="${section.route}" data-module="${esc(section.code)}" ${section.gerant ? 'data-gerant' : ''} ${section.routes ? `data-routes="${section.routes.join(' ')}"` : ''}>
       ${icone(section.icone, 17, 1.7)}
       <span class="lien-menu-libelle">${esc(libelleSection(section))}</span>
       ${section.soldeSms ? '<span class="badge-sms" data-ref="badge-sms" aria-label="SMS restants"></span>' : ''}
@@ -421,7 +426,7 @@ function ouvrirPanneauPlus() {
         </div>` : ''}
       <div class="plus-groupe">
         ${sections.map((s) => `
-          <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''} ${s.lecture ? 'en-lecture' : ''}" data-module="${esc(s.code)}">
+          <a href="#/${s.route}" class="plus-lien ${verrouillee(s) ? 'verrouille' : ''} ${s.lecture ? 'en-lecture' : ''}" data-module="${esc(s.code)}" ${s.gerant ? 'data-gerant' : ''}>
             ${icone(s.icone, 20, 1.7)}<span>${esc(libelleSection(s))}</span>
             ${s.badgeDevis ? '<span class="badge-commandes" data-ref="badge-devis"></span>' : ''}
             ${verrouillee(s) ? `<span class="cadenas-menu">${icone('cadenas', 14, 1.9)}<span class="sr-only">à activer</span></span>` : s.badgeCommandes ? '<span class="badge-commandes" data-ref="badge-commandes"></span>' : ''}

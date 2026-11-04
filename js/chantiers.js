@@ -385,7 +385,7 @@ function afficherCompte(conteneur, id, params) {
           <div class="actions-chantier">
             ${ouvert ? `
               ${lectureSeule() ? '' : `<a class="btn btn-primaire" href="#/chantiers/${encodeURIComponent(c.id)}/enlevement">${icone('stock', 18, 2.2)} Nouvel enlèvement</a>`}
-              <button type="button" class="btn btn-succes" data-action="versement">${icone('plus', 18, 2.2)} Versement</button>` : ''}
+              <button type="button" class="btn btn-succes" data-action="versement" data-gerant>${icone('plus', 18, 2.2)} Versement</button>` : ''}
             <a class="btn btn-secondaire" href="#/chantiers/${encodeURIComponent(c.id)}/releve">${icone('document', 18, 2)} Situation globale</a>
           </div>
         </header>
