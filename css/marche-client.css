@@ -158,6 +158,7 @@ svg.mk-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .mk-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; }
 .mk-form input, .mk-form select, .mk-form textarea, .mk-form-compte input { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #CFDAD5; font-size: 16px; color: var(--texte); background: #FFFFFF; width: 100%; }
 .mk-form textarea { padding: 10px 14px; min-height: 70px; resize: vertical; }
+.mk-form [aria-invalid="true"] { border-color: var(--rouge); box-shadow: 0 0 0 3px var(--rouge-pale); }
 .mk-erreur { padding: 12px 14px; border-radius: 12px; background: var(--rouge-pale); color: var(--rouge); font-weight: 700; font-size: 14px; }
 .mk-info { padding: 12px 14px; border-radius: 12px; background: var(--or-pale); color: #5C4300; font-weight: 700; font-size: 14px; }
 

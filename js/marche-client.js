@@ -75,6 +75,7 @@ const ERREURS = {
   'MODULE_INACTIF: marche': 'Ce marché est fermé pour le moment.',
   NOM_REQUIS: 'Écrivez votre nom.',
   TELEPHONE_REQUIS: 'Écrivez votre numéro de téléphone : le bureau vous appelle quand la marchandise arrive.',
+  TELEPHONE_INVALIDE: 'Ce numéro est incomplet. Nous vous enverrons le suivi de votre colis par SMS à ce numéro : écrivez-le en entier, par exemple 620 00 00 00 ou 77 123 45 67.',
   PANIER_VIDE: 'Votre panier est vide.',
   PANIER_TROP_GRAND: 'Votre panier contient trop d’articles : faites deux commandes.',
   AGENCE_INTROUVABLE: 'Choisissez le bureau où vous retirerez votre colis.',
@@ -381,7 +382,7 @@ function rendrePanier(erreur = '') {
         <h2>Vos coordonnées</h2>
         ${erreur ? `<div class="mk-erreur" role="alert">${esc(erreur)}</div>` : ''}
         <label for="mk-nom">Votre nom<input id="mk-nom" name="nom" autocomplete="name" maxlength="80" required value="${esc(infos.nom || '')}"></label>
-        <label for="mk-tel">Votre téléphone<input id="mk-tel" name="tel" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="620 00 00 00" required value="${esc(infos.tel || '')}"></label>
+        <label for="mk-tel">Votre téléphone<input id="mk-tel" name="tel" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="620 00 00 00 ou 77 123 45 67" required value="${esc(infos.tel || '')}"></label>
         <label for="mk-retrait">Bureau de retrait<select id="mk-retrait" name="retrait">${liste.map((b) => `<option value="${esc(b.id)}" ${b.id === s.retrait ? 'selected' : ''}>${esc(b.nom)}</option>`).join('')}</select></label>
         <label for="mk-note">Une précision pour le bureau (facultatif)<textarea id="mk-note" name="note" maxlength="300" placeholder="Taille, couleur…"></textarea></label>
         <button type="submit" class="mk-bouton bloc">Confirmer la commande</button>
@@ -392,14 +393,26 @@ function rendrePanier(erreur = '') {
   if (lignes.length) estimerTransport();
 }
 
-async function confirmer(form) {
+/** Refus du formulaire de commande : message en tête, saisie et panier gardés, curseur sur le champ en cause. */
+function refuserCommande(form, message, champ = null) {
+  const saisie = { nom: form.nom.value, tel: form.tel.value, note: form.note.value };
+  rendrePanier(message);
+  const neuf = racine.querySelector('#mk-tel')?.form;
+  if (!neuf) return;
+  Object.entries(saisie).forEach(([k, v]) => { neuf[k].value = v; });
+  if (champ) { neuf[champ].setAttribute('aria-invalid', 'true'); neuf[champ].focus({ preventScroll: true }); }
+  racine.querySelector('.mk-erreur')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** Le numéro part normalisé (224… ou 221…) : c'est celui auquel le SMS de suivi sera envoyé. */
+async function confirmer(form, telephone) {
   const bouton = form.querySelector('[type=submit]');
   const brouillon = totalBrouillon();
   bouton.disabled = true;
   bouton.textContent = 'Enregistrement…';
   try {
     const cree = premiere(await rpc('creer_commande_marche', {
-      p_slug: slug, p_client_nom: form.nom.value.trim(), p_client_tel: form.tel.value.trim(), p_agence_retrait: form.retrait.value || null,
+      p_slug: slug, p_client_nom: form.nom.value.trim(), p_client_tel: telephone, p_agence_retrait: form.retrait.value || null,
       p_lignes: lignesPanier().map(({ a, q }) => ({ article_id: a.id, quantite: q })), p_note: form.note.value.trim() || null
     }));
     // La commande telle que la base l'a enregistrée (prix relus en base) : par son jeton si la réponse en donne un.
@@ -412,8 +425,7 @@ async function confirmer(form) {
     ecrirePanier();
     rendreConfirmation(c && !c.introuvable ? { ...cree, ...c } : cree, jeton, brouillon);
   } catch (err) {
-    rendrePanier(messageErreur(err));
-    racine.querySelector('.mk-erreur')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    refuserCommande(form, messageErreur(err));
   }
 }
 
@@ -631,10 +643,13 @@ racine.addEventListener('submit', (e) => {
   if (form.dataset.ref === 'form-recherche') { const q = form.q.value.trim(); if (q) ouvrirRayon({ recherche: q }); return; }
   if (form.dataset.ref === 'form-compte') { voirSolde(form); return; }
   if (form.dataset.ref === 'adresses') { ecrireLocal(cleInfos, { ...lireLocal(cleInfos, {}), retrait: form.retrait.value }); s.retrait = form.retrait.value; toast('Bureau préféré enregistré sur ce téléphone.'); rendreCompte(); return; }
+  if (form.dataset.ref === 'infos' && form.tel.value.trim() && !normaliserTelephone(form.tel.value)) { toast(ERREURS.TELEPHONE_INVALIDE); form.tel.focus(); return; }
   if (form.dataset.ref === 'infos') { ecrireLocal(cleInfos, { ...lireLocal(cleInfos, {}), nom: form.nom.value.trim(), tel: form.tel.value.trim() }); toast('Enregistré sur ce téléphone.'); rendreCompte(); return; }
-  if (!form.nom.value.trim()) { rendrePanier(ERREURS.NOM_REQUIS); return; }
-  if (!form.tel.value.trim()) { rendrePanier(ERREURS.TELEPHONE_REQUIS); return; }
-  confirmer(form);
+  if (!form.nom.value.trim()) { refuserCommande(form, ERREURS.NOM_REQUIS, 'nom'); return; }
+  if (!form.tel.value.trim()) { refuserCommande(form, ERREURS.TELEPHONE_REQUIS, 'tel'); return; }
+  const telephone = normaliserTelephone(form.tel.value);
+  if (!telephone) { refuserCommande(form, ERREURS.TELEPHONE_INVALIDE, 'tel'); return; }
+  confirmer(form, telephone);
 });
 
 (async function demarrer() {
