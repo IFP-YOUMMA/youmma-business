@@ -11,7 +11,7 @@ import { sb } from './supabase.js';
 import { etat, estGerant } from './state.js';
 import { infoModule, formuleModules } from './modules.js';
 import { lienSupport } from './plateforme.js';
-import { esc, icone, ouvrirModale, formatNombre, formatDate, formatTelephone, dateISO, lienCourtBoutique, prixApplique } from './utils.js';
+import { esc, icone, ouvrirModale, formatNombre, formatDate, formatTelephoneLocal, dateISO, lienCourtBoutique, prixApplique } from './utils.js';
 import { proposerSlug } from './boutique-en-ligne.js';
 
 export const CODE_OPTION = 'boutique_en_ligne';
@@ -122,7 +122,7 @@ export function afficherActivationOption(conteneur) {
       <button type="button" class="btn btn-secondaire btn-bloc" data-action="exemple">Voir un exemple</button>`;
     zone('payer').innerHTML = `
       <strong>Comment payer</strong>
-      <span><strong>Orange Money</strong> ou <strong>MTN MoMo</strong>${info.whatsapp ? ` au ${esc(formatTelephone(info.whatsapp).replace(/^\+224\s*/, ''))}` : ''}</span>
+      <span><strong>Orange Money</strong> ou <strong>MTN MoMo</strong>${info.whatsapp ? ` au ${esc(formatTelephoneLocal(info.whatsapp))}` : ''}</span>
       <span>Votre boutique est ouverte dès que YOUMMA confirme le paiement.</span>`;
   }
 

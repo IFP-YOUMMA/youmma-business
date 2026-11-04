@@ -13,7 +13,7 @@
  * Rien n'est envoyé à un serveur pour fabriquer l'image.
  * Polices Manrope et Bebas Neue (fonts/, licence OFL) chargées par FontFace.
  */
-import { formatNombre, formatTelephone, FUSEAU } from './utils.js';
+import { formatNombre, formatTelephoneLocal, FUSEAU } from './utils.js';
 import { dessinerQr } from './qr.js';
 
 export const FORMATS_AFFICHE = {
@@ -514,7 +514,7 @@ const EMOJI = (taille) => `${Math.round(taille)}px "Apple Color Emoji", "Segoe U
 const prixGnf = (n) => `${prixTexte(n)} GNF`;
 const dateJour = (jour) => (jour ? new Date(`${String(jour).slice(0, 10)}T12:00:00Z`) : new Date());
 const fmt = (d, opts) => new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, ...opts }).format(d);
-const telLocal = (t) => (t ? formatTelephone(t).replace(/^\+224\s*/, '') : '');
+const telLocal = (t) => (t ? formatTelephoneLocal(t) : '');
 
 /** Logo (contenu, jamais étiré ni rogné) dans un carré blanc arrondi, ou initiales. */
 function dessinerLogo(ctx, logo, nom, x, y, cote, encre) {

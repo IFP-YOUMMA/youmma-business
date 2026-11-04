@@ -10,7 +10,7 @@
  */
 import { sb } from '../supabase.js';
 import { etat } from '../state.js';
-import { formatNombre, formatDate, esc } from '../utils.js';
+import { formatNombre, formatDate, esc, normaliserTelephone } from '../utils.js';
 
 /** Une fonction qui renvoie une ligne peut arriver en tableau d'un élément selon sa déclaration SQL. */
 export const premiere = (d) => (Array.isArray(d) ? d[0] : d) ?? null;
@@ -148,14 +148,8 @@ export function formatTel(tel, { indicatif = false } = {}) {
   }
   return tel;
 }
-/** Saisie → chiffres bruts avec indicatif (221… ou 224…), ou null si le numéro n'est ni sénégalais ni guinéen. */
-export function normaliserTel(saisie) {
-  let c = String(saisie || '').replace(/\D/g, '');
-  if (c.startsWith('00')) c = c.slice(2);
-  if (/^7[05678]\d{7}$/.test(c)) c = `221${c}`;
-  else if (/^6\d{8}$/.test(c)) c = `224${c}`;
-  return /^2217[05678]\d{7}$/.test(c) || /^2246\d{8}$/.test(c) ? c : null;
-}
+/** Saisie → chiffres bruts avec indicatif (221… ou 224…), ou null : la règle commune de lib/telephone.js (= tel_sms). */
+export const normaliserTel = normaliserTelephone;
 
 export const nomDevise = (devise) => (devise === 'XOF' ? 'FCFA' : devise || '');
 /** « 105 200 FCFA » — un montant, une monnaie. Jamais d'addition entre monnaies. */

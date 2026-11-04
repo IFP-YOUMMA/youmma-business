@@ -13,6 +13,7 @@
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { normaliserTelephone } from './lib/telephone.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-vitrine' }
@@ -58,7 +59,7 @@ const ERREURS = {
   BOUTIQUE_INTROUVABLE: 'Cette boutique est introuvable.',
   BOUTIQUE_FERMEE: 'La boutique ne prend pas de commandes pour le moment.',
   NOM_REQUIS: 'Indiquez votre nom.',
-  TELEPHONE_INVALIDE: 'Numéro de téléphone invalide. Exemple : 621 11 22 33.',
+  TELEPHONE_INVALIDE: 'Numéro de téléphone invalide. Exemple : 621 11 22 33 ou 77 123 45 67.',
   RECEPTION_INVALIDE: 'Choisissez le retrait en boutique ou la livraison.',
   ZONE_REQUISE: 'Choisissez une zone de livraison.',
   ADRESSE_REQUISE: 'Indiquez votre quartier et un repère.',
@@ -84,18 +85,6 @@ const gnf = (n) => `${formatNombre(n)}${ESPACE}GNF`;
 const divisible = (unite) => UNITES_DIVISIBLES.includes(String(unite || '').trim().toLowerCase());
 const qte = (n) => formatNombre(n, 3);
 
-/** 6XX XX XX XX → 2246XXXXXXXX ; renvoie null si invalide. */
-function normaliserTelephone(saisie) {
-  let c = String(saisie || '').replace(/\D/g, '');
-  if (c.startsWith('00224')) c = c.slice(2);
-  if (c.length === 9) c = `224${c}`;
-  return /^2246\d{8}$/.test(c) ? c : null;
-}
-function formatTelephone(t) {
-  const c = String(t || '').replace(/\D/g, '');
-  const local = c.startsWith('224') ? c.slice(3) : c;
-  return local.length === 9 ? local.replace(/(\d{3})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4') : t || '';
-}
 
 function messageErreur(err) {
   const brut = String(err?.message || err || '');

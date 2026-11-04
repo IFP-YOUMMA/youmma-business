@@ -7,6 +7,7 @@
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { normaliserTelephone, formatTelephoneLocal } from './lib/telephone.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-verification' }
@@ -32,7 +33,7 @@ const date = (d, heure = false) => {
   return new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, day: '2-digit', month: '2-digit', year: 'numeric', ...(heure ? { hour: '2-digit', minute: '2-digit' } : {}) }).format(x);
 };
 const numeroVente = (n) => (n === null || n === undefined || n === '' ? '' : /^\d+$/.test(String(n)) ? `V-${String(n).padStart(4, '0')}` : String(n));
-const telephone = (n) => { const c = String(n || '').replace(/\D/g, ''); const l = c.startsWith('224') ? c.slice(3) : c; return l.length === 9 ? { local: `${l.slice(0, 3)} ${l.slice(3, 5)} ${l.slice(5, 7)} ${l.slice(7)}`, intl: `224${l}` } : null; };
+const telephone = (n) => { const intl = normaliserTelephone(n); return intl ? { local: formatTelephoneLocal(intl), intl } : null; };
 const initiales = (nom) => String(nom || '?').trim().split(/\s+/).slice(0, 2).map((m) => m[0]).join('').toUpperCase();
 
 function etatTexte(r) {

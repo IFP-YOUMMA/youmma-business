@@ -13,7 +13,7 @@ import { svgQr } from './qr.js';
 import { vignetteProduit } from './images/affichage.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatGNF,
-  formatTelephone, normaliserTelephone, formaterSaisieMontant, lireNombre, dateISO, promoActive, prixApplique,
+  formatTelephone, formatTelephoneLocal, normaliserTelephone, formaterSaisieMontant, lireNombre, dateISO, promoActive, prixApplique,
   lienBoutique, lienCourtBoutique, logoSymbole, imagesPretes
 } from './utils.js';
 
@@ -93,7 +93,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
         <h2>Présentation</h2>
         <div class="rangee-champs">
           <div class="champ"><label for="ben-wa">Numéro WhatsApp qui reçoit les commandes</label>
-            <input id="ben-wa" class="input" type="tel" inputmode="tel" placeholder="620 00 00 01" value="${esc(r.whatsapp ? formatTelephone(r.whatsapp).replace(/^\+224\s*/, '') : '')}"></div>
+            <input id="ben-wa" class="input" type="tel" inputmode="tel" placeholder="620 00 00 01" value="${esc(r.whatsapp ? formatTelephoneLocal(r.whatsapp) : '')}"></div>
           <div class="champ"><span class="etiquette">Horaires (heure de Conakry)</span>
             <div class="ben-horaires">
               <label class="sr-only" for="ben-ouverture">Ouverture</label><input id="ben-ouverture" class="input" type="time" value="${esc(heure(r.ouverture))}">

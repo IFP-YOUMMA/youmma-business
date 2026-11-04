@@ -2,7 +2,7 @@
  * auth.js — Écrans de connexion et d'inscription (identifiant = téléphone), déconnexion.
  *
  * Supabase Auth fonctionne par e-mail : on dérive un e-mail technique invisible
- * du numéro normalisé (224XXXXXXXXX@tel.yoummabusiness.app).
+ * du numéro normalisé (224… ou 221…@tel.yoummabusiness.app).
  */
 import { sb } from './supabase.js';
 import { etat, chargerBoutiques, viderEtat, chargerEntree, routeEntree, estDirection, sortirDeBoutique } from './state.js';
@@ -86,7 +86,8 @@ export function afficherConnexion(conteneur) {
     `<form class="form-auth" novalidate>
       <div class="champ">
         <label for="telephone">Numéro de téléphone</label>
-        <input class="input" id="telephone" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="6XX XX XX XX" required>
+        <input class="input" id="telephone" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="6XX XX XX XX ou 7X XXX XX XX" aria-describedby="aide-telephone" required>
+        <p class="aide" id="aide-telephone">Votre numéro — Guinée (6…) ou Sénégal (7…)</p>
       </div>
       ${champMotDePasse('mot-de-passe', 'Mot de passe', 'current-password')}
       <p class="erreur-form" role="alert" hidden></p>
@@ -102,7 +103,7 @@ export function afficherConnexion(conteneur) {
     e.preventDefault();
     const telephone = normaliserTelephone(formulaire.telephone.value);
     const motDePasse = formulaire['mot-de-passe'].value;
-    if (!telephone) return afficherErreur(formulaire, 'Numéro invalide. Exemple : 620 00 00 00.');
+    if (!telephone) return afficherErreur(formulaire, 'Numéro invalide. Exemple : 620 00 00 00 ou 77 123 45 67.');
     if (motDePasse.length < LONGUEUR_MIN_MDP) return afficherErreur(formulaire, 'Le mot de passe contient au moins 6 caractères.');
 
     afficherErreur(formulaire, '');
@@ -132,7 +133,8 @@ export function afficherInscription(conteneur) {
       </div>
       <div class="champ">
         <label for="telephone">Numéro de téléphone</label>
-        <input class="input" id="telephone" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="6XX XX XX XX" required>
+        <input class="input" id="telephone" name="telephone" type="tel" inputmode="tel" autocomplete="tel" placeholder="6XX XX XX XX ou 7X XXX XX XX" aria-describedby="aide-telephone" required>
+        <p class="aide" id="aide-telephone">Votre numéro — Guinée (6…) ou Sénégal (7…)</p>
       </div>
       ${champMotDePasse('mot-de-passe', 'Mot de passe (6 caractères minimum)', 'new-password')}
       ${champMotDePasse('confirmation', 'Confirmer le mot de passe', 'new-password')}
@@ -150,7 +152,7 @@ export function afficherInscription(conteneur) {
     const telephone = normaliserTelephone(formulaire.telephone.value);
     const motDePasse = formulaire['mot-de-passe'].value;
     if (nom.length < 2) return afficherErreur(formulaire, 'Indiquez votre nom complet.');
-    if (!telephone) return afficherErreur(formulaire, 'Numéro invalide. Exemple : 620 00 00 00.');
+    if (!telephone) return afficherErreur(formulaire, 'Numéro invalide. Exemple : 620 00 00 00 ou 77 123 45 67.');
     if (motDePasse.length < LONGUEUR_MIN_MDP) return afficherErreur(formulaire, 'Le mot de passe doit contenir au moins 6 caractères.');
     if (motDePasse !== formulaire.confirmation.value) return afficherErreur(formulaire, 'Les deux mots de passe ne sont pas identiques.');
 

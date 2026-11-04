@@ -24,7 +24,7 @@ const LONGUEUR_MAX_MESSAGE = 160;
 const LONGUEUR_MIN_MDP = 6;
 const VERSION = '1.0';
 
-/** Téléphone de connexion, déduit de l'e-mail technique 224XXXXXXXXX@tel.yoummabusiness.app. */
+/** Téléphone de connexion, déduit de l'e-mail technique 224… ou 221…@tel.yoummabusiness.app. */
 function telephoneConnexion() {
   const local = String(utilisateur()?.email || '').split('@')[0];
   return /^\d{12}$/.test(local) ? formatTelephone(local) : '—';

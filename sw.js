@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v40';
+const VERSION_CACHE = 'yb-statique-v41';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -30,6 +30,7 @@ const FICHIERS_STATIQUES = [
   './js/modes-paiement.js',
   './js/module-a-acheter.js',
   './js/lib/drapeaux.js',
+  './js/lib/telephone.js',
   './js/mes-modules.js',
   './js/variantes.js',
   './js/variantes-fiche.js',

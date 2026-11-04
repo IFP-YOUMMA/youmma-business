@@ -252,30 +252,8 @@ export function jours(n) {
   return `${n} jour${Math.abs(n) > 1 ? 's' : ''}`;
 }
 
-/* =========================================================================
-   Téléphone guinéen
-   ========================================================================= */
-
-/**
- * Normalise un numéro guinéen au format 224XXXXXXXXX.
- * Accepte « 6XX XX XX XX », « +224 6XX… », « 00224 6XX… ». Renvoie null si invalide.
- */
-export function normaliserTelephone(saisie) {
-  let chiffres = String(saisie || '').trim().replace(/[\s.\-()]/g, '');
-  if (chiffres.startsWith('+')) chiffres = chiffres.slice(1);
-  else if (chiffres.startsWith('00')) chiffres = chiffres.slice(2);
-  if (!/^\d+$/.test(chiffres)) return null;
-  if (chiffres.length === 9) chiffres = '224' + chiffres;
-  return /^224[36]\d{8}$/.test(chiffres) ? chiffres : null;
-}
-
-/** « 224621234567 » → « +224 621 23 45 67 » (affichage). */
-export function formatTelephone(numero) {
-  const n = normaliserTelephone(numero);
-  if (!n) return String(numero || '');
-  const local = n.slice(3);
-  return `+224 ${local.slice(0, 3)} ${local.slice(3, 5)} ${local.slice(5, 7)} ${local.slice(7)}`;
-}
+/* Téléphone : Guinée et Sénégal — la règle vit dans lib/telephone.js (identique à tel_sms côté serveur). */
+export { normaliserTelephone, formatTelephone, formatTelephoneLocal } from './lib/telephone.js';
 
 /* =========================================================================
    Libellés métier
@@ -707,12 +685,12 @@ function racineSite() {
 
 const DOMAINE_TECHNIQUE = 'tel.yoummabusiness.app';
 
-/** E-mail technique dérivé d'un numéro déjà normalisé (224XXXXXXXXX@tel.yoummabusiness.app). */
+/** E-mail technique dérivé d'un numéro déjà normalisé (224… ou 221…@tel.yoummabusiness.app). */
 export function emailDepuisTelephone(telephoneNormalise) {
   return `${telephoneNormalise}@${DOMAINE_TECHNIQUE}`;
 }
 
-/** Téléphone de connexion (224XXXXXXXXX) déduit de l'e-mail technique, ou null. */
+/** Téléphone de connexion (224… ou 221…, 12 chiffres) déduit de l'e-mail technique, ou null. */
 export function telephoneDepuisEmail(email) {
   const local = String(email || '').split('@')[0];
   return /^\d{12}$/.test(local) ? local : null;

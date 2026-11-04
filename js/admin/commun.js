@@ -7,7 +7,7 @@
  */
 import { sb } from '../supabase.js';
 import {
-  esc, icone, toast, ouvrirModale, messageErreur, formatGNF, formatNombre, formatDate, formatTelephone, copierTexte, TYPES_ACTIVITE
+  esc, icone, toast, ouvrirModale, messageErreur, formatGNF, formatNombre, formatDate, formatTelephoneLocal, copierTexte, TYPES_ACTIVITE
 } from '../utils.js';
 
 /** Administrateur connecté : { user_id, nom, role, telephone }. */
@@ -120,7 +120,7 @@ export function initiales(nom) {
   return ((mots[0]?.[0] || '') + (mots[1]?.[0] || '')).toUpperCase() || '?';
 }
 
-export const telLocal = (t) => (t ? formatTelephone(t).replace(/^\+224\s*/, '') : '—');
+export const telLocal = (t) => (t ? formatTelephoneLocal(t) : '—');
 export const lienWa = (tel, texte = '') => `https://wa.me/${String(tel || '').replace(/\D/g, '')}${texte ? `?text=${encodeURIComponent(texte)}` : ''}`;
 /** Racine de l'appli des boutiques (…/youmma-business/). */
 export const urlAppli = () => new URL('../', location.href.split('#')[0]).href;

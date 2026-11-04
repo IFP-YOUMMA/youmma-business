@@ -14,6 +14,7 @@
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { normaliserTelephone, formatTelephone } from './lib/telephone.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'yb-marche' }
@@ -30,8 +31,8 @@ const nombre = (n, dec = 0) => (Number(n) || 0).toLocaleString('fr-FR', { maximu
 const nomDevise = (d) => (d === 'XOF' ? 'FCFA' : d || '');
 const montant = (n, d) => `${nombre(n)} ${nomDevise(d)}`.trim();
 const premiere = (d) => (Array.isArray(d) ? d[0] : d) ?? null;
-/** Téléphone lisible : « 224620888888 » → « +224 620 88 88 88 ». */
-const telephone = (t) => { const c = String(t || '').replace(/\D/g, ''); return c.length > 9 ? `+${c.slice(0, 3)} ${c.slice(3, 6)} ${c.slice(6).replace(/(\d{2})(?=\d)/g, '$1 ')}` : String(t || ''); };
+/** Téléphone lisible : Guinée « +224 620 88 88 88 », Sénégal « +221 77 123 45 67 » ; autre pays, groupé à partir de l’indicatif. */
+const telephone = (t) => { if (normaliserTelephone(t)) return formatTelephone(t); const c = String(t || '').replace(/\D/g, ''); return c.length > 9 ? `+${c.slice(0, 3)} ${c.slice(3, 6)} ${c.slice(6).replace(/(\d{2})(?=\d)/g, '$1 ')}` : String(t || ''); };
 /** Le téléphone de la personne, enregistré sur cet appareil : seuls les 4 derniers chiffres s'affichent. */
 const masque = (t) => { const c = String(t || '').replace(/\D/g, ''); return c ? `•• •• ${c.slice(-4, -2)} ${c.slice(-2)}` : ''; };
 const initiales = (n) => String(n || '').split(/\s+/).filter((m) => /\p{L}/u.test(m)).slice(0, 2).map((m) => m[0]).join('').toUpperCase();

@@ -11,7 +11,7 @@ import { naviguer } from './router.js';
 import { chargerSoldeSms, ouvrirRecharge, majCreditSmsAffiche, texteCompteur, compterSms, texteSms, SMS_MAX_CARACTERES } from './sms.js';
 import {
   esc, icone, toast, confirmer, boutonOccupe, messageErreur, differer, formatNombre, formatDate,
-  formatTelephone, chargerParLots, copierTexte, dateISO
+  formatTelephone, formatTelephoneLocal, chargerParLots, copierTexte, dateISO
 } from './utils.js';
 
 export const LIBELLES_CIBLES = {
@@ -48,7 +48,7 @@ const MODELES_CAMPAGNE = [
 ];
 function tel() {
   const t = etat.boutique?.telephone;
-  return t ? ` Tel ${formatTelephone(t).replace(/^\+224\s*/, '')}` : '';
+  return t ? ` Tel ${formatTelephoneLocal(t)}` : '';
 }
 
 /** Texte pour WhatsApp : {prenom} retiré proprement (« Bonjour {prenom}, » → « Bonjour, »), accents conservés. */

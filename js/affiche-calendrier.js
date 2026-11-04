@@ -12,7 +12,7 @@
 import { sb } from './supabase.js';
 import { etat } from './state.js';
 import { RESEAUX, connecterReseau, deconnecterReseau, iconeReseau, heureLisible } from './affiche-publier.js';
-import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, formatNombre, formatDate, formatTelephone, dateISO, capitaliser, prixApplique } from './utils.js';
+import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, formatNombre, formatDate, formatTelephoneLocal, dateISO, capitaliser, prixApplique } from './utils.js';
 
 const premiere = (d) => (Array.isArray(d) ? d[0] : d) || null;
 /** Libellés courts des thèmes dans le calendrier (le nom complet vient de affiche_themes). */
@@ -198,7 +198,7 @@ export function monterCalendrier(zone, { modifier }) {
         classe = c?.erreur ? 'rouge' : 'orange';
         action = modifier ? `<button type="button" class="btn btn-secondaire btn-petit" data-connecter="${code}">Connecter</button>` : '';
       }
-      const sousTxt = code === 'whatsapp' ? `Statut · ${esc(boutique.telephone ? formatTelephone(boutique.telephone).replace(/^\+224\s*/, '') : 'votre téléphone')}` : c?.nom ? esc(c.nom) : code === 'instagram' ? 'Compte professionnel' : code === 'tiktok' ? 'Petite vidéo de 5 s' : 'Votre page';
+      const sousTxt = code === 'whatsapp' ? `Statut · ${esc(boutique.telephone ? formatTelephoneLocal(boutique.telephone) : 'votre téléphone')}` : c?.nom ? esc(c.nom) : code === 'instagram' ? 'Compte professionnel' : code === 'tiktok' ? 'Petite vidéo de 5 s' : 'Votre page';
       return `<div class="aff-reseau">
         <span class="aff-reseau-icone ${code}">${iconeReseau(code, 18)}</span>
         <span class="aff-reseau-textes"><strong>${esc(RESEAUX[code].nom)}</strong><span>${sousTxt}${c?.erreur ? ` · ${esc(c.erreur)}` : ''}</span></span>

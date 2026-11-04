@@ -247,7 +247,7 @@ async function creerBoutique(formulaire) {
   if (nom.length < 2) return afficherErreur('Indiquez le nom de la boutique.');
   if (!type) return afficherErreur('Choisissez le type d’activité.');
   if (!ville) return afficherErreur('Indiquez la ville.');
-  if (!telephone) return afficherErreur('Numéro de téléphone invalide. Exemple : 620 00 00 00.');
+  if (!telephone) return afficherErreur('Numéro de téléphone invalide. Exemple : 620 00 00 00 ou 77 123 45 67.');
   afficherErreur('');
 
   const bouton = formulaire.querySelector('[type=submit]');

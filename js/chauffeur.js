@@ -7,6 +7,7 @@
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { normaliserTelephone, formatTelephoneLocal } from './lib/telephone.js';
 import { chargerCanvas, redimensionner, encoder } from './images/traitement.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -28,8 +29,8 @@ const ICONES = {
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icone = (nom, taille = 20, epaisseur = 2) => `<svg width="${taille}" height="${taille}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${epaisseur}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${ICONES[nom] || ''}"></path></svg>`;
 const nombre = (n) => (Number(n) || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-const telLocal = (t) => { const c = String(t || '').replace(/\D/g, ''); const l = c.startsWith('224') ? c.slice(3) : c; return l.length === 9 ? l.replace(/(\d{3})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4') : t || ''; };
-const telInternational = (t) => { let c = String(t || '').replace(/\D/g, ''); if (c.length === 9) c = `224${c}`; return c; };
+const telLocal = (t) => formatTelephoneLocal(t);
+const telInternational = (t) => normaliserTelephone(t) || String(t || '').replace(/\D/g, '');
 const dateHeure = (iso) => {
   try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Africa/Conakry', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(':', ' h '); } catch { return ''; }
 };

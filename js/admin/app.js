@@ -87,7 +87,7 @@ function afficherConnexion(message = '') {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const telephone = normaliserTelephone(form.telephone.value);
-    if (!telephone) { zoneErreur.textContent = 'Numéro invalide. Exemple : 620 00 00 00.'; zoneErreur.hidden = false; return; }
+    if (!telephone) { zoneErreur.textContent = 'Numéro invalide. Exemple : 620 00 00 00 ou 77 123 45 67.'; zoneErreur.hidden = false; return; }
     const bouton = form.querySelector('[type=submit]');
     boutonOccupe(bouton, true, 'Connexion…');
     const { error } = await sb.auth.signInWithPassword({ email: emailDepuisTelephone(telephone), password: form.mdp.value });
