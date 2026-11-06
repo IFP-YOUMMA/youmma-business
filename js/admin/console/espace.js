@@ -15,10 +15,14 @@ import {
   espace, peutGererAcces, estSuperAdmin, entete, kpi, montantEspace, montantDevise, erreurConsole, dernierUsage, etatAffiches,
   SEUIL_AFFICHES, chargerFormulesConsole, finDans, drapeau
 } from './commun.js';
+import { afficherCommissions } from './facturation.js';
+
+/** Étape 24 : onglet « En commission » des licences, lu par boutiques_en_commission (pas un filtre de console_boutiques). */
+const EN_COMMISSION = 'commission';
 
 const FILTRES = {
   commission: [['', 'Tous'], ['actives', 'Actifs'], ['endormies', 'N’ouvrent plus']],
-  licence: [['', 'Toutes'], ['a_relancer', 'À relancer'], ['actives', 'Actives'], ['expirees', 'Expirées'], ['endormies', 'N’ouvrent plus'], ['suspendues', 'Suspendues']]
+  licence: [['', 'Toutes'], ['a_relancer', 'À relancer'], ['actives', 'Actives'], ['expirees', 'Expirées'], ['endormies', 'N’ouvrent plus'], ['suspendues', 'Suspendues'], [EN_COMMISSION, 'En commission']]
 };
 
 const pastille = (texte, ton) => `<span class="pastille-admin ${ton}">${esc(texte)}</span>`;
@@ -148,6 +152,7 @@ export function afficherEspace(conteneur, { id, ouvrirBoutique = null }) {
   }
 
   async function charger() {
+    if (!vendeurs && s.filtre === EN_COMMISSION) { puces(); afficherCommissions(q('[data-zone="tableau"]'), e); return; }
     try {
       s.lignes = (await rpc('console_boutiques', { p_espace: e.code, p_filtre: s.filtre || null, p_recherche: s.recherche || null, p_limite: 500 })) || [];
       if (!conteneur.isConnected) return;

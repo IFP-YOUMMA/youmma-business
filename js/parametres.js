@@ -10,6 +10,7 @@
 import { sb } from './supabase.js';
 import { etat, utilisateur, peut, montrerGeste, infosLicence, COLONNES_BOUTIQUE, LIBELLES_ROLES } from './state.js';
 import { sectionQuiEstEntreHTML, chargerQuiEstEntre } from './depannage.js';
+import { sectionFacturationHTML, chargerFacturation } from './facturation.js';
 import { deconnecter } from './auth.js';
 import { modifierLogo } from './images/actions.js';
 import { sonCommandesActif, reglerSonCommandes, jouerSonCommande } from './alertes-commandes.js';
@@ -31,7 +32,7 @@ function telephoneConnexion() {
   return /^\d{12}$/.test(local) ? formatTelephone(local) : '—';
 }
 
-export function afficherParametres(conteneur) {
+export function afficherParametres(conteneur, params = new URLSearchParams()) {
   const zone = (nom) => conteneur.querySelector(`[data-zone="${nom}"]`);
   const gerer = peut('parametres_boutique');
   // Dépannage : les réglages restent visibles, éteints (data-gerant), pour qu'on sache pourquoi on ne peut pas.
@@ -63,6 +64,7 @@ export function afficherParametres(conteneur) {
             <span class="avatar">${icone('document', 20, 2)}</span>
             <span class="client-textes"><span class="gras">Documents : factures, reçus, devis</span><span class="discret">Modèle, couleurs, logo, RCCM/NIF, cachet et signature, QR de vérification</span></span>
             ${icone('chevronDroite', 18, 2)}</a>` : ''}
+          ${sectionFacturationHTML()}
           <section class="licence-parametres" aria-labelledby="titre-licence" data-zone="licence"></section>
           ${gerer ? '<section class="carte section-parametres" aria-labelledby="titre-boutiques" data-zone="boutiques"></section>' : ''}
           <button type="button" class="btn btn-annuler-vente btn-grand btn-bloc" data-action="deconnexion">${icone('deconnexion', 18, 2)} Se déconnecter</button>
@@ -296,5 +298,6 @@ export function afficherParametres(conteneur) {
   renderCompte();
   renderLicence();
   chargerQuiEstEntre(conteneur);
+  chargerFacturation(conteneur, { defiler: params.get('commission') === '1' }); // étape 24 : en commission seulement
   if (zone('reglages-colis')) monterReglagesColis(zone('reglages-colis'));
 }

@@ -3705,3 +3705,44 @@ body.depannage .fiche-actions[data-eteint], body.depannage section[data-eteint] 
 .ld-etat { font-size: 12px; font-weight: 700; color: var(--muted); }
 .ld-etat.ouvert { color: var(--alerte); background: var(--alerte-bg); padding: 2px 8px; border-radius: 999px; }
 .ld-motif { margin: 0; overflow-wrap: anywhere; }
+
+/* Étape 24 — commission : bandeau d'impayé (un seul, ambre), « Ce que je dois à YOUMMA », vitrine coupée */
+[data-zone="bandeau-commission"]:empty { display: none; }
+.bandeau-commission {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 24px;
+  background: var(--alerte-bg); color: var(--alerte); border-bottom: 3px solid #F2A900; font-size: 14px; line-height: 1.35;
+}
+.bandeau-commission > svg { flex: none; }
+.bandeau-commission > span { flex: 1 1 200px; min-width: 0; }
+.btn-bandeau-commission {
+  flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 10px;
+  border: 1.5px solid var(--alerte); background: #FFFFFF; color: var(--alerte); font-weight: 800; text-decoration: none;
+}
+@media (max-width: 899.98px) { .bandeau-commission { padding: 10px 16px; } }
+.facturation-youmma { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fy-montant { display: flex; flex-direction: column; gap: 2px; }
+.fy-montant > strong { font-size: 30px; font-weight: 800; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
+.fy-montant > span { color: var(--muted); font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+.fy-jauge { display: flex; flex-direction: column; gap: 6px; }
+.fy-jauge-tete { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
+.fy-jauge-tete strong { color: var(--text); }
+.fy-barre { display: block; height: 10px; border-radius: 999px; background: var(--fond-segments); overflow: hidden; }
+.fy-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.fy-jauge.pleine .fy-barre > span { background: #5B2A8C; }
+.fy-plafond-atteint { margin: 0; padding: 12px 14px; border-radius: 12px; background: #F1E8FB; color: #4A1F75; font-weight: 800; line-height: 1.4; }
+.fy-detail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.fy-detail li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.fy-detail-nom { display: flex; flex-direction: column; min-width: 0; font-weight: 700; }
+.fy-detail-nom small { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+.fy-detail strong { flex: none; }
+.fy-limite, .fy-etat { margin: 0; font-size: 14px; }
+.fy-etat { color: var(--alerte); font-weight: 700; }
+.fy-impayes ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.fy-impayes li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
+.fy-modes > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fy-mode { padding: 4px 10px; border-radius: 999px; background: var(--fond-segments); font-size: 13px; font-weight: 600; }
+.fy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.vitrine-coupee { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 12px; background: var(--alerte-bg); color: var(--alerte); }
+.vitrine-coupee h2 { margin: 0; font-size: 17px; }
+.vitrine-coupee p { margin: 0; line-height: 1.45; }

@@ -15,6 +15,7 @@ import { ouvrirEnregistrerPaiement } from '../licences.js';
 import { chargerModes } from '../../modes-paiement.js';
 import { ouvrirSuspension, ouvrirDateLibre } from '../boutiques.js';
 import { espace, estSuperAdmin, montantDevise, erreurConsole, dernierUsage, finDans, SEUIL_AFFICHES, chargerFormulesConsole } from './commun.js';
+import { blocFacturationHTML, monterFacturation } from './facturation.js';
 
 const ligne = (libelle, valeur, ton = '') => `<div class="cs-ligne-fiche"><span>${esc(libelle)}</span><strong class="${ton}">${valeur}</strong></div>`;
 
@@ -222,6 +223,7 @@ export function afficherFiche(conteneur, { id, payer = false }) {
           <div class="cs-colonne">
             ${commission ? (f.commission ? blocCommission(f, f.commission) : '<section class="carte cs-bloc"><p class="col-vide">Commission non renseignée.</p></section>')
               : (f.licence ? blocLicence(f, f.licence, formules) : '<section class="carte cs-bloc"><p class="col-vide">Licence non renseignée.</p></section>')}
+            ${commission ? '' : blocFacturationHTML()}
             ${blocUsage(f)}
           </div>
           <div class="cs-colonne">
@@ -232,6 +234,14 @@ export function afficherFiche(conteneur, { id, payer = false }) {
           <div class="cs-colonne">${blocJournal(f)}</div>
         </div>
       </div>`;
+    // Étape 24 : abonnement ou commission (boutiques à licence seulement ; un vendeur du marché a déjà sa commission).
+    if (!commission) {
+      monterFacturation(conteneur.querySelector('[data-zone="facturation"]'), {
+        id: f.id, nom: f.nom, espace: e.code, fiche: f,
+        prixAbonnement: Number(f.licence?.prix_mois) || formules[f.licence?.formule]?.prix_mois || null,
+        formuleNom: formules[f.licence?.formule]?.nom || f.licence?.formule || ''
+      });
+    }
   }
 
   const relire = (message) => { if (message) toast(message, 'succes'); charger(); };

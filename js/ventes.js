@@ -78,7 +78,7 @@ export function afficherVentes(conteneur, params) {
   }
   if (idDemande && estMobile()) afficherDetailPage(conteneur, idDemande);
   else {
-    afficherHistorique(conteneur, idDemande);
+    afficherHistorique(conteneur, idDemande, params);
     poserOngletsVente(conteneur, 'ventes');
   }
 }
@@ -87,17 +87,27 @@ export function afficherVentes(conteneur, params) {
    Page historique (+ détail à droite sur ordinateur)
    ========================================================================= */
 
-function afficherHistorique(conteneur, idSelection) {
+/** Période et annulées demandées par l'adresse (lien du décompte de la commission, étape 24). */
+function filtresDepuisAdresse(params) {
+  const date = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : null);
+  const du = date(params?.get('du'));
+  const au = date(params?.get('au'));
+  const periode = du && au ? 'choix' : PERIODES.some(([c]) => c === params?.get('periode')) ? params.get('periode') : 'jour';
+  return { periode, du, au, annulees: params?.get('annulees') === '1' };
+}
+
+function afficherHistorique(conteneur, idSelection, params = null) {
   const boutique = etat.boutique;
   const aujourdhui = dateISO();
+  const demande = filtresDepuisAdresse(params);
   const s = {
-    periode: 'jour',
-    du: aujourdhui,
-    au: aujourdhui,
+    periode: demande.periode,
+    du: demande.du || aujourdhui,
+    au: demande.au || aujourdhui,
     mode: '',
     vendeur: '',
     recherche: '',
-    annulees: false,
+    annulees: demande.annulees,
     ventes: [],
     affichees: TAILLE_PAGE,
     selection: idSelection,
@@ -142,13 +152,13 @@ function afficherHistorique(conteneur, idSelection) {
           <select id="filtre-vendeur" data-zone="vendeurs"><option value="">Vendeur : tous</option></select>
         </label>
         <label class="filtre-case">
-          <input type="checkbox" id="filtre-annulees">
+          <input type="checkbox" id="filtre-annulees" ${s.annulees ? 'checked' : ''}>
           Afficher les ventes annulées
         </label>
       </div>
-      <div class="dates-perso" data-zone="dates" hidden>
-        <div class="champ"><label for="ventes-du">Du</label><input id="ventes-du" class="input" type="date" max="${aujourdhui}" value="${aujourdhui}"></div>
-        <div class="champ"><label for="ventes-au">Au</label><input id="ventes-au" class="input" type="date" max="${aujourdhui}" value="${aujourdhui}"></div>
+      <div class="dates-perso" data-zone="dates" ${s.periode === 'choix' ? '' : 'hidden'}>
+        <div class="champ"><label for="ventes-du">Du</label><input id="ventes-du" class="input" type="date" max="${aujourdhui}" value="${s.du}"></div>
+        <div class="champ"><label for="ventes-au">Au</label><input id="ventes-au" class="input" type="date" max="${aujourdhui}" value="${s.au}"></div>
       </div>
 
       <section class="kpis-clients" aria-label="Résumé de la période" data-zone="kpis">

@@ -11,6 +11,7 @@ import { demarrerSurveillanceCommandes, verifierCommandes } from './alertes-comm
 import { bandeauLicenceHTML, bandeauMaintenanceHTML, appliquerLectureSeule, afficherAnnonces, chargerEtatLicence } from './plateforme.js';
 import { majBadgeAide } from './aide.js';
 import { appliquerDepannage } from './depannage.js';
+import { poserBandeauCommission } from './facturation.js';
 import { moduleVisible, aModule, aAcheter, vocab, activite, chargerModules, donneesModules, infoModule } from './modules.js';
 import {
   esc, icone, logoMarque, logoSymbole, ouvrirModale, formatDate, jours, initiales, TYPES_ACTIVITE
@@ -165,6 +166,7 @@ function construireShell() {
         <div data-zone="bandeau-depannage"></div>
         <div data-zone="bandeau-plateforme">${bandeauMaintenanceHTML()}</div>
         <div data-zone="bandeau-licence">${bandeauLicenceHTML()}</div>
+        <div data-zone="bandeau-commission"></div>
         <div data-zone="bandeau-annonce"></div>
         <div data-zone="bandeau-sms"></div>
         <div data-zone="bandeau-module"></div>
@@ -184,6 +186,7 @@ function construireShell() {
   appliquerLectureSeule();        // licence en lecture seule ou suspendue : boutons d'écriture désactivés
   afficherAnnonces();             // annonce de l'équipe YOUMMA (la plus récente, fermable)
   majBadgeAide();                 // badge « Aide » si YOUMMA a répondu
+  poserBandeauCommission(shell);  // étape 24 : commission impayée (avertie, vitrine coupée, blocage possible), un seul bandeau
   return shell;
 }
 

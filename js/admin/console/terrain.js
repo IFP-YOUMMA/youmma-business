@@ -12,7 +12,8 @@
 import { esc, icone, boutonOccupe, toast, formatDate } from '../../utils.js';
 import { svgQr } from '../../qr.js';
 import { rpc, chargerActivites, lienWa, urlVitrine } from '../commun.js';
-import { espaces, espace, erreurConsole, telInternational } from './commun.js';
+import { espaces, espace, erreurConsole, telInternational, chargerFormulesConsole } from './commun.js';
+import { blocFacturationHTML, monterFacturation } from './facturation.js';
 import { monterOuvertures } from './ouvertures.js';
 
 export function afficherTerrain(conteneur, { params }) {
@@ -113,7 +114,7 @@ export function afficherTerrain(conteneur, { params }) {
       afficherPret({
         id: r.id, nom: r.nom || nom, proprietaire, tel: r.telephone || tel, slug: fiche?.slug || null, commission,
         ouvert: commission ? Boolean(vendeur?.ok) : true, lienVendeur: vendeur?.lien_vendeur || null,
-        invitation: r.invitation || null, avertissement: r.avertissement || '', enAttente: Boolean(r.proprietaire_en_attente)
+        invitation: r.invitation || null, avertissement: r.avertissement || '', enAttente: Boolean(r.proprietaire_en_attente), fiche
       });
     } catch (err) {
       boutonOccupe(bouton, false);
@@ -153,6 +154,7 @@ export function afficherTerrain(conteneur, { params }) {
           <div class="cs-pret-actions">${envoyer}</div>`}
         <a class="cs-pret-fiche" href="#/fiche/${encodeURIComponent(b.id)}">Ouvrir sa fiche ›</a>
       </section>
+      ${b.commission ? '' : blocFacturationHTML()}
       <section class="carte cs-photos">${icone('photo', 20, 2)}<p><strong>Photographiez 5 ou 6 articles avec elle, maintenant.</strong> Une boutique vide ne vend rien, et elle n’y reviendra pas seule.</p></section>
       <section class="carte cs-avant-partir">
         <h2>Avant de quitter sa boutique</h2>
@@ -165,6 +167,14 @@ export function afficherTerrain(conteneur, { params }) {
         <a class="btn btn-secondaire btn-bloc" href="#/terrain?espace=${encodeURIComponent(choisi.code)}" data-action="encore">${icone('plus', 18, 2)} ${b.commission ? 'Créer un autre vendeur' : 'Créer une autre boutique'}</a>
       </section>`;
     q('[data-zone="pret"]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Étape 24 : abonnement ou commission, choisi à la création (une boutique à licence).
+    if (!b.commission) {
+      chargerFormulesConsole().catch(() => ({})).then((formules) => monterFacturation(q('[data-zone="pret"] [data-zone="facturation"]'), {
+        id: b.id, nom: b.nom, espace: choisi.code, fiche: b.fiche,
+        prixAbonnement: Number(b.fiche?.licence?.prix_mois) || formules?.[b.fiche?.licence?.formule]?.prix_mois || null,
+        formuleNom: formules?.[b.fiche?.licence?.formule]?.nom || b.fiche?.licence?.formule || ''
+      }));
+    }
   }
 
   conteneur.addEventListener('click', (ev) => {

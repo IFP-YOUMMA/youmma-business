@@ -321,3 +321,29 @@
 
 /* Marché en veille : un lien vers le marché reste caché tant que le serveur ne le rallume pas */
 [data-lien-marche][hidden] { display: none !important; }
+
+/* Étape 24 — « Comment cette boutique paie YOUMMA » et « Les boutiques en commission » */
+.cf-form { display: flex; flex-direction: column; gap: 14px; }
+.cf-cartes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.cf-carte {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; text-align: left; cursor: pointer;
+  border: 2px solid var(--border); border-radius: 14px; background: #FFFFFF; font: inherit; color: var(--text);
+}
+.cf-carte strong { font-size: 16px; }
+.cf-carte small { color: var(--muted); }
+.cf-carte.actif { border-color: #5B2A8C; background: #F8F3FD; }
+.cf-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 14px; }
+.cf-plafond-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cf-simulation { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cf-sim, .cf-sim-vide { margin: 4px 0 0; line-height: 1.45; }
+.cf-sim-vide { color: var(--muted); }
+.cf-pied { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border); }
+.cf-pied > div { display: flex; flex-direction: column; }
+.cf-total { font-size: 22px; font-weight: 800; }
+.cs-escalade { margin: 16px; }
+.cs-escalade ol { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cs-escalade li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
+.cf-detail { display: flex; flex-direction: column; gap: 12px; }
+.cf-envois { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cf-envois li { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cf-envois li > span { display: flex; flex-direction: column; min-width: 0; }

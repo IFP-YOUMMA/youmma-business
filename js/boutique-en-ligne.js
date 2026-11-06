@@ -10,6 +10,7 @@
 import { sb } from './supabase.js';
 import { etat } from './state.js';
 import { svgQr } from './qr.js';
+import { vitrineCoupee } from './facturation.js';
 import { vignetteProduit } from './images/affichage.js';
 import {
   esc, icone, toast, confirmer, ouvrirModale, boutonOccupe, messageErreur, differer, copierTexte, formatNombre, formatGNF,
@@ -61,9 +62,11 @@ export function afficherBoutiqueEnLigne(conteneur) {
 
   function render() {
     const r = s.reglages;
+    // Étape 24 : vitrine coupée pour impayé → pas d'interrupteur (il ne marcherait pas) ; la raison et « Régler » sont
+    // en haut de l'écran (boutique-onglets.js), sur tous les onglets.
     zone('principal').innerHTML = `
       <section class="carte ben-section" data-section="reglages">
-        <div class="ben-activation">
+        ${s.coupee ? '' : `<div class="ben-activation">
           <div class="ben-activation-textes">
             <h2>Boutique en ligne ${r.actif ? 'activée' : 'fermée'}</h2>
             <span class="discret">${r.actif
@@ -71,7 +74,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
               : 'Activez-la pour que vos clients puissent commander. Vérifiez d’abord l’adresse et le numéro WhatsApp.'}</span>
           </div>
           <button type="button" class="interrupteur interrupteur-grand" role="switch" aria-checked="${Boolean(r.actif)}" data-action="activer" aria-label="Boutique en ligne activée"><span></span></button>
-        </div>
+        </div>`}
         <div class="champ">
           <label for="ben-slug">Adresse de votre boutique</label>
           <div class="champ-slug">
@@ -433,13 +436,15 @@ export function afficherBoutiqueEnLigne(conteneur) {
   }
 
   async function charger() {
-    const [reglages, zones, produits] = await Promise.all([
+    const [reglages, zones, produits, coupee] = await Promise.all([
       sb.rpc('obtenir_boutique_en_ligne', { p_boutique: boutique.id }),
       sb.from('zones_livraison').select('id, nom, frais, ordre, actif').eq('boutique_id', boutique.id).order('ordre').order('nom'),
       sb.from('produits').select('id, nom, unite, prix_detail, prix_gros, prix_promo, promo_fin, stock, sur_commande, en_ligne, photo_url, photo_mini_url')
-        .eq('boutique_id', boutique.id).eq('actif', true).order('nom')
+        .eq('boutique_id', boutique.id).eq('actif', true).order('nom'),
+      vitrineCoupee(boutique.id).catch(() => null)
     ]);
     if (!conteneur.isConnected) return;
+    s.coupee = coupee;
     const erreur = reglages.error || zones.error || produits.error;
     if (erreur) { zone('principal').innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(messageErreur(erreur))}</p>`; return; }
     s.reglages = premiere(reglages.data) || {};
@@ -456,7 +461,7 @@ export function afficherBoutiqueEnLigne(conteneur) {
   conteneur.addEventListener('click', async (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
     const bouton = e.target.closest('button');
-    if (action === 'activer') { basculerActivation(); return; }
+    if (action === 'activer') { if (!s.coupee) basculerActivation(); return; }
     if (action === 'enregistrer') { enregistrer({ bouton }); return; }
     if (action === 'proposer-slug') { q('#ben-slug').value = proposerSlug(boutique.nom); majEtatSlug(q('#ben-slug').value); return; }
     if (action === 'partager') { window.open(`https://wa.me/?text=${encodeURIComponent(texteInvitation())}`, '_blank', 'noopener'); return; }

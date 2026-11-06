@@ -17,6 +17,7 @@ import { afficherActivationOption, bandeauOptionHTML, CODE_OPTION } from './opti
 import { esc, icone, formatNombre, formatGNF, dateISO, lienBoutique, lienCourtBoutique } from './utils.js';
 import { afficherCommandes } from './commandes.js';
 import { afficherBoutiqueEnLigne } from './boutique-en-ligne.js';
+import { vitrineCoupee, raisonVitrineCoupeeHTML } from './facturation.js';
 import { naviguer } from './router.js';
 
 const estMobile = () => window.matchMedia('(max-width: 899.98px)').matches;
@@ -62,6 +63,7 @@ export function afficherBoutiqueOnglets(conteneur, params) {
         <a class="btn btn-secondaire bo-vitrine" data-zone="vitrine" href="#/boutique-en-ligne?onglet=reglages" hidden>${icone('enLigne', 16, 2)} Voir ma vitrine</a>
       </header>
       ${bandeauOptionHTML()}
+      <div data-zone="coupee" hidden></div>
       <nav class="onglets-pastilles bo-onglets" aria-label="Boutique en ligne">
         ${onglets.map(([code, libelle]) => `<a class="onglet-pastille ${code === onglet ? 'actif' : ''}" href="${code === 'affiche' ? '#/affiches' : `#/boutique-en-ligne?onglet=${code}`}" ${code === onglet ? 'aria-current="page"' : ''}>${esc(libelle)}${code === 'commandes' ? '<span class="pastille-compte" data-zone="compte-commandes" hidden></span>' : ''}</a>`).join('')}
       </nav>
@@ -86,7 +88,7 @@ export function afficherBoutiqueOnglets(conteneur, params) {
   async function chargerEntete() {
     const debut = dateISO(-6);
     const [enLigne, stats] = await Promise.all([
-      sb.from('boutiques_en_ligne').select('slug, actif').eq('boutique_id', boutique.id).maybeSingle(),
+      sb.from('boutiques_en_ligne').select('slug, actif, coupee_impaye').eq('boutique_id', boutique.id).maybeSingle(),
       sb.rpc('stats_boutique_en_ligne', { p_boutique: boutique.id, p_debut: debut, p_fin: dateISO() })
     ]);
     if (!conteneur.isConnected) return;
@@ -100,7 +102,14 @@ export function afficherBoutiqueOnglets(conteneur, params) {
       const etatZone = zone('etat');
       etatZone.hidden = false;
       etatZone.className = `bo-etat ${reglages.actif ? 'ouverte' : 'fermee'}`;
-      etatZone.textContent = reglages.actif ? 'Ouverte' : 'Fermée';
+      // Étape 24 : coupée pour impayé, ce n'est pas « Fermée » (la raison est dite dans l'onglet Réglages).
+      etatZone.textContent = reglages.actif ? 'Ouverte' : reglages.coupee_impaye ? 'Hors ligne · impayé' : 'Fermée';
+      // La raison, sur tous les onglets : « hors ligne parce que la commission de … n'est pas réglée » et « Régler ».
+      if (reglages.coupee_impaye) {
+        const c = await vitrineCoupee(boutique.id).catch(() => null);
+        const z = zone('coupee');
+        if (c && z?.isConnected) { z.innerHTML = raisonVitrineCoupeeHTML(c); z.hidden = false; }
+      }
     }
     if (reglages?.slug) {
       const vitrine = zone('vitrine');
