@@ -4,15 +4,16 @@
  *
  * Écran du matin : affiche_du_jour → dessin des 3 formats sur le téléphone (affiche.js), bande « Habillage »
  * (vignettes des habillages permis par le thème, modifier_affiche p_style ; « Choisir les 3 articles » pour Sélection), texte et hashtags,
- * quatre boutons de publication (Facebook, Instagram, statut WhatsApp, TikTok), changer d'affiche
- * (autre suggestion, thème, article), publication automatique, dernières publications.
+ * en tête, le grand bouton « Publier » et ses raccourcis WhatsApp · Facebook · Instagram (partage manuel, publication_manuelle
+ * garde la trace et l'affiche porte « Publiée aujourd'hui »), changer d'affiche (autre suggestion, thème, article),
+ * dernières publications. Connexion des réseaux et publication automatique : seulement si publication_auto().actif.
  * Images et vidéo déposées puis enregistrées (enregistrer_images_affiche) dès qu'elles changent.
  */
 import { sb } from './supabase.js';
 import { etat, peut } from './state.js';
 import { genererAffiche, versJpeg, genererVideo, videoPossible, FORMATS_AFFICHE, HABILLAGES_AFFICHE, STYLE_DEFAUT_THEME } from './affiche.js';
 import {
-  RESEAUX, enregistrerImages, publierManuellement, publierAutomatiquement, telechargerImage, nomFichier, iconeReseau, heureLisible
+  RESEAUX, enregistrerImages, publierManuellement, publierAutomatiquement, telechargerImage, nomFichier, iconeReseau, heureLisible, lirePublicationAuto
 } from './affiche-publier.js';
 import { monterCalendrier, bandeauExpiration, TONS, lireReglages } from './affiche-calendrier.js';
 import {
@@ -66,18 +67,36 @@ export function afficherAfficheJour(conteneur, params = new URLSearchParams()) {
       <div data-zone="vue"><div class="squelette" style="height:420px"></div></div>
     </div>`;
   const zoneVue = conteneur.querySelector('[data-zone="vue"]');
-  bandeauExpiration(conteneur.querySelector('[data-zone="bandeau"]'));
-  if (params.get('reseau') === 'ok') toast('Réseau connecté.', 'succes');
-  if (params.get('reseau') === 'erreur') toast('La connexion du réseau n’a pas abouti.', 'erreur', 7000);
-  if (vue === 'mois') return monterCalendrier(zoneVue, { modifier });
-  return monterJour(zoneVue, { boutique, modifier });
+  // L'interrupteur de la plateforme, lu une fois : tout ce qui touche à l'automatisme en dépend.
+  let nettoyer = null;
+  lirePublicationAuto().then((pub) => {
+    if (!zoneVue.isConnected) return;
+    const auto = pub.actif;
+    if (auto) {
+      bandeauExpiration(conteneur.querySelector('[data-zone="bandeau"]'));
+      if (params.get('reseau') === 'ok') toast('Réseau connecté.', 'succes');
+      if (params.get('reseau') === 'erreur') toast('La connexion du réseau n’a pas abouti.', 'erreur', 7000);
+    }
+    nettoyer = vue === 'mois' ? monterCalendrier(zoneVue, { modifier, auto }) : monterJour(zoneVue, { boutique, modifier, auto });
+  });
+  return () => nettoyer?.();
 }
 
 /* =========================================================================
    Écran du matin
    ========================================================================= */
 
-function monterJour(zone, { boutique, modifier }) {
+/** Le grand bouton « Publier » partage le format affiché ; la trace (publication_manuelle) note le réseau visé. */
+const RESEAU_DU_FORMAT = { '9:16': 'whatsapp', '4:5': 'facebook', '1:1': 'instagram' };
+const RACCOURCIS = [['whatsapp', 'WhatsApp'], ['facebook', 'Facebook'], ['instagram', 'Instagram']];
+/** Une publication de l'affiche (manuelle ou faite par le serveur) → l'heure de la plus récente, sinon null. */
+function heurePubliee(a) {
+  const pubs = (a?.publications || []).filter((p) => !p.statut || p.statut === 'publiee' || p.statut === 'manuelle');
+  const quand = pubs.map((p) => p.publie_le || p.created_at).filter(Boolean).sort().at(-1);
+  return pubs.length ? (quand ? new Date(quand) : true) : null;
+}
+
+function monterJour(zone, { boutique, modifier, auto = false }) {
   const s = {
     a: null, format: '4:5', fichiers: {}, urls: {}, video: null, reseaux: [], reglages: null, complements: null,
     jeton: 0, enCours: new Set(), produits: null, themes: null, styles: null, vignettes: new Map()
@@ -123,7 +142,7 @@ function monterJour(zone, { boutique, modifier }) {
       s.fichiers[format] = { blob, nom: nomFichier(s.a, format), canvas };
       if (format === s.format) montrerApercu();
     }
-    zone.querySelectorAll('[data-publier]').forEach((b) => { b.disabled = false; });
+    zone.querySelectorAll('[data-publier], [data-publier-principal]').forEach((b) => { b.disabled = false; });
   }
 
   async function envoyerImages() {
@@ -158,9 +177,10 @@ function monterJour(zone, { boutique, modifier }) {
   }
 
   const compte = (reseau) => s.reseaux.find((r) => r.reseau === reseau) || null;
-  const connecte = (reseau) => Boolean(compte(reseau)?.actif) && RESEAUX[reseau].auto;
+  const connecte = (reseau) => auto && Boolean(compte(reseau)?.actif) && RESEAUX[reseau].auto;
   function sousTitre(reseau) {
     const c = compte(reseau);
+    if (!auto && (reseau === 'facebook' || reseau === 'instagram')) return 'Image et texte prêts';
     if (reseau === 'facebook') return c?.actif ? `${c.nom || 'Ma page'} · connectée` : 'Image et texte prêts · Connecter ma page';
     if (reseau === 'instagram') return c?.actif ? `${c.nom || 'Mon compte'} · compte pro` : 'Image et texte prêts · Connecter mon compte pro';
     if (reseau === 'whatsapp') return 'Format 9:16 · prêt';
@@ -177,9 +197,19 @@ function monterJour(zone, { boutique, modifier }) {
   function render() {
     const a = s.a;
     const reglages = s.reglages || {};
-    const autoPossible = s.reseaux.some((r) => r.actif && RESEAUX[r.reseau]?.auto);
+    const autoPossible = auto && s.reseaux.some((r) => r.actif && RESEAUX[r.reseau]?.auto);
     const reseauxAuto = (reglages.reseaux || []).map((r) => RESEAUX[r]?.nom).filter(Boolean);
+    // Hors automatisme : TikTok et le téléchargement restent, en second ; les raccourcis du haut font le reste.
+    const reseauxListe = auto ? ['facebook', 'instagram', 'whatsapp', 'tiktok'] : ['tiktok'];
     zone.innerHTML = `
+      <section class="aff-publier-principal" aria-label="Publier l’affiche du jour">
+        <button type="button" class="btn btn-primaire btn-grand aff-btn-publier" data-publier-principal disabled>${icone('partager', 22, 2.2)} Publier l’affiche</button>
+        <div class="aff-raccourcis" role="group" aria-label="Publier sur">
+          ${RACCOURCIS.map(([r, nom]) => `<button type="button" class="aff-raccourci ${r}" data-publier="${r}" disabled>${iconeReseau(r, 18)}<span>${nom}</span></button>`).join('')}
+        </div>
+        <p class="aff-publiee" data-zone="publiee" hidden></p>
+        ${auto ? '' : '<p class="aff-trois-gestes">Vous publiez vous-même, en trois gestes.</p>'}
+      </section>
       <div class="aff-jour">
         <div class="aff-gauche">
           <div class="aff-formats" role="group" aria-label="Format">
@@ -206,7 +236,7 @@ function monterJour(zone, { boutique, modifier }) {
             </div>
           </section>
           <div class="aff-publier">
-            ${['facebook', 'instagram', 'whatsapp', 'tiktok'].map((r) => `
+            ${reseauxListe.map((r) => `
               <button type="button" class="aff-bouton-reseau ${r}" data-publier="${r}" disabled>
                 <span class="aff-reseau-icone">${iconeReseau(r, 20)}</span>
                 <span class="aff-reseau-textes"><strong>${esc({ facebook: 'Publier sur ma page Facebook', instagram: 'Publier sur Instagram', whatsapp: 'Mettre en statut WhatsApp', tiktok: 'Publier sur TikTok' }[r])}</strong>
@@ -218,21 +248,35 @@ function monterJour(zone, { boutique, modifier }) {
               <span class="aff-reseau-textes"><strong>Télécharger l’image</strong><span>Pour publier ailleurs</span></span>
               <span class="aff-reseau-etat">${icone('chevronDroite', 18, 2.4)}</span>
             </button>
-            <a class="aff-lien-reseaux" href="#/affiches?vue=mois">Publier en un seul clic : connecter mes réseaux ›</a>
+            ${auto ? '<a class="aff-lien-reseaux" href="#/affiches?vue=mois">Publier en un seul clic : connecter mes réseaux ›</a>' : ''}
           </div>
-          <section class="carte aff-auto ${autoPossible ? '' : 'grise'}">
+          ${auto ? `<section class="carte aff-auto ${autoPossible ? '' : 'grise'}">
             <div class="aff-auto-textes"><strong>Publier tout seul chaque matin</strong>
               <span>${autoPossible ? `À ${esc(heureLisible(reglages.heure_auto))} sur ${esc(reseauxAuto.join(', ') || 'vos réseaux connectés')}.` : 'Connectez d’abord Facebook, Instagram ou TikTok.'}</span></div>
             <input type="checkbox" class="bascule-doc" role="switch" data-action="auto" ${reglages.auto && autoPossible ? 'checked' : ''} ${autoPossible && modifier ? '' : 'disabled'} aria-label="Publier tout seul chaque matin">
-          </section>
+          </section>` : ''}
           <section class="carte aff-dernieres">
             <h2>Vos dernières publications</h2>
             <div data-zone="dernieres"><span class="squelette" style="height:60px"></span></div>
           </section>
         </div>
       </div>`;
-    if (s.urls[s.format]) { montrerApercu(); zone.querySelectorAll('[data-publier]').forEach((b) => { b.disabled = false; }); }
+    if (s.urls[s.format]) { montrerApercu(); zone.querySelectorAll('[data-publier], [data-publier-principal]').forEach((b) => { b.disabled = false; }); }
+    majPubliee();
     renderHabillages();
+  }
+
+  /** « Publiée aujourd'hui à 9 h 12 » : sur le bloc Publier et sur l'aperçu (trace de publication_manuelle). */
+  function majPubliee() {
+    const quand = s.publieeA || heurePubliee(s.a);
+    const z = zone.querySelector('[data-zone="publiee"]');
+    if (!z) return;
+    const heure = quand instanceof Date ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Africa/Conakry', hour: '2-digit', minute: '2-digit' }).format(quand).replace(':', ' h ').replace(/^0/, '') : '';
+    z.hidden = !quand;
+    z.innerHTML = quand ? `${icone('valide', 16, 2.6)} Publiée aujourd’hui${heure ? ` à ${esc(heure)}` : ''}` : '';
+    zone.querySelector('[data-zone="apercu"]')?.classList.toggle('publiee', Boolean(quand));
+    const ap = zone.querySelector('[data-zone="apercu"]');
+    if (ap) { ap.querySelector('.aff-badge-publiee')?.remove(); if (quand) ap.insertAdjacentHTML('beforeend', `<span class="aff-badge-publiee">${icone('valide', 13, 3)} Publiée aujourd’hui</span>`); }
   }
 
   /** Habillages permis par le thème (styles_possibles), en vignettes du vrai dessin (62 px de large). */
@@ -307,6 +351,7 @@ function monterJour(zone, { boutique, modifier }) {
     if (!z || !s.urls[s.format]) return;
     z.style.aspectRatio = `${FORMATS_AFFICHE[s.format].largeur} / ${FORMATS_AFFICHE[s.format].hauteur}`;
     z.innerHTML = `<img src="${s.urls[s.format]}" alt="Affiche du jour, format ${esc(s.format)}">`;
+    majPubliee();
   }
 
   /* ---------------- Dernières publications (jours publiés du mois, puis du mois précédent) */
@@ -362,6 +407,8 @@ function monterJour(zone, { boutique, modifier }) {
         etatEl.innerHTML = icone('valide', 18, 2.6);
         sous.innerHTML = r.url ? `Publiée · <a href="${esc(r.url)}" target="_blank" rel="noopener">voir la publication</a>` : 'Publiée';
         toast(`Publiée sur ${RESEAUX[reseau].nom}.`, 'succes');
+        s.publieeA = new Date();
+        majPubliee();
       } else if (r.statut === 'erreur') {
         etatEl.innerHTML = icone('alerte', 18, 2.4);
         sous.textContent = r.erreur;
@@ -376,7 +423,9 @@ function monterJour(zone, { boutique, modifier }) {
     const fichier = reseau === 'tiktok' && s.video ? { blob: s.video, nom: nomFichier(s.a, '9:16', 'mp4') } : fichierImage;
     const r = await publierManuellement({ affiche: s.a, reseau, format: reseau === 'tiktok' && s.video ? 'video' : format, fichier, texte, compte: compte(reseau) });
     if (r !== 'annule' && zone.isConnected) {
-      etatEl.innerHTML = icone('valide', 18, 2.6);
+      if (etatEl) etatEl.innerHTML = icone('valide', 18, 2.6);
+      s.publieeA = new Date();
+      majPubliee();
       chargerDernieres();
     }
   }
@@ -560,6 +609,8 @@ function monterJour(zone, { boutique, modifier }) {
       enregistrerChangement({ style: habillage.dataset.style, titre: s.a.titre, texte: s.a.texte, hashtags: s.a.hashtags });
       return;
     }
+    const principal = e.target.closest('[data-publier-principal]');
+    if (principal && !principal.disabled) { publier(RESEAU_DU_FORMAT[s.format] || 'whatsapp', principal); return; }
     const pub = e.target.closest('[data-publier]');
     if (pub && !pub.disabled) { publier(pub.dataset.publier, pub); return; }
     const action = e.target.closest('[data-action]');

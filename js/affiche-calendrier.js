@@ -6,8 +6,8 @@
  *    thème / habillage / article / retirer (changer_jour_plan) ; un jour passé n'est pas modifiable ;
  *  - téléphone : les 7 prochains jours ;
  *  - « Changer le rythme » : jours, heure, réseaux, ton, signature (modifier_publication) ;
- *  - colonne de droite : Mes réseaux (mes_reseaux, connecter / déconnecter), chiffres du mois, publication
- *    automatique, « Ce qui marche, et quand ».
+ *  - colonne de droite : chiffres du mois, « Ce qui marche, et quand » ; Mes réseaux (connecter / déconnecter) et la
+ *    publication automatique seulement si publication_auto().actif (auto) — sinon rien, pas même grisé.
  */
 import { sb } from './supabase.js';
 import { etat } from './state.js';
@@ -28,7 +28,7 @@ export async function lireReglages() {
   return error ? {} : (premiere(data) || {});
 }
 
-/** Bandeau « Reconnectez votre page Facebook avant le … » (réseau qui expire dans moins de 7 jours). */
+/** Bandeau « Reconnectez votre page Facebook avant le … » (réseau qui expire dans moins de 7 jours) ; appelé seulement si l'automatisme est allumé. */
 export async function bandeauExpiration(zone) {
   const { data } = await sb.rpc('mes_reseaux', { p_boutique: etat.boutique.id });
   const r = (premiere(data)?.reseaux || []).find((x) => x.expire_bientot);
@@ -48,7 +48,14 @@ const STYLE_DEFAUT = { produit: 'catalogue', promo: 'impact', lundi: 'message', 
 const idProduit = (j) => (j.produit && typeof j.produit === 'object' ? j.produit.id : j.produit) || null;
 const nomProduit = (j) => (j.produit && typeof j.produit === 'object' ? j.produit.nom : null);
 
-export function monterCalendrier(zone, { modifier }) {
+/** « Ce qui marche, et quand » : sans automatisme, seulement ce qui marche aujourd'hui, sans promesse. */
+const MARCHE_MANUEL = `
+  <li><span class="point whatsapp"></span><span><strong>WhatsApp</strong> — l’image part dans votre statut en deux touches.</span></li>
+  <li><span class="point facebook"></span><span><strong>Facebook</strong> — en trois secondes : l’image est enregistrée, le texte copié, Facebook s’ouvre.</span></li>
+  <li><span class="point instagram"></span><span><strong>Instagram</strong> — même chose, depuis votre compte.</span></li>
+  <li><span class="point tiktok"></span><span><strong>TikTok</strong> — l’appli crée une petite vidéo de 5 s à partir de l’affiche, que vous publiez vous-même.</span></li>`;
+
+export function monterCalendrier(zone, { modifier, auto = false }) {
   const boutique = etat.boutique;
   const aujourdhui = dateISO();
   const s = { mois: moisDe(aujourdhui), plan: null, suivant: null, reseaux: null, ceMois: null, reglages: null, themes: [], produits: null, config: {} };
@@ -73,13 +80,14 @@ export function monterCalendrier(zone, { modifier }) {
         <section class="carte aff-reseaux" data-zone="reseaux"><span class="squelette" style="height:240px"></span></section>
         <section class="carte aff-marche">
           <h2>Ce qui marche, et quand</h2>
-          <ul>
+          ${auto ? '' : `<ul>${MARCHE_MANUEL}</ul>`}
+          ${auto ? `<ul>
             <li><span class="point whatsapp"></span><span><strong>WhatsApp</strong> — tout de suite, pour tout le monde. L’image part dans le statut en deux touches.</span></li>
             <li><span class="point facebook"></span><span><strong>Facebook</strong> — tout de suite en trois secondes : l’image est enregistrée, le texte copié, Facebook s’ouvre. En un seul clic une fois Meta validé.</span></li>
             <li><span class="point instagram"></span><span><strong>Instagram</strong> — même chose, avec un compte professionnel relié à la page Facebook.</span></li>
             <li><span class="point tiktok"></span><span><strong>TikTok</strong> — l’appli crée une petite vidéo de 5 s à partir de l’affiche. Publication manuelle d’abord, automatique après validation de TikTok.</span></li>
           </ul>
-          <p class="discret">À savoir : la publication en un seul clic demande l’accord de Meta et de TikTok (vérification de l’entreprise, validation de l’application). Ça prend plusieurs semaines. En attendant, la version en trois secondes marche pour tout le monde, et l’écran est exactement le même.</p>
+          <p class="discret">À savoir : la publication en un seul clic demande l’accord de Meta et de TikTok (vérification de l’entreprise, validation de l’application). Ça prend plusieurs semaines. En attendant, la version en trois secondes marche pour tout le monde, et l’écran est exactement le même.</p>` : ''}
         </section>
       </aside>
     </div>`;
@@ -182,6 +190,19 @@ export function monterCalendrier(zone, { modifier }) {
   }
 
   async function renderReseaux() {
+    if (!auto) {
+      // Sans automatisme : les chiffres du mois seulement (pas de réseaux à connecter, pas d'interrupteur).
+      const m = s.ceMois || {};
+      const meilleure = m.meilleure ? (typeof m.meilleure === 'object' ? `${m.meilleure.titre || m.meilleure.theme_nom || ''}${m.meilleure.vues ? ` · ${formatNombre(m.meilleure.vues)}` : ''}` : String(m.meilleure)) : '—';
+      sous('reseaux').innerHTML = `
+        <h2>Ce mois-ci</h2>
+        <div class="aff-chiffres">
+          <div><span>Publications ce mois</span><strong>${formatNombre(m.publications || 0)}</strong></div>
+          <div><span>Vues cumulées</span><strong>${formatNombre(m.vues || 0)}</strong></div>
+          <div><span>Meilleure publication</span><strong>${esc(meilleure)}</strong></div>
+        </div>`;
+      return;
+    }
     s.config = await import('./affiche-publier.js').then((m) => m.reseauxConnectables()).catch(() => ({}));
     if (!zone.isConnected) return;
     const r = (code) => s.reseaux.find((x) => x.reseau === code) || null;
@@ -307,12 +328,12 @@ export function monterCalendrier(zone, { modifier }) {
           ${JOURS_SEMAINE.map(([n, l]) => `<label class="puce-jour"><input type="checkbox" name="jour" value="${n}" ${jours.includes(n) || (n === 7 && jours.includes(0)) ? 'checked' : ''}><span>${l}</span></label>`).join('')}
         </fieldset>
         <div class="rangee-champs">
-          <div class="champ"><label for="ry-heure">Heure de publication automatique</label><input id="ry-heure" class="input" type="time" value="${esc(String(g.heure_auto || '08:00').slice(0, 5))}"></div>
+          ${auto ? `<div class="champ"><label for="ry-heure">Heure de publication automatique</label><input id="ry-heure" class="input" type="time" value="${esc(String(g.heure_auto || '08:00').slice(0, 5))}"></div>` : ''}
           <div class="champ"><label for="ry-ton">Ton du texte</label><select id="ry-ton" class="input">${TONS.map(([c, l]) => `<option value="${c}" ${c === g.ton ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         </div>
-        <fieldset class="ben-jours"><legend class="etiquette">Réseaux de la publication automatique</legend>
+        ${auto ? `<fieldset class="ben-jours"><legend class="etiquette">Réseaux de la publication automatique</legend>
           ${['facebook', 'instagram', 'tiktok'].map((r) => `<label class="puce-jour"><input type="checkbox" name="reseau" value="${r}" ${reseaux.includes(r) ? 'checked' : ''}><span>${RESEAUX[r].nom}</span></label>`).join('')}
-        </fieldset>
+        </fieldset>` : ''}
         <div class="champ"><label for="ry-signature">Signature (fin de chaque texte, facultatif)</label><input id="ry-signature" class="input" maxlength="120" value="${esc(g.signature || '')}" placeholder="Ex. Diallo Matériaux, le bon prix à Dubréka"></div>
         <p class="erreur-form" role="alert" hidden></p>
         <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer le rythme</button></div>
@@ -327,8 +348,8 @@ export function monterCalendrier(zone, { modifier }) {
       const bouton = form.querySelector('[type=submit]');
       boutonOccupe(bouton, true);
       const valeurs = {
-        p_boutique: boutique.id, p_jours: choisis, p_auto: Boolean(g.auto), p_heure_auto: form.querySelector('#ry-heure').value || '08:00',
-        p_reseaux: [...form.querySelectorAll('[name="reseau"]:checked')].map((c) => c.value), p_ton: form.querySelector('#ry-ton').value,
+        p_boutique: boutique.id, p_jours: choisis, p_auto: Boolean(g.auto), p_heure_auto: auto ? (form.querySelector('#ry-heure').value || '08:00') : (g.heure_auto ?? '08:00'),
+        p_reseaux: auto ? [...form.querySelectorAll('[name="reseau"]:checked')].map((c) => c.value) : (g.reseaux ?? []), p_ton: form.querySelector('#ry-ton').value,
         p_signature: form.querySelector('#ry-signature').value.trim() || null
       };
       const { error } = await sb.rpc('modifier_publication', valeurs);

@@ -10,6 +10,9 @@
  * Les images (3 formats) et la vidéo sont déposées dans le bucket public « produits »
  * (<boutique>/affiches/<jour>-<format>.jpg) puis enregistrées par enregistrer_images_affiche.
  * Aucun jeton ni identifiant d'application ici : la connexion des comptes passe par la fonction Edge connecter-reseau.
+ *
+ * Le chemin B et tout ce qui le promet (connexion des réseaux, publication automatique) n'existent à l'écran que si
+ * publication_auto() renvoie actif = true : interrupteur de la plateforme, rallumé en base sans republier l'appli.
  */
 import { sb } from './supabase.js';
 import { etat } from './state.js';
@@ -25,6 +28,21 @@ export const RESEAUX = {
 const premiere = (d) => (Array.isArray(d) ? d[0] : d) || null;
 export const estIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const estMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || estIos();
+
+/**
+ * publication_auto() → { actif, raison, whatsapp_jamais }, lu une fois au chargement de l'écran des affiches.
+ * Sans réponse : éteint (on ne promet rien qu'on ne peut pas vérifier).
+ */
+export async function lirePublicationAuto() {
+  try {
+    const { data, error } = await sb.rpc('publication_auto');
+    if (error) throw error;
+    const p = premiere(data) || {};
+    return { actif: p.actif === true, raison: p.raison || null, whatsappJamais: p.whatsapp_jamais !== false };
+  } catch {
+    return { actif: false, raison: null, whatsappJamais: true };
+  }
+}
 
 /* ------------------------------------------------------------ Images dans le stockage */
 
@@ -165,7 +183,8 @@ export const nomFichier = (affiche, format, extension = 'jpg') => nomFichierAffi
 export async function publierAutomatiquement({ affiche, reseau, imageUrl, texte, suivi = () => {} }) {
   const debut = Date.now();
   const { error } = await sb.rpc('demander_publication', { p_affiche: affiche.id, p_reseaux: [reseau], p_image_url: imageUrl, p_texte: texte });
-  if (error) return { statut: 'erreur', erreur: messageErreur(error) };
+  // Refus du serveur (auto_publication_possible faux…) : son message tel quel, sans nouvel essai.
+  if (error) return { statut: 'erreur', erreur: error.message || messageErreur(error) };
   suivi('en_cours');
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 3000));

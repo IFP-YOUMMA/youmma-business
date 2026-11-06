@@ -3746,3 +3746,25 @@ body.depannage .fiche-actions[data-eteint], body.depannage section[data-eteint] 
 .vitrine-coupee { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 12px; background: var(--alerte-bg); color: var(--alerte); }
 .vitrine-coupee h2 { margin: 0; font-size: 17px; }
 .vitrine-coupee p { margin: 0; line-height: 1.45; }
+
+/* Affiche du jour : publier soi-même, en tête de l'écran */
+.aff-publier-principal { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.aff-btn-publier { width: 100%; min-height: 56px; font-size: 18px; gap: 10px; justify-content: center; }
+.aff-raccourcis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.aff-raccourci {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 4px; min-width: 0;
+  border: 1px solid var(--border-bouton, var(--border)); border-radius: 12px; background: var(--card); color: var(--text); font: inherit; font-weight: 700; font-size: 13.5px; letter-spacing: -.01em; cursor: pointer;
+}
+.aff-raccourci svg { flex: none; }
+.aff-raccourci span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aff-raccourci:disabled { opacity: .5; cursor: wait; }
+.aff-raccourci.whatsapp svg { color: #128C4A; }
+.aff-raccourci.facebook svg { color: #1877F2; }
+.aff-raccourci.instagram svg { color: #C13584; }
+.aff-publiee { margin: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--succes); font-weight: 800; }
+.aff-trois-gestes { margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
+.aff-apercu { position: relative; }
+.aff-badge-publiee {
+  position: absolute; bottom: 10px; right: 10px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px;
+  background: var(--succes); color: #FFFFFF; font-size: 12.5px; font-weight: 800;
+}
