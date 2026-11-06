@@ -7,10 +7,12 @@
  *    plafond_atteint, part_plafond (0–100 ou null), lignes[{ nom, taux, ventes, montant, commission }], ventes_total,
  *    brut, du, economise ; simulation : + aucune_vente, part_du_chiffre ;
  *  - commission_du_mois (abonnement) : mode, boutique, formule, licence_fin — rien d'autre ;
- *  - ma_commission : en_cours, impayes[{ mois, du, statut, envoye_le, jours }], etat ;
+ *  - ma_commission : en_cours, impayes[{ mois, du, statut, envoye_le, jours }], etat, pays, moyens[{ code, nom }] ;
  *  - etat_commission : code, libelle, jours, mois, du, releve ;
- *  - boutiques_en_commission : mois, a_encaisser, boutiques[{ id, nom, ville, espace, taux_en_ligne, taux_comptoir,
- *    plafond_commission, du, plafond_atteint, etat }] ;
+ *  - boutiques_en_commission : mois, a_encaisser, boutiques[{ id, nom, ville, espace, pays, taux_en_ligne, taux_comptoir,
+ *    plafond_commission, du, plafond_atteint, etat, moyens[{ code, nom }] }] ;
+ * Les moyens de paiement viennent de ces réponses, déjà filtrés par le pays de la boutique : aucun appel direct à
+ * modes_de_paiement dans la facturation.
  *  - envoyer_releves : mois, sms_en_file, sans_telephone, releves[{ boutique, boutique_id, releve, du, tel, texte, sms }].
  * Un champ attendu qui manque s'affiche « — » et se signale dans la console (exiger) : il ne doit pas passer inaperçu.
  */
@@ -89,6 +91,8 @@ export const pastilleEtat = (etat, plafondAtteint) => { const e = etiquetteEtat(
 /** Codes d'erreur des fonctions de facturation, en français. */
 const ERREURS = {
   MODE_INVALIDE: 'Choisissez « Abonnement » ou « Commission ».',
+  PAYS_INVALIDE: 'Pays invalide : son code en deux lettres (GN, SN…).',
+  PAYS_SANS_MOYEN_DE_PAIEMENT: 'Aucun moyen de paiement n’est prévu pour ce pays : la boutique ne pourrait plus régler.',
   PLAFOND_INVALIDE: 'Plafond invalide : un montant positif, ou pas de plafond.',
   DEJA_PAYE: 'Ce relevé est déjà payé.',
   RELEVE_INTROUVABLE: 'Relevé introuvable : la liste a peut-être changé, rouvrez-la.',
@@ -99,6 +103,9 @@ export function erreurFacturation(err) {
   const brut = String(err?.message || err || '');
   const t = brut.match(/TAUX_INVALIDE:?\s*(.*)$/);
   if (t) return t[1] ? `Taux invalide : ${t[1].trim()} %.` : 'Taux invalide.';
+  // « MODE_INVALIDE: ce moyen de paiement n existe pas en GN » : la précision du serveur, telle quelle (pays compris).
+  const precis = brut.match(/^(?:MODE_INVALIDE|PAYS_INVALIDE|PAYS_SANS_MOYEN_DE_PAIEMENT):\s*(.+)$/);
+  if (precis) return precis[1].trim();
   const cle = Object.keys(ERREURS).find((c) => brut.includes(c));
   return cle ? ERREURS[cle] : brut || 'Une erreur est survenue.';
 }

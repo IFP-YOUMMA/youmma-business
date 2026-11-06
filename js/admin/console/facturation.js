@@ -7,14 +7,13 @@
  *    Simulation : simuler_commission(boutique, mois dernier, taux SAISIS, plafond) à chaque changement d'un champ,
  *    sans rien enregistrer ;
  *  - « Les boutiques en commission » (porte violette) : boutiques_en_commission(p_espace), étiquette tirée de
- *    etat.code ; détail (commission_du_mois) et « Marquer payé » → regler_commission(etat.releve, …), modes de
- *    modes_de_paiement('licence') ; « Envoyer les relevés » → envoyer_releves(p_espace, p_mois), SMS par la file,
+ *    etat.code (pays à côté de la ville s'il n'est pas GN) ; détail (commission_du_mois) et « Marquer payé » →
+ *    regler_commission(etat.releve, …), moyens de la ligne (déjà filtrés par le pays de la boutique) ; « Envoyer les relevés » → envoyer_releves(p_espace, p_mois), SMS par la file,
  *    repli WhatsApp pour les boutiques sans téléphone.
  * Noms des champs : ceux de commission-commun.js, et eux seuls.
  */
 import { esc, icone, formatNombre, toast, ouvrirModale, boutonOccupe, confirmer, copierTexte, differer } from '../../utils.js';
 import { rpc, tableau } from '../commun.js';
-import { chargerModes } from '../../modes-paiement.js';
 import { premiere, exiger, montant, taux, nomMois, moisISO, detailHTML, pastilleEtat, erreurFacturation } from '../../commission-commun.js';
 
 const RAISON_PLAFOND = 'Le plafond est le prix de l’abonnement : une boutique qui sait qu’elle ne paiera jamais plus qu’en abonnement n’a aucune raison de cacher ses ventes au comptoir.';
@@ -175,7 +174,7 @@ export async function afficherCommissions(zone, e) {
 
   zone.innerHTML = `
     ${tableau([
-      ['Boutique', (x) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b(x, 'id'))}">${esc(b(x, 'nom') ?? '—')}</a><span class="cs-sous-ligne">${esc(b(x, 'ville') || '—')}</span>`],
+      ['Boutique', (x) => { const pays = b(x, 'pays'); return `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b(x, 'id'))}">${esc(b(x, 'nom') ?? '—')}</a><span class="cs-sous-ligne">${esc([b(x, 'ville') || '—', pays && pays !== 'GN' ? pays : null].filter(Boolean).join(' · '))}</span>`; }],
       ['En ligne', (x) => `<span class="num">${esc(taux(b(x, 'taux_en_ligne')))}</span>`, { droite: true }],
       ['Comptoir', (x) => `<span class="num">${esc(taux(b(x, 'taux_comptoir')))}</span>`, { droite: true }],
       [`Dû · ${nomMois(mois)}`, (x) => `<strong class="num">${esc(montant(b(x, 'du')))}</strong>`, { droite: true }],
@@ -220,10 +219,10 @@ async function ouvrirDetail(x, mois, relire) {
   }
 }
 
-/** « Marquer payé » : regler_commission(p_releve = etat.releve, p_mode, p_reference), modes lus dans la base. */
+/** « Marquer payé » : regler_commission(p_releve = etat.releve, p_mode, p_reference), moyens de la ligne (pays de la boutique). */
 async function ouvrirReglement(x, releve, relire) {
-  const modes = await chargerModes('licence');
-  if (!modes.length) { toast('Impossible de lire les modes de paiement. Vérifiez la connexion.', 'erreur'); return; }
+  const modes = exiger(x, 'moyens', 'boutiques_en_commission.boutiques') || [];
+  if (!modes.length) { toast(`Aucun moyen de paiement prévu pour cette boutique (${x.pays || 'pays inconnu'}).`, 'erreur'); return; }
   const { el, fermer } = ouvrirModale({
     titre: `Commission réglée par « ${x.nom} »`,
     contenu: `<form class="form-modale" novalidate>

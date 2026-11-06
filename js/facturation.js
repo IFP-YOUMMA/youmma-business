@@ -11,7 +11,6 @@
 import { sb } from './supabase.js';
 import { etat } from './state.js';
 import { esc, icone, formatDate } from './utils.js';
-import { chargerModes } from './modes-paiement.js';
 import { lienSupport } from './plateforme.js';
 import { premiere, exiger, montant, nomMois, deMois, bornesMois, detailHTML } from './commission-commun.js';
 
@@ -96,8 +95,8 @@ export async function chargerFacturation(racine, { defiler = false } = {}) {
   if (!d || d.mode !== 'commission') { zone.remove(); return; }
   const impayes = exiger(m, 'impayes', 'ma_commission') || [];
   const e = exiger(m, 'etat', 'ma_commission');
-  const modes = await chargerModes('licence');
-  if (!zone.isConnected) return;
+  // Moyens de paiement du pays de la boutique, filtrés par le serveur.
+  const modes = exiger(m, 'moyens', 'ma_commission') || [];
   const mois = nomMois(exiger(d, 'mois', src));
   const bornes = bornesMois(d.mois);
   const part = exiger(d, 'part_plafond', src);

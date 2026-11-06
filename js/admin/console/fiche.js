@@ -11,6 +11,8 @@
  */
 import { esc, icone, formatNombre, formatGNF, formatDate, confirmer, toast, ouvrirModale, boutonOccupe } from '../../utils.js';
 import { rpc, initiales, telLocal, lienWa, ilYa } from '../commun.js';
+import { sb } from '../../supabase.js';
+import { erreurFacturation } from '../../commission-commun.js';
 import { ouvrirEnregistrerPaiement } from '../licences.js';
 import { chargerModes } from '../../modes-paiement.js';
 import { ouvrirSuspension, ouvrirDateLibre } from '../boutiques.js';
@@ -24,6 +26,47 @@ function barre(libelle, n, sur, ton) {
   const largeur = sur > 0 ? Math.min(100, Math.round((Number(n) || 0) / sur * 100)) : 0;
   return `<div class="cs-barre-ligne"><div class="cs-barre-tete"><span>${esc(libelle)}</span><strong class="${ton}">${formatNombre(n)}${sur ? ` / ${formatNombre(sur)}` : ''}</strong></div>
     <span class="cs-barre ${ton}"><span style="width:${largeur}%"></span></span></div>`;
+}
+
+/**
+ * Pays de la boutique (boutiques.pays, GN par défaut) : il décide des moyens de paiement qu'on lui propose. Lecture
+ * simple ; « Modifier » → definir_pays_boutique (rare, et une erreur change les moyens proposés).
+ */
+function blocPays(f) {
+  return `<section class="carte cs-bloc" data-zone="pays">
+    <div class="cs-bloc-tete"><h2>Pays de la boutique</h2></div>
+    ${ligne('Pays', f.pays ? esc(f.pays) : '—')}
+    <p class="cs-note">Il décide des moyens de paiement proposés à la boutique.</p>
+    <div class="cs-actions-bloc"><button type="button" class="btn btn-secondaire" data-action="pays">Modifier</button></div>
+  </section>`;
+}
+
+function ouvrirPays(f, relire) {
+  const { el, fermer } = ouvrirModale({
+    titre: `Pays de « ${f.nom} »`,
+    contenu: `<form class="form-modale" novalidate>
+      <p class="texte-modale">Les moyens de paiement proposés à la boutique suivent son pays. Changez-le seulement s’il est faux.</p>
+      <div class="champ"><label for="fp-pays">Code du pays (deux lettres)</label><input id="fp-pays" class="input" maxlength="2" autocapitalize="characters" autocomplete="off" value="${esc(f.pays || '')}" placeholder="GN, SN…"></div>
+      <p class="erreur-form" role="alert" hidden></p>
+      <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Annuler</button><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
+    </form>`
+  });
+  el.querySelector('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const pays = el.querySelector('#fp-pays').value.trim().toUpperCase();
+    const bouton = el.querySelector('[type=submit]');
+    boutonOccupe(bouton, true, 'Enregistrement…');
+    try {
+      await rpc('definir_pays_boutique', { p_boutique: f.id, p_pays: pays });
+      fermer();
+      relire(`Pays enregistré : ${pays}. Les moyens de paiement proposés suivent.`);
+    } catch (err) {
+      boutonOccupe(bouton, false);
+      const z = el.querySelector('.erreur-form');
+      z.textContent = erreurFacturation(err);
+      z.hidden = false;
+    }
+  });
 }
 
 function blocCommission(f, c) {
@@ -191,6 +234,12 @@ export function afficherFiche(conteneur, { id, payer = false }) {
     try {
       const [fiche, formules] = await Promise.all([rpc('console_fiche_boutique', { p_boutique: id }), chargerFormulesConsole().catch(() => ({}))]);
       f = fiche;
+      // Pays : dans la fiche s'il y est, sinon lu sur la boutique (colonne ajoutée par le SQL 65).
+      if (f && !('pays' in f)) {
+        const { data, error } = await sb.from('boutiques').select('pays').eq('id', id).maybeSingle();
+        if (error) console.error('[YOUMMA] pays de la boutique illisible :', error.message);
+        f.pays = data?.pays ?? null;
+      }
       if (!conteneur.isConnected) return;
       if (!f) { conteneur.innerHTML = '<div class="cs-page"><p class="bloc-erreur">Boutique introuvable.</p></div>'; return; }
       rendre(formules);
@@ -229,6 +278,7 @@ export function afficherFiche(conteneur, { id, payer = false }) {
           <div class="cs-colonne">
             ${commission && f.commission ? blocMarche(f, f.commission) : ''}
             ${commission || Number(f.colis?.partis_30j) ? blocColis(f) : ''}
+            ${blocPays(f)}
             ${estSuperAdmin() && !commission ? `<a class="cs-lien-outils" href="#/boutiques/${encodeURIComponent(f.id)}">${icone('outil', 16, 2)} Fiche complète dans les outils (modules, SMS, mot de passe)</a>` : ''}
           </div>
           <div class="cs-colonne">${blocJournal(f)}</div>
@@ -271,6 +321,7 @@ export function afficherFiche(conteneur, { id, payer = false }) {
         relire('Vitrine et affiche ouvertes, sans date de fin. Sa fiche du marché est reliée.');
       }
       if (action === 'commission') ouvrirCommission(f, relire);
+      if (action === 'pays') ouvrirPays(f, relire);
       if (action === 'payer') ouvrirReglement(f, relire);
       if (action === 'lier' || action === 'delier') {
         const lier = action === 'lier';
