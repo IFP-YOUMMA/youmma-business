@@ -8,7 +8,7 @@
  */
 import { esc, icone, formatNombre, formatDate } from '../../utils.js';
 import { rpc } from '../commun.js';
-import { direction, moi, espaces, espace, peutGererAcces, estSuperAdmin, montantEspace, visages, erreurConsole } from './commun.js';
+import { direction, moi, espaces, espace, peutGererAcces, estSuperAdmin, montantEspace, visages, erreurConsole, montrerLiensMarche } from './commun.js';
 
 /** Portes d'un espace, selon sa facturation (les écrans du marché et de la logistique ne sont pas encore construits). */
 function portes(e) {
@@ -16,7 +16,7 @@ function portes(e) {
     return [
       ['Les vendeurs', `#/espace/${e.code}`, 'clients'],
       ['Nouveau vendeur', `#/terrain?espace=${e.code}`, 'plus'],
-      ['Commandes et règlements', '#/bientot/marche', 'panier'],
+      ['Commandes et règlements', '#/bientot/marche', 'panier', true], // mène au marché : caché s'il est en veille
       ['Colis et corridors', '#/bientot/logistique', 'camion']
     ];
   }
@@ -52,7 +52,7 @@ function zone(e) {
         <strong class="cs-argent-caisse">${esc(montantEspace(e, e.en_caisse))}</strong>
         <span class="cs-avertissement">ne vous appartient pas encore</span>
       </div>
-      <nav class="cs-portes" aria-label="${esc(e.nom_public)}">${portes(e).map(([libelle, lien, ic]) => `<a class="cs-porte" href="${lien}">${icone(ic, 18, 2)}<span>${esc(libelle)}</span>${icone('retour', 14, 2)}</a>`).join('')}</nav>
+      <nav class="cs-portes" aria-label="${esc(e.nom_public)}">${portes(e).map(([libelle, lien, ic, marche]) => `<a class="cs-porte" href="${lien}" ${marche ? 'data-lien-marche hidden' : ''}>${icone(ic, 18, 2)}<span>${esc(libelle)}</span>${icone('retour', 14, 2)}</a>`).join('')}</nav>
     </div>
   </section>`;
 }
@@ -115,5 +115,6 @@ export function afficherAccueilDirection(conteneur) {
           ${peutGererAcces() && communs.length && espaces().some((e) => !e.commun) ? miniature(communs, associe?.nom) : ''}
         </div>
       </div>`;
+    montrerLiensMarche(conteneur);
   })();
 }

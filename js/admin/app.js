@@ -13,7 +13,7 @@
 import { sb, configurationValide } from '../supabase.js';
 import { esc, icone, logoComplet, logoSymbole, normaliserTelephone, emailDepuisTelephone, boutonOccupe, messageErreur, fermerModales } from '../utils.js';
 import { admin, rpc, premiere, champ, telLocal, urlAppli, erreurAdmin } from './commun.js';
-import { direction, moi, espaces, espace, peutGererAcces, estSuperAdmin, erreurConsole } from './console/commun.js';
+import { direction, moi, espaces, espace, peutGererAcces, estSuperAdmin, erreurConsole, montrerLiensMarche } from './console/commun.js';
 import { afficherAccueilDirection } from './console/accueil.js';
 import { afficherEspace } from './console/espace.js';
 import { afficherFiche } from './console/fiche.js';
@@ -122,7 +122,7 @@ function menuEspaces() {
       <span class="adm-groupe-titre"><span class="cs-point" style="background:${esc(e.couleur)}"></span>${esc(e.nom_public)}</span>
       <a href="#/espace/${encodeURIComponent(e.code)}" class="adm-lien" data-route="espace/${esc(e.code)}">${icone(vendeurs ? 'clients' : 'cadenas', 17, 2)}<span>${vendeurs ? 'Les vendeurs' : 'Les licences'}</span></a>
       <a href="#/terrain?espace=${encodeURIComponent(e.code)}" class="adm-lien" data-route="terrain/${esc(e.code)}">${icone('plus', 17, 2)}<span>${vendeurs ? 'Nouveau vendeur' : 'Nouvelle boutique'}</span></a>
-      ${vendeurs ? `<a href="#/bientot/marche" class="adm-lien" data-route="bientot/marche">${icone('panier', 17, 2)}<span>Commandes</span></a>
+      ${vendeurs ? `<a href="#/bientot/marche" class="adm-lien" data-route="bientot/marche" data-lien-marche hidden>${icone('panier', 17, 2)}<span>Commandes</span></a>
       <a href="#/bientot/logistique" class="adm-lien" data-route="bientot/logistique">${icone('camion', 17, 2)}<span>Colis</span></a>` : ''}
     </div>`;
   }).join('');
@@ -165,6 +165,7 @@ function construireCoquille() {
       </div>
     </div>`;
   const shell = racine.querySelector('.adm-shell');
+  montrerLiensMarche(shell); // « Commandes » (marché) : seulement si le marché n'est pas en veille
   const menu = (ouvert) => {
     shell.classList.toggle('menu-ouvert', ouvert);
     shell.querySelector('.adm-voile').hidden = !ouvert;

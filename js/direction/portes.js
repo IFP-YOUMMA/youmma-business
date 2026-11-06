@@ -2,7 +2,7 @@
  * direction/portes.js — Les écrans derrière les portes (étape 20), en réutilisant ceux qui existent :
  *  - #/boutiques (porte des licences) : la liste de la console (console_boutiques), la fiche, la création. C'est ici,
  *    et nulle part ailleurs, qu'on entre dans une boutique pour y travailler (« Ouvrir la boutique ») ;
- *  - #/marche-monde (porte de la commission) : onglets Colis · Envois · Agences · Marché (pages de la boutique
+ *  - #/marche-monde (porte de la commission) : onglets Colis · Envois · Agences · Marché (sauf marché en veille) (pages de la boutique
  *    logistique, dont le bureau du marché, étape 21) et Vendeurs (console_boutiques de l'espace) ;
  *  - #/fiche/<id>, #/terrain, #/acces, #/chercher : écrans de la console, dans la coquille de direction.
  * Une porte absente des réponses du serveur n'a pas d'écran : on revient à #/.
@@ -22,7 +22,7 @@ import { afficherColisTableau } from '../colis/tableau.js';
 import { afficherEnvois } from '../colis/envois.js';
 import { afficherAgences } from '../colis/reglages.js';
 import { afficherMarche } from '../marche/bureau.js';
-import { assurerConsole, porte, porteDeRoute, routePorte, portes, moi } from './commun.js';
+import { assurerConsole, porte, porteDeRoute, routePorte, portes, moi, marcheEnVeille } from './commun.js';
 import { majLiens } from './shell.js';
 
 const attente = (conteneur) => { conteneur.innerHTML = '<div class="dir-page"><span class="squelette" style="height:320px"></span></div>'; };
@@ -101,14 +101,18 @@ export function afficherMarcheMonde(conteneur, params) {
   avecConsole(conteneur, 'marche-monde', async () => {
     const p = porteDeRoute('marche-monde');
     if (!p) { naviguer('', { remplacer: true }); return; }
-    const onglet = ONGLETS.some(([c]) => c === params.get('onglet')) ? params.get('onglet') : 'colis';
+    // Marché en veille (direction_accueil) : pas d'onglet Marché ; il revient quand le serveur le rallume.
+    const veille = await marcheEnVeille();
+    if (!conteneur.isConnected) return;
+    const onglets = ONGLETS.filter(([c]) => c !== 'marche' || !veille);
+    const onglet = onglets.some(([c]) => c === params.get('onglet')) ? params.get('onglet') : 'colis';
     conteneur.innerHTML = `
       <div class="dir-page dir-page-porte">
         <header class="dir-porte-entete" style="--dir-couleur:${esc(p.couleur || '#0F7B5F')}">
           <div><h1>${esc(p.nom)}</h1>${p.description ? `<span>${esc(p.description)}</span>` : ''}</div>
         </header>
         <nav class="onglets-pastilles dir-onglets" aria-label="${esc(p.nom)}">
-          ${ONGLETS.map(([c, l]) => `<a class="onglet-pastille ${c === onglet ? 'actif' : ''}" href="#/marche-monde?onglet=${c}" ${c === onglet ? 'aria-current="page"' : ''}>${l}</a>`).join('')}
+          ${onglets.map(([c, l]) => `<a class="onglet-pastille ${c === onglet ? 'actif' : ''}" href="#/marche-monde?onglet=${c}" ${c === onglet ? 'aria-current="page"' : ''}>${l}</a>`).join('')}
         </nav>
         <div class="dir-onglet" data-zone="onglet"><span class="squelette" style="height:280px"></span></div>
       </div>`;

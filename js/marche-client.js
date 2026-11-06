@@ -186,8 +186,28 @@ function blocTransport() {
 
 /* ------------------------------------------------------------ Chargement */
 
+/**
+ * Module « marche » éteint côté serveur : marche_public répond « indisponible » (forme exacte non documentée, d'où
+ * les variantes acceptées), ou une fonction lève MODULE_INACTIF: marche. Le catalogue n'est plus en ligne.
+ */
+const estIndisponible = (d) => Boolean(d && (d.indisponible || d.disponible === false || d.en_veille
+  || /indisponible|veille|module_inactif|ferm/i.test(String(d.raison || d.statut || d.etat || ''))));
+const estModuleEteint = (err) => /MODULE_INACTIF: marche/.test(String(err?.message || err || ''));
+
+/** Une phrase et une porte de sortie : WhatsApp de l'entreprise s'il est connu. */
+function rendreIndisponible(d = null) {
+  const e = d?.entreprise || {};
+  const wa = String(e.whatsapp || e.telephone || d?.whatsapp || d?.telephone || '').replace(/\D/g, '');
+  document.title = e.nom || 'Catalogue';
+  racine.innerHTML = `<div class="mk-corps"><div class="mk-vide-bloc mk-indisponible">
+    <p class="mk-vide">Ce catalogue n’est plus en ligne.</p>
+    ${wa ? `<a class="mk-bouton" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${ico('aide')} Écrire à ${esc(e.nom || 'l’entreprise')} sur WhatsApp</a>` : ''}
+  </div></div>`;
+}
+
 async function chargerCatalogue() {
   const d = premiere(await rpc('marche_public', { p_slug: slug, p_fournisseur: null, p_recherche: null }));
+  if (estIndisponible(d)) { s.indisponible = d; return 'indisponible'; }
   if (!d || d.introuvable) return false;
   s.donnees = d;
   s.tous = d.articles || [];
@@ -658,6 +678,7 @@ racine.addEventListener('submit', (e) => {
   lirePanier();
   try {
     const [ok, corridors] = await Promise.all([chargerCatalogue(), rpc('corridors_publics', { p_slug: slug }).then(premiere).catch(() => null)]);
+    if (ok === 'indisponible') { rendreIndisponible(s.indisponible); return; }
     if (!ok) { racine.innerHTML = '<div class="mk-corps"><p class="mk-vide">Ce marché n’existe pas ou n’est plus ouvert.</p></div>'; return; }
     s.corridors = corridors?.corridors || [];
     const infos = lireLocal(cleInfos, {});
@@ -667,6 +688,7 @@ racine.addEventListener('submit', (e) => {
     chargerBanniere();
     if (nbArticles()) estimerTransport();
   } catch (err) {
+    if (estModuleEteint(err)) { rendreIndisponible(); return; }
     racine.innerHTML = `<div class="mk-corps"><div class="mk-erreur" role="alert">${esc(messageErreur(err))}</div><button type="button" class="mk-bouton bloc" data-action="recharger">Réessayer</button></div>`;
   }
 })();

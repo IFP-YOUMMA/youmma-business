@@ -318,3 +318,6 @@
 .cs-secours p { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
 .cs-secours-manque { color: var(--alerte); font-weight: 700; }
 .cs-secours-ok svg { color: var(--primary); }
+
+/* Marché en veille : un lien vers le marché reste caché tant que le serveur ne le rallume pas */
+[data-lien-marche][hidden] { display: none !important; }

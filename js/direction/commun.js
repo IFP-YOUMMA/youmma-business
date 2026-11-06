@@ -26,6 +26,15 @@ export async function chargerAccueil() {
   return cache.accueil;
 }
 
+/**
+ * Le marché est-il en veille ? Clé marche_en_veille de direction_accueil() (déjà en mémoire si l'on vient de #/,
+ * sinon un appel). Seul un « false » explicite rallume ce qui mène au marché ; sans réponse, on ne mène nulle part.
+ */
+export async function marcheEnVeille() {
+  if (!cache.accueil) { try { await chargerAccueil(); } catch { return true; } }
+  return cache.accueil.marche_en_veille !== false;
+}
+
 /** console_accueil() une fois, pour les écrans de la console (espace, fiche, terrain, accès). */
 export async function assurerConsole() {
   if (!consoleDirection.accueil) consoleDirection.accueil = await appel('console_accueil');

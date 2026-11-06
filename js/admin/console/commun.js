@@ -12,6 +12,24 @@ import { esc, icone, formatNombre, formatGNF, normaliserTelephone } from '../../
 export const direction = { accueil: null };
 
 export const moi = () => direction.accueil?.moi || {};
+
+/**
+ * Marché en veille : clé marche_en_veille de direction_accueil(), lue une fois. Les liens qui mènent au marché naissent
+ * cachés (data-lien-marche) et ne s'affichent que sur un « false » explicite : rallumé en base, ils reviennent seuls.
+ */
+let veille = null;
+export function marcheEnVeille() {
+  if (!veille) {
+    veille = sb.rpc('direction_accueil').then(({ data, error }) => {
+      if (error) throw error;
+      return (Array.isArray(data) ? data[0] : data)?.marche_en_veille !== false;
+    }).catch(() => true);
+  }
+  return veille;
+}
+export function montrerLiensMarche(racine = document) {
+  marcheEnVeille().then((v) => { if (!v) racine.querySelectorAll('[data-lien-marche]').forEach((a) => { a.hidden = false; }); });
+}
 /** Espaces visibles : les affaires communes d'abord (le marché du monde), puis l'affaire seule (YOUMMA Business). */
 export const espaces = () => [...(direction.accueil?.espaces || [])].sort((a, b) => Number(b.commun) - Number(a.commun) || a.ordre - b.ordre);
 export const espace = (code) => espaces().find((e) => e.code === code) || null;

@@ -56,7 +56,7 @@ const TABLEAU_ROLES = [
   ['Encaisser un versement', 'o', 'o', 'o', 'o'],
   ['Créer un envoi, le faire partir', 'o', 'o', 'b', 'x'],
   ['Payer un vendeur', 'o', 'o', 'x', 'x'],
-  ['Voir les recettes du marché du monde', 'o', 'o', 'b', 'x'],
+  ['Voir les recettes des affaires communes', 'o', 'o', 'b', 'x'],
   ['Changer un tarif ou une commission', 'o', 'o', 'x', 'x'],
   ['Voir les licences de Guinée', 'o', 'x', 'x', 'x'],
   ['Ouvrir ou fermer un accès', 'o', 'x', 'x', 'x'],
