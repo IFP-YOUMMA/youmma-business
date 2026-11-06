@@ -347,3 +347,7 @@
 .cf-envois { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .cf-envois li { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .cf-envois li > span { display: flex; flex-direction: column; min-width: 0; }
+.cf-sim-erreur { margin: 4px 0 0; color: var(--danger); font-weight: 700; }
+.cf-sans-tel-titre { margin: 14px 0 8px; font-size: 15px; }
+.cf-envoi-manuel { flex-direction: column; align-items: stretch !important; }
+.cf-texte-releve { width: 100%; min-height: 64px; font-size: 13px; resize: vertical; }

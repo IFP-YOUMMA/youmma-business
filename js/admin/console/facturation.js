@@ -1,63 +1,54 @@
 /**
  * admin/console/facturation.js — Étape 24, abonnement ou commission, côté direction.
  *
- *  - « Comment cette boutique paie YOUMMA » (fiche et création) : deux cartes, Abonnement ou Commission ; en commission,
- *    taux en ligne, taux comptoir et plafond (interrupteur pour l'enlever) → definir_facturation. Les bornes (0 à 50,
- *    plafond) sont celles du serveur : aucun contrôle inventé ici, son message s'affiche tel quel, traduit.
- *    Simulation : commission_du_mois(boutique, mois dernier), aux taux ENREGISTRÉS (le navigateur ne calcule rien) ;
+ *  - « Comment cette boutique paie YOUMMA » (fiche et création) : réglage actuel lu par commission_du_mois (mode, taux,
+ *    plafond) ; deux cartes, Abonnement ou Commission ; en commission, taux en ligne, taux comptoir et plafond
+ *    (interrupteur pour l'enlever) → definir_facturation. Les bornes (0 à 50, plafond) sont celles du serveur.
+ *    Simulation : simuler_commission(boutique, mois dernier, taux SAISIS, plafond) à chaque changement d'un champ,
+ *    sans rien enregistrer ;
  *  - « Les boutiques en commission » (porte violette) : boutiques_en_commission(p_espace), étiquette tirée de
- *    etat.code, détail d'une ligne et « Marquer payé » → regler_commission (modes : modes_de_paiement('licence', pays)).
+ *    etat.code ; détail (commission_du_mois) et « Marquer payé » → regler_commission(etat.releve, …), modes de
+ *    modes_de_paiement('licence') ; « Envoyer les relevés » → envoyer_releves(p_espace, p_mois), SMS par la file,
+ *    repli WhatsApp pour les boutiques sans téléphone.
+ * Noms des champs : ceux de commission-commun.js, et eux seuls.
  */
-import { esc, icone, formatNombre, toast, ouvrirModale, boutonOccupe } from '../../utils.js';
-import { rpc, tableau, lienWa } from '../commun.js';
+import { esc, icone, formatNombre, toast, ouvrirModale, boutonOccupe, confirmer, copierTexte, differer } from '../../utils.js';
+import { rpc, tableau } from '../commun.js';
 import { chargerModes } from '../../modes-paiement.js';
-import { drapeau } from './commun.js';
-import {
-  premiere, lire, lireDecompte, montant, taux, nomMois, moisISO, sansVente, pastilleEtat, erreurFacturation, dateCourte
-} from '../../commission-commun.js';
+import { premiere, exiger, montant, taux, nomMois, moisISO, detailHTML, pastilleEtat, erreurFacturation } from '../../commission-commun.js';
 
 const RAISON_PLAFOND = 'Le plafond est le prix de l’abonnement : une boutique qui sait qu’elle ne paiera jamais plus qu’en abonnement n’a aucune raison de cacher ses ventes au comptoir.';
-const liste = (d, ...cles) => (Array.isArray(d) ? d : cles.map((c) => d?.[c]).find(Array.isArray) || []);
-
-/** Réglage actuel d'une boutique : clé facturation de la fiche si elle existe, sinon sa ligne de boutiques_en_commission. */
-async function reglageActuel({ id, fiche, espace }) {
-  const f = fiche?.facturation;
-  if (f && typeof f === 'object' && f.mode) return f;
-  try {
-    const r = await rpc('boutiques_en_commission', { p_espace: espace });
-    const ligne = liste(premiere(r) && !Array.isArray(r) ? premiere(r) : r, 'lignes', 'boutiques').find((b) => (b.id || b.boutique_id) === id);
-    return ligne ? { mode: 'commission', ...ligne } : { mode: 'abonnement' };
-  } catch {
-    return { mode: 'abonnement' };
-  }
-}
 
 /* ------------------------------------------------------------ 1 — Comment cette boutique paie YOUMMA */
 
 export const blocFacturationHTML = () => '<section class="carte cs-bloc cs-facturation" data-zone="facturation"><span class="squelette" style="height:180px"></span></section>';
 
 /**
- * zone : la section posée par blocFacturationHTML(). b : { id, nom, espace (code), prixAbonnement, formuleNom, fiche }.
- * apres(message) : appelé après un enregistrement réussi.
+ * zone : la section posée par blocFacturationHTML(). b : { id, nom, prixAbonnement, formuleNom }.
+ * apres() : appelé après un enregistrement réussi.
  */
 export async function monterFacturation(zone, b, { apres = null } = {}) {
   if (!zone) return;
-  const actuel = await reglageActuel({ id: b.id, fiche: b.fiche, espace: b.espace });
+  let actuel;
+  try { actuel = premiere(await rpc('commission_du_mois', { p_boutique: b.id, p_mois: moisISO() })); } catch (err) {
+    if (zone.isConnected) zone.innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(erreurFacturation(err))}</p>`;
+    return;
+  }
   if (!zone.isConnected) return;
-  const s = {
-    mode: actuel.mode === 'commission' ? 'commission' : 'abonnement',
-    enLigne: lire(actuel, 'taux_en_ligne') ?? '',
-    comptoir: lire(actuel, 'taux_comptoir') ?? '',
-    // Plafond : celui enregistré ; à défaut, le prix de l'abonnement (le principe même du plafond).
-    plafond: lire(actuel, 'plafond') ?? (b.prixAbonnement || ''),
-    avecPlafond: actuel.mode === 'commission' ? lire(actuel, 'plafond') !== undefined : true
-  };
+  const src = 'commission_du_mois';
+  const commissionActuelle = exiger(actuel, 'mode', src) === 'commission';
+  const s = { mode: commissionActuelle ? 'commission' : 'abonnement', enLigne: '', comptoir: '', plafond: b.prixAbonnement || '', avecPlafond: true, jeton: 0 };
+  if (commissionActuelle) {
+    const plafond = exiger(actuel, 'plafond', src);
+    Object.assign(s, { enLigne: exiger(actuel, 'taux_en_ligne', src) ?? '', comptoir: exiger(actuel, 'taux_comptoir', src) ?? '', plafond: plafond ?? (b.prixAbonnement || ''), avecPlafond: plafond !== null });
+  }
+  let enregistre = s.mode;
   const prix = b.prixAbonnement ? montant(b.prixAbonnement) : null;
 
   function rendre() {
     const c = s.mode === 'commission';
     zone.innerHTML = `
-      <div class="cs-bloc-tete"><h2>Comment cette boutique paie YOUMMA</h2><span class="pastille-admin ${c ? 'violet' : 'gris'}">${c ? 'Commission' : 'Abonnement'}</span></div>
+      <div class="cs-bloc-tete"><h2>Comment cette boutique paie YOUMMA</h2><span class="pastille-admin ${enregistre === 'commission' ? 'violet' : 'gris'}">${enregistre === 'commission' ? 'Commission' : 'Abonnement'}</span></div>
       <form class="cf-form" novalidate>
         <div class="cf-cartes" role="radiogroup" aria-label="Mode de paiement à YOUMMA">
           <button type="button" class="cf-carte ${c ? '' : 'actif'}" role="radio" aria-checked="${!c}" data-mode="abonnement">
@@ -69,49 +60,60 @@ export async function monterFacturation(zone, b, { apres = null } = {}) {
         </div>
         ${c ? `
           <div class="cf-champs">
-            <div class="champ"><label for="cf-ligne">Taux en ligne (%)</label><input id="cf-ligne" class="input num" inputmode="decimal" value="${esc(s.enLigne)}" placeholder="ex. 8"></div>
-            <div class="champ"><label for="cf-comptoir">Taux comptoir (%)</label><input id="cf-comptoir" class="input num" inputmode="decimal" value="${esc(s.comptoir)}" placeholder="ex. 3"></div>
+            <div class="champ"><label for="cf-ligne">Taux en ligne (%)</label><input id="cf-ligne" class="input num" inputmode="decimal" value="${esc(s.enLigne)}" placeholder="ex. 5"></div>
+            <div class="champ"><label for="cf-comptoir">Taux comptoir (%)</label><input id="cf-comptoir" class="input num" inputmode="decimal" value="${esc(s.comptoir)}" placeholder="ex. 2"></div>
             <div class="champ cf-plafond"><div class="cf-plafond-tete"><label for="cf-plafond">Plafond (GNF par mois)</label>
               <button type="button" class="interrupteur" role="switch" aria-checked="${s.avecPlafond}" data-action="plafond" aria-label="Plafond"><span></span></button></div>
-              <input id="cf-plafond" class="input num" inputmode="numeric" value="${esc(s.plafond)}" ${s.avecPlafond ? '' : 'disabled'} placeholder="${s.avecPlafond ? '' : 'Sans plafond'}"></div>
+              <input id="cf-plafond" class="input num" inputmode="numeric" value="${esc(s.avecPlafond ? s.plafond : '')}" ${s.avecPlafond ? '' : 'disabled'} placeholder="${s.avecPlafond ? '' : 'Sans plafond'}"></div>
           </div>
-          <p class="cs-note">${esc(RAISON_PLAFOND)}</p>` : ''}
+          <p class="cs-note">${esc(RAISON_PLAFOND)}</p>
+          <div class="cf-simulation" data-ref="simulation" aria-live="polite"></div>` : ''}
         <p class="erreur-form" role="alert" hidden></p>
         <div class="cs-actions-bloc"><button type="submit" class="btn btn-primaire">Enregistrer</button></div>
-      </form>
-      <div class="cf-simulation" data-ref="simulation"><span class="squelette" style="height:48px"></span></div>`;
-    simuler();
+      </form>`;
+    if (c) simuler();
   }
 
-  /** Ce qu'elle aurait payé le mois dernier : commission_du_mois, réponse du serveur telle quelle. */
+  const nombreSaisi = (t) => (t === '' || t === undefined || t === null ? null : Number(String(t).replace(/\s/g, '').replace(',', '.')));
+  function lireChamps() {
+    const v = (sel) => zone.querySelector(sel)?.value.trim();
+    if (zone.querySelector('#cf-ligne')) { s.enLigne = v('#cf-ligne'); s.comptoir = v('#cf-comptoir'); if (s.avecPlafond) s.plafond = v('#cf-plafond'); }
+  }
+
+  /** Ce qu'elle aurait payé le mois dernier AUX TAUX SAISIS : simuler_commission, rien n'est enregistré. */
   async function simuler() {
     const z = zone.querySelector('[data-ref="simulation"]');
-    const mois = moisISO(-1);
-    let dc = null;
-    try { dc = lireDecompte(premiere(await rpc('commission_du_mois', { p_boutique: b.id, p_mois: mois }))); } catch (err) {
-      if (z.isConnected) z.innerHTML = `<p class="cs-note">Simulation indisponible : ${esc(erreurFacturation(err))}</p>`;
+    if (!z) return;
+    const jeton = ++s.jeton;
+    const tl = nombreSaisi(s.enLigne);
+    const tc = nombreSaisi(s.comptoir);
+    if (tl === null || tc === null) { z.innerHTML = '<p class="cf-sim-vide">Saisissez les deux taux pour voir ce qu’elle aurait payé le mois dernier.</p>'; return; }
+    z.innerHTML = '<span class="squelette" style="height:48px"></span>';
+    let r;
+    try {
+      r = premiere(await rpc('simuler_commission', { p_boutique: b.id, p_mois: moisISO(-1), p_taux_en_ligne: tl, p_taux_comptoir: tc, p_plafond: s.avecPlafond ? nombreSaisi(s.plafond) : null }));
+    } catch (err) {
+      if (jeton === s.jeton && z.isConnected) z.innerHTML = `<p class="cf-sim-erreur">${esc(erreurFacturation(err))}</p>`;
       return;
     }
-    if (!z.isConnected) return;
-    const nom = nomMois(dc?.mois || mois);
-    if (sansVente(dc)) { z.innerHTML = `<p class="cf-sim-vide">Aucune vente enregistrée en ${esc(nom)} : pas de simulation possible sur ce mois.</p>`; return; }
-    z.innerHTML = s.mode === 'commission' || actuel.mode === 'commission'
-      ? `<span class="etiquette">Simulation sur ${esc(nom)}, aux taux enregistrés</span>
-         <p class="cf-sim">Elle aurait payé <strong class="num">${esc(montant(dc.du, dc.devise))}</strong>${dc.partChiffre !== null ? `, soit <strong class="num">${formatNombre(dc.partChiffre, 1)} %</strong>` : ''} de ses <span class="num">${esc(montant(dc.ventes, dc.devise))}</span> de ventes${dc.plafondAtteint ? ' — plafond atteint' : ''}.</p>
-         ${actuel.mode !== 'commission' ? '<p class="cs-note">Enregistrez la commission pour simuler avec les taux saisis.</p>' : ''}`
-      : `<span class="etiquette">${esc(nom)}</span><p class="cf-sim">Ventes du mois : <strong class="num">${esc(montant(dc.ventes, dc.devise))}</strong>. Choisissez la commission et enregistrez pour voir ce qu’elle aurait payé.</p>`;
+    if (jeton !== s.jeton || !z.isConnected) return;
+    const src = 'simuler_commission';
+    const mois = nomMois(exiger(r, 'mois', src));
+    if (exiger(r, 'aucune_vente', src) === true) { z.innerHTML = `<p class="cf-sim-vide">Aucune vente enregistrée en ${esc(mois)}.</p>`; return; }
+    const pct = exiger(r, 'part_du_chiffre', src);
+    z.innerHTML = `<span class="etiquette">Simulation sur ${esc(mois)}</span>
+      <p class="cf-sim">Elle aurait payé <strong class="num" data-ref="sim-du">${esc(montant(exiger(r, 'du', src)))}</strong>${pct === null || pct === undefined ? '' : `, soit <strong class="num">${formatNombre(Number(pct), 1)} %</strong>`} de ses <span class="num">${esc(montant(exiger(r, 'ventes_total', src)))}</span> de ventes.</p>
+      ${exiger(r, 'plafond_atteint', src) === true ? `<p class="cs-note">Le plafond mord : <span class="num">${esc(montant(exiger(r, 'brut', src)))}</span> sans plafond, <strong class="num">${esc(montant(exiger(r, 'economise', src)))}</strong> économisés.</p>` : ''}
+      ${detailHTML(r.lignes, src)}`;
   }
+  const simulerBientot = differer(() => { lireChamps(); simuler(); }, 350);
 
   zone.addEventListener('click', (ev) => {
     const carte = ev.target.closest('[data-mode]');
     if (carte) { lireChamps(); s.mode = carte.dataset.mode; rendre(); return; }
     if (ev.target.closest('[data-action="plafond"]')) { lireChamps(); s.avecPlafond = !s.avecPlafond; rendre(); }
   });
-  function lireChamps() {
-    const v = (sel) => zone.querySelector(sel)?.value.trim();
-    if (zone.querySelector('#cf-ligne')) { s.enLigne = v('#cf-ligne'); s.comptoir = v('#cf-comptoir'); s.plafond = v('#cf-plafond'); }
-  }
-  const nombreSaisi = (t) => (t === '' || t === undefined ? null : Number(String(t).replace(/\s/g, '').replace(',', '.')));
+  zone.addEventListener('input', (ev) => { if (ev.target.matches('#cf-ligne, #cf-comptoir, #cf-plafond')) simulerBientot(); });
 
   zone.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -119,15 +121,10 @@ export async function monterFacturation(zone, b, { apres = null } = {}) {
     const z = zone.querySelector('.erreur-form');
     const bouton = zone.querySelector('[type=submit]');
     z.hidden = true;
-    boutonOccupe(bouton, true, 'Enregistrement…');
     const c = s.mode === 'commission';
     // Interrupteur allumé mais champ vide : on ne l'enverrait pas comme « sans plafond » à l'insu de la direction.
-    if (c && s.avecPlafond && nombreSaisi(s.plafond) === null) {
-      boutonOccupe(bouton, false);
-      z.textContent = 'Indiquez le plafond, ou retirez-le avec l’interrupteur.';
-      z.hidden = false;
-      return;
-    }
+    if (c && s.avecPlafond && nombreSaisi(s.plafond) === null) { z.textContent = 'Indiquez le plafond, ou retirez-le avec l’interrupteur.'; z.hidden = false; return; }
+    boutonOccupe(bouton, true, 'Enregistrement…');
     try {
       // Abonnement : taux et plafond partent vides, la base les efface. Commission : les valeurs saisies, telles quelles.
       await rpc('definir_facturation', {
@@ -136,7 +133,7 @@ export async function monterFacturation(zone, b, { apres = null } = {}) {
         p_taux_comptoir: c ? nombreSaisi(s.comptoir) : null,
         p_plafond: c && s.avecPlafond ? nombreSaisi(s.plafond) : null
       });
-      Object.assign(actuel, { mode: s.mode });
+      enregistre = s.mode;
       if (!c) Object.assign(s, { enLigne: '', comptoir: '', plafond: b.prixAbonnement || '', avecPlafond: true });
       toast(c ? `« ${b.nom} » paie désormais à la commission.` : `« ${b.nom} » repasse à l’abonnement.`, 'succes');
       rendre();
@@ -163,90 +160,74 @@ const ESCALADE = `
     </ol>
   </section>`;
 
-/** Ligne de la liste → { id, nom, ville, drapeau, enLigne, comptoir, du, devise, plafondAtteint, etat, releve, telephone, pays } */
-function lireLigne(l) {
-  const e = l.etat && typeof l.etat === 'object' ? l.etat : { code: lire(l, 'etat_code', 'etat'), libelle: lire(l, 'etat_libelle'), jours: lire(l, 'jours') };
-  return {
-    brut: l, id: l.id || l.boutique_id, nom: lire(l, 'nom', 'boutique_nom') || '—', ville: lire(l, 'ville'), drapeau: lire(l, 'drapeau'),
-    enLigne: lire(l, 'taux_en_ligne'), comptoir: lire(l, 'taux_comptoir'), plafond: lire(l, 'plafond'),
-    du: Number(lire(l, 'du', 'du_mois', 'commission', 'montant')) || 0, devise: lire(l, 'devise') || 'GNF',
-    ventes: lire(l, 'total_ventes', 'ventes', 'chiffre'), plafondAtteint: Boolean(lire(l, 'plafond_atteint')),
-    etat: e, releve: lire(l, 'releve_id', 'releve') ?? e?.releve ?? null, telephone: lire(l, 'telephone'), pays: lire(l, 'pays'),
-    mois: lire(l, 'mois') || e?.mois, dateLimite: lire(l, 'date_limite')
-  };
-}
-
 export async function afficherCommissions(zone, e) {
   zone.innerHTML = '<span class="squelette" style="height:240px;margin:16px"></span>';
   let r;
-  try { r = await rpc('boutiques_en_commission', { p_espace: e.code }); } catch (err) {
+  try { r = premiere(await rpc('boutiques_en_commission', { p_espace: e.code })); } catch (err) {
     zone.innerHTML = `<p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(erreurFacturation(err))}</p>`;
     return;
   }
   if (!zone.isConnected) return;
-  const obj = !Array.isArray(r) ? premiere(r) : null;
-  const lignes = liste(obj || r, 'lignes', 'boutiques').map(lireLigne);
-  // Total à encaisser : celui du serveur ; à défaut, la somme des dûs qu'il a donnés, s'ils sont dans une seule monnaie.
-  const devises = [...new Set(lignes.filter((l) => l.du > 0).map((l) => l.devise))];
-  const totalServeur = lire(obj, 'total_a_encaisser', 'total', 'total_du');
-  const total = totalServeur ?? (devises.length <= 1 ? lignes.reduce((t, l) => t + l.du, 0) : null);
-  const devise = lire(obj, 'devise') || devises[0] || 'GNF';
-  const mois = lire(obj, 'mois') || lignes.find((l) => l.mois)?.mois;
+  const src = 'boutiques_en_commission';
+  const boutiques = exiger(r, 'boutiques', src) || [];
+  const mois = exiger(r, 'mois', src);
+  const b = (x, nom) => exiger(x, nom, `${src}.boutiques`);
 
   zone.innerHTML = `
     ${tableau([
-      ['Boutique', (l) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(l.id)}">${esc(l.nom)}</a><span class="cs-sous-ligne">${drapeau(l.drapeau)} ${esc(l.ville || '—')}</span>`],
-      ['En ligne', (l) => `<span class="num">${esc(taux(l.enLigne))}</span>`, { droite: true }],
-      ['Comptoir', (l) => `<span class="num">${esc(taux(l.comptoir))}</span>`, { droite: true }],
-      [`Dû${mois ? ` · ${nomMois(mois)}` : ' du mois'}`, (l) => `<strong class="num">${esc(montant(l.du, l.devise))}</strong>`, { droite: true }],
-      ['État', (l) => pastilleEtat(l.etat, l.plafondAtteint)]
-    ], lignes, { classe: 'cs-tableau cf-tableau', vide: 'Aucune boutique ne paie à la commission pour l’instant.', attributsLigne: (l) => `data-commission="${esc(l.id)}" tabindex="0" class="cs-ligne-cliquable"` })}
-    ${lignes.length ? `<div class="cf-pied">
-      <div><span class="etiquette">Total à encaisser</span><strong class="num cf-total">${total === null ? 'plusieurs monnaies' : esc(montant(total, devise))}</strong></div>
-      <button type="button" class="btn btn-primaire" data-action="envoyer-releves" ${lignes.some((l) => l.du > 0) ? '' : 'disabled'}>${icone('whatsapp', 18, 2)} Envoyer les relevés</button>
+      ['Boutique', (x) => `<a class="cs-nom-ligne" href="#/fiche/${encodeURIComponent(b(x, 'id'))}">${esc(b(x, 'nom') ?? '—')}</a><span class="cs-sous-ligne">${esc(b(x, 'ville') || '—')}</span>`],
+      ['En ligne', (x) => `<span class="num">${esc(taux(b(x, 'taux_en_ligne')))}</span>`, { droite: true }],
+      ['Comptoir', (x) => `<span class="num">${esc(taux(b(x, 'taux_comptoir')))}</span>`, { droite: true }],
+      [`Dû · ${nomMois(mois)}`, (x) => `<strong class="num">${esc(montant(b(x, 'du')))}</strong>`, { droite: true }],
+      ['État', (x) => pastilleEtat(b(x, 'etat'), b(x, 'plafond_atteint') === true)]
+    ], boutiques, { classe: 'cs-tableau cf-tableau', vide: 'Aucune boutique ne paie à la commission pour l’instant.', attributsLigne: (x) => `data-commission="${esc(x.id)}" tabindex="0" class="cs-ligne-cliquable"` })}
+    ${boutiques.length ? `<div class="cf-pied">
+      <div><span class="etiquette">Total à encaisser</span><strong class="num cf-total">${esc(montant(exiger(r, 'a_encaisser', src)))}</strong></div>
+      <button type="button" class="btn btn-primaire" data-action="envoyer-releves">${icone('sms', 18, 2)} Envoyer les relevés</button>
     </div>` : ''}
     ${ESCALADE}`;
 
-  const ouvrir = (id) => { const l = lignes.find((x) => x.id === id); if (l) ouvrirDetail(l, () => afficherCommissions(zone, e)); };
+  const relire = () => afficherCommissions(zone, e);
+  const ouvrir = (id) => { const x = boutiques.find((y) => y.id === id); if (x) ouvrirDetail(x, mois, relire); };
   zone.onclick = (ev) => {
-    if (ev.target.closest('[data-action="envoyer-releves"]')) { envoyerReleves(lignes.filter((l) => l.du > 0), mois); return; }
+    if (ev.target.closest('[data-action="envoyer-releves"]')) { envoyerReleves(e, mois, boutiques.length, ev.target.closest('button')); return; }
     const tr = ev.target.closest('tr[data-commission]');
     if (tr && !ev.target.closest('a')) ouvrir(tr.dataset.commission);
   };
   zone.onkeydown = (ev) => { const tr = ev.target.closest?.('tr[data-commission]'); if (tr && ev.key === 'Enter') ouvrir(tr.dataset.commission); };
 }
 
-/** Détail d'une ligne : décompte du mois (commission_du_mois) et « Marquer payé ». */
-async function ouvrirDetail(l, relire) {
+/** Détail d'une ligne : décompte du mois (commission_du_mois) et « Marquer payé » (relevé : etat.releve). */
+async function ouvrirDetail(x, mois, relire) {
+  const releve = x.etat?.releve || null;
   const { el, fermer } = ouvrirModale({
-    titre: l.nom,
+    titre: x.nom,
     contenu: `<div class="cf-detail"><div data-ref="decompte"><span class="squelette" style="height:120px"></span></div>
-      <div class="ligne-etat">${pastilleEtat(l.etat, l.plafondAtteint)}${l.etat?.libelle ? ` <span class="discret">${esc(l.etat.libelle)}</span>` : ''}</div>
+      <div class="ligne-etat">${pastilleEtat(x.etat, x.plafond_atteint === true)}${x.etat?.libelle ? ` <span class="discret">${esc(x.etat.libelle)}</span>` : ''}</div>
       <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button>
-        <button type="button" class="btn btn-primaire" data-action="payer" ${l.releve ? '' : 'disabled title="Aucun relevé à régler pour cette boutique"'}>Marquer payé</button></div></div>`
+        <button type="button" class="btn btn-primaire" data-action="payer" ${releve ? '' : 'disabled title="Aucun relevé à régler pour cette boutique"'}>Marquer payé</button></div></div>`
   });
-  el.querySelector('[data-action="payer"]').addEventListener('click', () => { fermer(); ouvrirReglement(l, relire); });
+  el.querySelector('[data-action="payer"]').addEventListener('click', () => { fermer(); ouvrirReglement(x, releve, relire); });
+  const z = el.querySelector('[data-ref="decompte"]');
   try {
-    const dc = lireDecompte(premiere(await rpc('commission_du_mois', { p_boutique: l.id, p_mois: moisISO() })));
-    const z = el.querySelector('[data-ref="decompte"]');
+    const d = premiere(await rpc('commission_du_mois', { p_boutique: x.id, p_mois: mois }));
     if (!z?.isConnected) return;
-    z.innerHTML = sansVente(dc) ? `<p class="cf-sim-vide">Aucune vente en ${esc(nomMois(dc?.mois || moisISO()))} pour l’instant.</p>` : `
-      <p class="cf-sim">${esc(nomMois(dc.mois || moisISO()))} : <strong class="num">${esc(montant(dc.du, dc.devise))}</strong> sur <span class="num">${esc(montant(dc.ventes, dc.devise))}</span> de ventes${dc.plafondAtteint ? ' · plafond atteint' : ''}.</p>
-      ${dc.lignes.length ? `<ul class="fy-detail">${dc.lignes.map((x) => `<li><span class="fy-detail-nom">${esc(x.libelle)}<small>${esc(taux(x.taux))}${x.nb !== null ? ` · ${x.nb} vente${x.nb > 1 ? 's' : ''}` : ''}</small></span><strong class="num">${esc(montant(x.montant, dc.devise))}</strong></li>`).join('')}</ul>` : ''}`;
+    const src = 'commission_du_mois';
+    z.innerHTML = `<p class="cf-sim">${esc(nomMois(exiger(d, 'mois', src)))} : <strong class="num">${esc(montant(exiger(d, 'du', src)))}</strong> sur <span class="num">${esc(montant(exiger(d, 'ventes_total', src)))}</span> de ventes${exiger(d, 'plafond_atteint', src) === true ? ` · plafond atteint (${esc(montant(exiger(d, 'economise', src)))} économisés)` : ''}.</p>
+      ${detailHTML(d.lignes, src)}`;
   } catch (err) {
-    const z = el.querySelector('[data-ref="decompte"]');
     if (z) z.innerHTML = `<p class="bloc-erreur">${esc(erreurFacturation(err))}</p>`;
   }
 }
 
-/** « Marquer payé » : regler_commission(p_releve, p_mode, p_reference), modes lus dans la base. */
-async function ouvrirReglement(l, relire) {
-  const modes = await chargerModes('licence', l.pays || null);
+/** « Marquer payé » : regler_commission(p_releve = etat.releve, p_mode, p_reference), modes lus dans la base. */
+async function ouvrirReglement(x, releve, relire) {
+  const modes = await chargerModes('licence');
   if (!modes.length) { toast('Impossible de lire les modes de paiement. Vérifiez la connexion.', 'erreur'); return; }
   const { el, fermer } = ouvrirModale({
-    titre: `Commission réglée par « ${l.nom} »`,
+    titre: `Commission réglée par « ${x.nom} »`,
     contenu: `<form class="form-modale" novalidate>
-      <p class="texte-modale">Montant du relevé, selon la base : <strong class="num">${esc(montant(l.du, l.devise))}</strong>.</p>
+      ${x.etat?.du !== undefined ? `<p class="texte-modale">Relevé ${x.etat.mois ? esc(nomMois(x.etat.mois)) : ''}, selon la base : <strong class="num">${esc(montant(x.etat.du))}</strong>.</p>` : ''}
       <div class="champ"><label for="cf-mode">Mode</label><select id="cf-mode" class="input">${modes.map((m) => `<option value="${esc(m.code)}">${esc(m.nom)}</option>`).join('')}</select></div>
       <div class="champ"><label for="cf-ref">Référence (facultatif)</label><input id="cf-ref" class="input" maxlength="80" placeholder="N° de transaction, reçu…"></div>
       <p class="erreur-form" role="alert" hidden></p>
@@ -258,9 +239,9 @@ async function ouvrirReglement(l, relire) {
     const bouton = el.querySelector('[type=submit]');
     boutonOccupe(bouton, true, 'Enregistrement…');
     try {
-      await rpc('regler_commission', { p_releve: l.releve, p_mode: el.querySelector('#cf-mode').value, p_reference: el.querySelector('#cf-ref').value.trim() || null });
+      await rpc('regler_commission', { p_releve: releve, p_mode: el.querySelector('#cf-mode').value, p_reference: el.querySelector('#cf-ref').value.trim() || null });
       fermer();
-      toast(`Relevé de « ${l.nom} » marqué payé.`, 'succes');
+      toast(`Relevé de « ${x.nom} » marqué payé.`, 'succes');
       relire();
     } catch (err) {
       boutonOccupe(bouton, false);
@@ -272,19 +253,37 @@ async function ouvrirReglement(l, relire) {
 }
 
 /**
- * « Envoyer les relevés » : il n'existe pas de fonction serveur pour les envoyer ; chaque relevé part par WhatsApp,
- * avec les montants de la base, depuis le téléphone de la direction.
+ * « Envoyer les relevés » : envoyer_releves(p_espace, p_mois) met les SMS en file. Après l'appel : combien sont partis,
+ * et à part les boutiques sans téléphone (sms: false), avec leur texte à copier pour WhatsApp.
  */
-function envoyerReleves(lignes, mois) {
-  const nom = mois ? nomMois(mois) : 'ce mois';
-  ouvrirModale({
-    titre: 'Envoyer les relevés',
-    contenu: `<p class="texte-modale">Un message WhatsApp par boutique, avec le montant de la base. Touchez chaque ligne pour l’envoyer.</p>
-      <ul class="cf-envois">${lignes.map((l) => {
-        const texte = `Bonjour, voici le relevé YOUMMA de « ${l.nom} » pour ${nom} : ${montant(l.du, l.devise)}${l.dateLimite ? `, à régler avant le ${dateCourte(l.dateLimite)}` : ''}. Le détail, vente par vente, est dans votre application : Paramètres › Ce que je dois à YOUMMA.`;
-        return `<li><span><strong>${esc(l.nom)}</strong><small class="num">${esc(montant(l.du, l.devise))}</small></span>
-          ${l.telephone ? `<a class="btn btn-whatsapp btn-petit" href="${esc(lienWa(String(l.telephone).replace(/\D/g, ''), texte))}" target="_blank" rel="noopener">${icone('whatsapp', 16, 2)} Envoyer</a>` : '<span class="discret">pas de numéro</span>'}</li>`;
-      }).join('')}</ul>
-      <div class="modale-actions"><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`
+async function envoyerReleves(e, mois, nb, bouton) {
+  if (!(await confirmer(`Envoyer le relevé ${nomMois(mois)} aux ${formatNombre(nb)} boutique${nb > 1 ? 's' : ''} en commission ? Les SMS partent tout de suite.`, { titre: 'Envoyer les relevés', libelleOk: 'Envoyer' }))) return;
+  boutonOccupe(bouton, true, 'Envoi…');
+  let r;
+  try { r = premiere(await rpc('envoyer_releves', { p_espace: e.code, p_mois: mois })); } catch (err) {
+    boutonOccupe(bouton, false);
+    toast(erreurFacturation(err), 'erreur', 7000);
+    return;
+  }
+  boutonOccupe(bouton, false);
+  const src = 'envoyer_releves';
+  const partis = Number(exiger(r, 'sms_en_file', src)) || 0;
+  const releves = exiger(r, 'releves', src) || [];
+  const sansTel = releves.filter((x) => exiger(x, 'sms', `${src}.releves`) === false);
+  const { el } = ouvrirModale({
+    titre: `Relevés ${nomMois(exiger(r, 'mois', src))}`,
+    contenu: `<p class="texte-modale" data-ref="partis"><strong>${formatNombre(partis)} SMS ${partis > 1 ? 'sont partis' : 'est parti'}</strong> par la file d’envoi.</p>
+      ${sansTel.length ? `<h3 class="cf-sans-tel-titre">Sans téléphone : ${formatNombre(Number(exiger(r, 'sans_telephone', src)) || sansTel.length)} — à envoyer par WhatsApp</h3>
+        <ul class="cf-envois">${sansTel.map((x, i) => `<li class="cf-envoi-manuel">
+          <span><strong>${esc(exiger(x, 'boutique', `${src}.releves`) ?? '—')}</strong><small class="num">${esc(montant(exiger(x, 'du', `${src}.releves`)))}</small></span>
+          <textarea class="input cf-texte-releve" rows="3" readonly data-texte="${i}">${esc(exiger(x, 'texte', `${src}.releves`) ?? '')}</textarea>
+          <button type="button" class="btn btn-secondaire btn-petit" data-copier="${i}">${icone('copier', 15, 2)} Copier le texte</button></li>`).join('')}</ul>` : '<p class="discret">Toutes les boutiques avaient un téléphone.</p>'}
+      <div class="modale-actions"><button type="button" class="btn btn-primaire" data-fermer>Fermer</button></div>`
+  });
+  el.addEventListener('click', async (ev) => {
+    const c = ev.target.closest('[data-copier]');
+    if (!c) return;
+    const ok = await copierTexte(sansTel[Number(c.dataset.copier)].texte);
+    toast(ok ? 'Texte copié : collez-le dans WhatsApp.' : 'Copie impossible : sélectionnez le texte à la main.', ok ? 'succes' : 'erreur');
   });
 }
