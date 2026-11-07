@@ -1,0 +1,44 @@
+# Étape 27 — Aperçus des vitrines : une vraie page par vitrine active (b/<slug>/index.html), pour que WhatsApp,
+# Facebook et Google montrent la boutique et non YOUMMA. Chaque nuit, et à la main (onglet Actions → « Aperçus des
+# vitrines » → Run workflow). Un commit n'est poussé que si une page a été créée, mise à jour ou supprimée.
+# Aucun secret : le script lit l'URL et la clé publique déjà présentes dans js/config.js.
+name: Aperçus des vitrines
+
+on:
+  schedule:
+    - cron: '17 2 * * *'   # chaque nuit, 2 h 17 UTC (2 h 17 à Conakry)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apercus-vitrines
+  cancel-in-progress: false
+
+jobs:
+  apercus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Générer les pages des vitrines
+        id: generer
+        run: node outils/generer-apercus.mjs
+
+      - name: Pousser les changements
+        if: steps.generer.outputs.changements != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A b/
+          if git diff --cached --quiet; then
+            echo "Aucun changement à pousser."
+            exit 0
+          fi
+          git commit -m "Aperçus des vitrines — ${{ steps.generer.outputs.creees }} créées, ${{ steps.generer.outputs.majs }} mises à jour, ${{ steps.generer.outputs.supprimees }} supprimées"
+          git push
