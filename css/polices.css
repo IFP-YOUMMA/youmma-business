@@ -1,0 +1,8 @@
+/* =============================================================================
+   YOUMMA Business — police des pages publiques (vitrine, suivi, vérification…)
+   Les fichiers du dépôt, aucun tiers. Mêmes déclarations qu'en tête de app.css (l'appli) :
+   trois graisses couvrent 400 à 900 ; la page précharge le 800.
+   ============================================================================= */
+@font-face { font-family: Manrope; src: url('../fonts/manrope-500.woff2') format('woff2'); font-weight: 400 500; font-display: swap; }
+@font-face { font-family: Manrope; src: url('../fonts/manrope-700.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+@font-face { font-family: Manrope; src: url('../fonts/manrope-800.woff2') format('woff2'); font-weight: 800 900; font-display: swap; }

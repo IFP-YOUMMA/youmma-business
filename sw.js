@@ -8,15 +8,17 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v53';
+const VERSION_CACHE = 'yb-statique-v54';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
 /**
  * Étape 28 — seul le noyau est pré-téléchargé à chaque mise à jour : la coquille, les feuilles de style du démarrage,
  * les icônes, et les modules que js/app.js importe statiquement (directement ou par ceux qu'il importe).
- * Les écrans (chargés à leur première ouverture), les pages publiques (b/, a/, c/…), les polices des affiches et le
- * détourage ne sont plus dans cette liste : le gestionnaire fetch les met en cache quand ils sont ouverts une première fois.
+ * Étape 29 : la police Manrope (fonts/, déclarée dans app.css) en fait partie, pour que l'appli s'affiche correctement
+ * sans réseau ; colis.css et les feuilles de la direction n'en font plus partie (chargées par leurs écrans).
+ * Les écrans (chargés à leur première ouverture), les pages publiques (b/, a/, c/…), la police Bebas des affiches et le
+ * détourage ne sont pas dans cette liste : le gestionnaire fetch les met en cache quand ils sont ouverts une première fois.
  * Conséquence acceptée : un écran jamais ouvert depuis la dernière mise à jour ne s'ouvre pas sans réseau.
  */
 const FICHIERS_STATIQUES = [
@@ -24,11 +26,10 @@ const FICHIERS_STATIQUES = [
   './index.html',
   './manifest.json',
   './css/app.css',
-  './css/colis.css',
-  './css/admin.css',
-  './css/console.css',
-  './css/direction.css',
   './css/marche.css',
+  './fonts/manrope-500.woff2',
+  './fonts/manrope-700.woff2',
+  './fonts/manrope-800.woff2',
   // Noyau : modules importés au démarrage (graphe statique de js/app.js).
   './js/admin/commun.js',
   './js/admin/console/commun.js',
@@ -70,10 +71,10 @@ const FICHIERS_STATIQUES = [
 ];
 
 /**
- * Les images du logo et les icônes ne changent pas d'une version à l'autre (≈ 630 Ko) : reprises de la version
+ * Les images du logo, les icônes et la police ne changent pas d'une version à l'autre : reprises de la version
  * précédente si elles y sont, téléchargées sinon. Tout le reste du noyau est retéléchargé (cache: 'reload').
  */
-const reutilisable = (f) => f.startsWith('./img/');
+const reutilisable = (f) => f.startsWith('./img/') || f.startsWith('./fonts/');
 self.addEventListener('install', (evenement) => {
   evenement.waitUntil((async () => {
     const cache = await caches.open(VERSION_CACHE);

@@ -724,6 +724,38 @@ export function icone(nom, taille = 20, epaisseur = 1.8) {
 /** Adresse d'un fichier de img/logo/, valable depuis l'appli, admin/ et b/. */
 export const urlLogo = (fichier) => new URL(`../img/logo/${fichier}`, import.meta.url).href;
 
+/** Feuilles déjà demandées : adresse → promesse de leur chargement (une seule balise par feuille). */
+const feuilles = new Map();
+
+/**
+ * Feuille de style chargée à la demande (étape 29) : chargerStyle('css/colis.css'), chemin depuis la racine du site.
+ * Injecte le <link> s'il n'existe pas, renvoie une promesse résolue au « load » de la feuille (tout de suite si elle
+ * est déjà là). Deux écrans qui la demandent en même temps reçoivent la même promesse. Un échec retire la balise et
+ * oublie la demande : le prochain appel retente proprement.
+ */
+export function chargerStyle(href) {
+  const adresse = new URL(`../${href}`, import.meta.url).href;
+  if (feuilles.has(adresse)) return feuilles.get(adresse);
+  let lien = [...document.querySelectorAll('link[rel="stylesheet"]')].find((l) => l.href === adresse);
+  const promesse = new Promise((resoudre, rejeter) => {
+    if (lien?.sheet) { resoudre(); return; }
+    if (!lien) {
+      lien = document.createElement('link');
+      lien.rel = 'stylesheet';
+      lien.href = adresse;
+      document.head.appendChild(lien);
+    }
+    lien.addEventListener('load', () => resoudre(), { once: true });
+    lien.addEventListener('error', () => {
+      feuilles.delete(adresse);
+      lien.remove();
+      rejeter(new Error(`Feuille de style non chargée : ${href}`));
+    }, { once: true });
+  });
+  feuilles.set(adresse, promesse);
+  return promesse;
+}
+
 /** Attend le chargement des images d'un conteneur (au plus `delai` ms), avant une impression. */
 export function imagesPretes(conteneur, delai = 1500) {
   const attentes = [...conteneur.querySelectorAll('img')].filter((i) => !i.complete)

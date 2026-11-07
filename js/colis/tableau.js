@@ -9,6 +9,9 @@
 import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, formatNombre, formatDate, lireNombre } from '../utils.js';
 import { api, chargerAgences, montant, nomDevise, pastilleStatut, iconeColis, MODES, poids as poidsTexte, drapeauHTML } from './commun.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 /** Taux XOF → GNF parmi tableau_colis.taux (le premier sinon). */
 const tauxPrincipal = (liste) => liste.find((x) => x.de === 'XOF' && x.vers === 'GNF') || liste[0] || null;
 

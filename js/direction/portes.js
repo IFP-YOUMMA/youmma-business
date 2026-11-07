@@ -16,7 +16,7 @@ import { demanderEntree } from '../depannage.js';
 import { naviguer } from '../router.js';
 import { chargerEtatLicence } from '../plateforme.js';
 import { chargerModules } from '../modules.js';
-import { esc, icone, toast } from '../utils.js';
+import { esc, icone, toast, chargerStyle } from '../utils.js';
 import { afficherEspace } from '../admin/console/espace.js';
 import { afficherFiche } from '../admin/console/fiche.js';
 import { afficherTerrain } from '../admin/console/terrain.js';
@@ -148,6 +148,8 @@ export function afficherMarcheMonde(conteneur, params) {
     choisirBoutique(log.id);
     entrerDansBoutique(log.id);
     await chargerModules(log.id, { annoncer: false });
+    // Marché et colis empruntent la feuille du colis (étape 29) : prête avant l'écran.
+    try { await chargerStyle('css/colis.css'); } catch (err) { erreur(zone, err); return; }
     if (!zone.isConnected) return;
     if (onglet === 'marche') afficherMarche(zone, params, { adresse: (q) => `#/marche-monde?onglet=marche${q ? `&${q}` : ''}` });
     else if (onglet === 'colis') afficherColisTableau(zone, params);

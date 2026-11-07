@@ -12,6 +12,9 @@ import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, confirmer
 import { api, chargerAgences, agenceDe, agenceSelon, formatTel, montant, nomDevise, poids as poidsTexte, iconeColis, MODES } from './commun.js';
 import { imprimerColis } from './etiquettes.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 const COLONNES_ENVOI = 'id, numero, reference, mode, statut, agence_depart, agence_arrivee, transporteur, chauffeur, chauffeur_tel, immatriculation, depart_prevu, depart_le, arrivee_prevue, arrivee_le, frais, note, created_at';
 const enRoute = (st) => st === 'en_route';
 const arrive = (st) => st === 'arrive';

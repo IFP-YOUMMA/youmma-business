@@ -19,6 +19,9 @@ import { api, FILTRES, pastilleStatut, montant, nomDevise, paysDuDrapeau, paysDe
 import { afficherReglements } from './reglements.js';
 import { imprimerRecuMarche } from './recu.js';
 
+/** Le bureau du marché emprunte les blocs du colis (mesures, photos, calcul) : sa feuille, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 
 const quand = (iso) => (iso ? `${formatDate(iso, 'court')} · ${formatDate(iso, 'heure')}` : '');
 

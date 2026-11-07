@@ -12,6 +12,9 @@ import { etat } from '../state.js';
 import { esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, differer, formatNombre, formatDate, copierTexte } from '../utils.js';
 import { api, chargerAgences, formatTel, normaliserTel } from './commun.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 const kg = (n) => `${formatNombre(n, 2).replace(/,00$/, '')} kg`;
 
 /** Message WhatsApp qui envoie à la cliente son numéro et le lien de son relevé. */

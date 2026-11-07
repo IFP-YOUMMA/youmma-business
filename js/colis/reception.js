@@ -19,6 +19,9 @@ import { api, chargerAgences, agenceSelon, formatTel, montant, nomDevise, MODES,
 import { monterPhotos } from './photos.js';
 import { ouvrirCreationCompte } from './comptes.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 const kg = (n) => `${formatNombre(n, 2).replace(/,00$/, '')} kg`;
 const prenom = (nom) => String(nom || '').trim().split(/\s+/)[0] || 'le client';
 

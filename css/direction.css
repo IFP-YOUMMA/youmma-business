@@ -129,8 +129,6 @@
 .dir-porte-entete span { font-size: 13px; opacity: .85; }
 .dir-onglets { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .dir-onglet > .page, .dir-onglet > .cs-page { padding: 0; max-width: none; }
-.dir-arret { display: flex; flex-direction: column; gap: 6px; border-left: 4px solid #B45309; }
-.dir-arret p { margin: 0; color: #5B6B66; }
 .dir-resultats { list-style: none; margin: 0; padding: 0; }
 .dir-resultats a { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-top: 1px solid #EEF2F0; text-decoration: none; color: inherit; }
 .dir-resultats li:first-child a { border-top: 0; }

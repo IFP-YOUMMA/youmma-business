@@ -11,7 +11,7 @@ import { afficherConnexion, afficherInscription, deconnecter } from './auth.js';
 import { afficherOnboarding } from './onboarding.js';
 import { preparerShell, retirerShell, routeAccueil, ecranModule } from './layout.js';
 import { chargerEtatPlateforme, chargerEtatLicence, controlesApresConnexion, afficherMaintenance, verrouillerModule } from './plateforme.js';
-import { esc, logoComplet, messageErreur, fermerModales, toast } from './utils.js';
+import { esc, logoComplet, messageErreur, fermerModales, toast, chargerStyle } from './utils.js';
 import { chargerModules, modulesPour, accesRoute, moduleDeRoute, estLogistique, infoModule } from './modules.js';
 import { chargerModes } from './modes-paiement.js';
 import { reprendreDepannage } from './depannage.js';
@@ -38,8 +38,21 @@ function differe(charger) {
   chargeur.echecs = () => echecs;
   return chargeur;
 }
+/**
+ * Étape 29 : un module qui a sa propre feuille la déclare (export const STYLES = ['css/colis.css']) ; elle est chargée
+ * avec lui, et la vue n'est rendue qu'une fois la feuille prête — jamais d'écran sans ses styles.
+ */
+const avecStyles = (m) => Promise.all((m.STYLES || []).map(chargerStyle)).then(() => m);
 /** Écran d'un module : ecran((q) => import('./caisse.js' + q), 'afficherCaisse') — q : suffixe d'un nouvel essai. */
-const ecran = (importer, nom) => differe((q) => importer(q).then((m) => m[nom]));
+const ecran = (importer, nom) => differe((q) => importer(q).then(avecStyles).then((m) => m[nom]));
+/** Feuilles de la direction et de ses outils : chargées pour elle seule, à son premier écran. */
+const stylesDirection = differe(() => Promise.all(['css/admin.css', 'css/console.css', 'css/direction.css'].map(chargerStyle)).then(() => true));
+/** Plusieurs chargeurs attendus ensemble par chargerPuis (en parallèle). */
+function ensemble(...chargeurs) {
+  const chargeur = () => Promise.all(chargeurs.map((c) => c()));
+  chargeur.echecs = () => Math.max(...chargeurs.map((c) => c.echecs()));
+  return chargeur;
+}
 /** Écrans de la direction rangés dans direction/portes.js (fiche, création, accès…). */
 const porte = (nom) => ecran((q) => import('./direction/portes.js' + q), nom);
 
@@ -47,7 +60,7 @@ const porte = (nom) => ecran((q) => import('./direction/portes.js' + q), nom);
 const detailPleinEcran = (params) => params.has('id') && window.matchMedia('(max-width: 899.98px)').matches;
 /** #/colis (tableau), #/colis/<id> (fiche), #/colis/<id>/etiquette (étiquettes) : les trois vues, chargées ensemble. */
 const afficherColis = differe(async (q) => {
-  const [t, e, f] = await Promise.all([import('./colis/tableau.js' + q), import('./colis/etiquettes.js' + q), import('./colis/fiche.js' + q)]);
+  const [t, e, f] = await Promise.all([import('./colis/tableau.js' + q), import('./colis/etiquettes.js' + q), import('./colis/fiche.js' + q)].map((p) => p.then(avecStyles)));
   return (conteneur, params) => {
     const id = params.get('id');
     if (!id) return t.afficherColisTableau(conteneur, params);
@@ -114,7 +127,7 @@ const ROUTES = {
   // Étape 18 — transit : accueil des corridors, réception au nom d'un compte, pesée au téléphone, comptes commerçants.
   transit: { vue: ecran((q) => import('./colis/transit.js' + q), 'afficherTransit') },
   recevoir: { vue: ecran((q) => import('./colis/reception.js' + q), 'afficherReception') },
-  peser: { vue: differe((q) => import('./colis/reception.js' + q).then((m) => (conteneur, params) => m.afficherPesee(conteneur, params.get('id')))) },
+  peser: { vue: differe((q) => import('./colis/reception.js' + q).then(avecStyles).then((m) => (conteneur, params) => m.afficherPesee(conteneur, params.get('id')))) },
   comptes: { vue: ecran((q) => import('./colis/comptes.js' + q), 'afficherComptes') },
   // Étape 18f — modules « agences » et « marche » du menu de la logistique.
   agences: { vue: ecran((q) => import('./colis/reglages.js' + q), 'afficherAgences') },
@@ -201,7 +214,7 @@ const vuePrete = (vue) => (typeof vue?.prete === 'function' ? vue.prete() : vue)
 
 function afficherDirection(nom, vue, params) {
   const prete = vuePrete(vue);
-  if (!prete) { chargerPuis(vue, () => resoudre()); return; }
+  if (!prete || !stylesDirection.prete()) { chargerPuis(ensemble(vue, stylesDirection), () => resoudre()); return; }
   jetonNavigation++;
   nettoyerVue?.();
   nettoyerVue = null;
@@ -268,7 +281,12 @@ function resoudre() {
   const aAcheter = acces === 'formule' || (acces === 'option' && nom !== 'boutique-en-ligne');
   const chargeur = aAcheter ? pagesAAcheter : route.vue;
   const prete = vuePrete(chargeur);
-  if (!prete) { chargerPuis(chargeur, () => resoudre()); return undefined; }
+  // La direction entrée dans une boutique (dépannage) garde son bandeau de retour, stylé par direction.css.
+  const avecDirection = Boolean(etat.session && estDirection());
+  if (!prete || (avecDirection && !stylesDirection.prete())) {
+    chargerPuis(avecDirection ? ensemble(chargeur, stylesDirection) : chargeur, () => resoudre());
+    return undefined;
+  }
   jetonNavigation++;
 
   nettoyerVue?.();

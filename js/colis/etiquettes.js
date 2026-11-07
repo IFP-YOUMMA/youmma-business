@@ -19,6 +19,9 @@ import {
 import { drapeauSvg, codeDuDrapeau } from '../lib/drapeaux.js';
 import { libelleMode } from '../modes-paiement.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 /** QR des étiquettes : noir sur blanc, niveau Q (rattrape un pli, une trace, une impression pâle), zone calme 4. */
 const qrEtiquette = (lien, titre) => svgQr(lien, { titre, niveau: 'Q', marge: 4, couleur: '#000000' });
 

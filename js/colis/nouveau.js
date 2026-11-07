@@ -17,6 +17,9 @@ import {
 import { chargerModes, modesConnus } from '../modes-paiement.js';
 import { monterPhotos } from './photos.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 export function afficherNouveauColis(conteneur) {
   const s = {
     agences: [], depart: null, arrivee: null, mode: 'avion', tarifs: {}, tarif: null, jeton: 0, taux: null,

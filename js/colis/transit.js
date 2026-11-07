@@ -11,6 +11,9 @@
 import { esc, icone, messageErreur, formatNombre, formatDate } from '../utils.js';
 import { api, nomDevise, MODES, drapeauHTML } from './commun.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 const SEUIL_REMPLISSAGE = 40;
 const kgTexte = (n) => formatNombre(n, 2).replace(/,00$/, '');
 

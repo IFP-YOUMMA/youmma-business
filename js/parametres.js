@@ -19,7 +19,7 @@ import { aModule } from './modules.js';
 import { monterReglagesColis } from './colis/reglages.js';
 import {
   esc, icone, toast, ouvrirModale, boutonOccupe, messageErreur, initiales, formatDate, formatTelephone,
-  normaliserTelephone, jours, TYPES_ACTIVITE
+  normaliserTelephone, jours, TYPES_ACTIVITE, chargerStyle
 } from './utils.js';
 
 const LONGUEUR_MAX_MESSAGE = 160;
@@ -299,5 +299,8 @@ export function afficherParametres(conteneur, params = new URLSearchParams()) {
   renderLicence();
   chargerQuiEstEntre(conteneur);
   chargerFacturation(conteneur, { defiler: params.get('commission') === '1' }); // étape 24 : en commission seulement
-  if (zone('reglages-colis')) monterReglagesColis(zone('reglages-colis'));
+  // Réglages du colis : montés une fois leur feuille prête (étape 29), la zone reste vide jusque-là.
+  if (zone('reglages-colis')) {
+    chargerStyle('css/colis.css').then(() => { if (zone('reglages-colis')?.isConnected) monterReglagesColis(zone('reglages-colis')); }, (err) => console.warn('[YOUMMA]', err.message));
+  }
 }

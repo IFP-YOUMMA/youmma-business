@@ -13,6 +13,9 @@ import { esc, toast, boutonOccupe, messageErreur, lireNombre, formatNombre, form
 import { api, chargerAgences, codePays, formatTel, normaliserTel, nomDevise, MODES, JOURS_ISO, drapeauHTML } from './commun.js';
 import { monterComptesClients } from './comptes.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 const DIVISEUR_DEFAUT = { avion: 6000, route: 5000, bateau: 5000 };
 const COLONNES_TARIF = 'id, nom, agence_depart, agence_arrivee, mode, prix_kg, prix_m3, minimum_kg, frais_fixe, diviseur, delai_jours, jours_depart, capacite_kg, devise, supplements, actif, ordre';
 

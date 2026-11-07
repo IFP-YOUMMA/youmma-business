@@ -13,6 +13,9 @@ import {
 import { chargerModes, libelleMode } from '../modes-paiement.js';
 import { imprimerColis } from './etiquettes.js';
 
+/** Feuille de l’écran, chargée avec lui (étape 29). */
+export const STYLES = ['css/colis.css'];
+
 /** Les six étapes publiques du parcours (le registre détaillé garde tout le reste). */
 export const ETAPES = [
   ['recu', 'Reçu'], ['entrepot', 'En entrepôt'], ['charge', 'Chargé'], ['arrive', 'Arrivé'], ['a_retirer', 'Prêt à retirer'], ['retire', 'Retiré']

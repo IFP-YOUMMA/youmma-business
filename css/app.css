@@ -4,6 +4,12 @@
    Passage téléphone ↔ ordinateur à 900 px.
    ============================================================================= */
 
+/* ---------------------------------------------------------------- Police (fichiers du dépôt, aucun tiers)
+   Trois graisses couvrent les quatre que la feuille demande (500, 600, 700, 800) ; le 800 est préchargé par la page. */
+@font-face { font-family: Manrope; src: url('../fonts/manrope-500.woff2') format('woff2'); font-weight: 400 500; font-display: swap; }
+@font-face { font-family: Manrope; src: url('../fonts/manrope-700.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+@font-face { font-family: Manrope; src: url('../fonts/manrope-800.woff2') format('woff2'); font-weight: 800 900; font-display: swap; }
+
 /* ---------------------------------------------------------------- Jetons */
 :root {
   --navy: #0A3D33;
@@ -3782,3 +3788,14 @@ body.depannage .fiche-actions[data-eteint], body.depannage section[data-eteint] 
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 12px 16px 0;
   padding: 10px 14px; border-radius: 12px; background: var(--alerte-bg); color: var(--alerte); font-weight: 700; font-size: 14px;
 }
+
+/* ---------------------------------------------------------------- Règles reprises des feuilles chargées à la demande
+   Étape 29 : colis.css, admin.css, console.css et direction.css ne sont plus chargées pour tout le monde. Ces règles,
+   qu'elles appliquaient jusqu'ici à toute l'appli (chargées après app.css), restent ici, à la même place dans la cascade. */
+.discret { font-size: 13px; }
+.texte-alerte { color: #B4520A; }
+.nombre-gros { font-variant-numeric: tabular-nums; }
+.col-vide { padding: 8px 0; margin: 0; color: var(--muted); text-align: center; font-size: 14px; }
+.col-lien { font-size: 13px; font-weight: 800; color: var(--primary); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap; }
+.dir-arret { display: flex; flex-direction: column; gap: 6px; border-left: 4px solid #B45309; }
+.dir-arret p { margin: 0; color: #5B6B66; }
