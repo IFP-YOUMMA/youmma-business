@@ -227,7 +227,7 @@ export function afficherIdentite(conteneur) {
         <div class="compteur-image"><span class="compteur-tuile" style="background:${fond}">${esc(gros)}${petit !== null ? `<small>${petit === '1' ? 'présent' : 'absent'}</small>` : ''}</span>
           <span class="gras">${titre}</span><span class="discret">${aide}</span></div>`).join('');
       const octets = produitsF.octets + documentsF.octets;
-      q('[data-zone="espace"]').textContent = `Espace utilisé : ${mo(octets)} (${formatNombre(produitsF.fichiers.length + documentsF.fichiers.length)} fichiers, hors bons d’enlèvement) · les images sont compressées automatiquement (photos ≤ 150 Ko, miniatures ≈ 25 Ko).`;
+      q('[data-zone="espace"]').textContent = `Espace utilisé : ${mo(octets)} (${formatNombre(produitsF.fichiers.length + documentsF.fichiers.length)} fichier${Number(produitsF.fichiers.length + documentsF.fichiers.length) > 1 ? 's' : ''}, hors bons d’enlèvement) · les images sont compressées automatiquement (photos ≤ 150 Ko, miniatures ≈ 25 Ko).`;
       renderMiniatures();
     } catch (err) {
       const z = q('[data-zone="espace"]');

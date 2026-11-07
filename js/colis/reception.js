@@ -168,7 +168,7 @@ export function afficherReception(conteneur, params) {
   function renderModes() {
     const liste = modesDe(s.paire);
     if (!liste.some((c) => c.mode === s.mode)) s.mode = liste[0]?.mode || null;
-    ref('modes').innerHTML = liste.map((c) => `<option value="${c.mode}" ${c.mode === s.mode ? 'selected' : ''}>${esc(MODES[c.mode]?.libelle || c.mode)} · ${c.delai_jours ?? '?'} jours</option>`).join('');
+    ref('modes').innerHTML = liste.map((c) => `<option value="${c.mode}" ${c.mode === s.mode ? 'selected' : ''}>${esc(MODES[c.mode]?.libelle || c.mode)} · ${c.delai_jours ?? '?'} jour${Number(c.delai_jours) > 1 ? 's' : ''}</option>`).join('');
   }
 
   function renderCompte() {
@@ -399,7 +399,7 @@ export function afficherPesee(conteneur, id) {
           ${champsMesure({ nb: c.nb_colis || 1 })}
           <button type="button" class="btn btn-secondaire btn-bloc col-mesurer" disabled title="La mesure par l’appareil photo n’est pas encore fiable sur les téléphones : mesurez au mètre.">${icone('photo', 17, 2)} Mesurer avec l’appareil photo · bientôt</button>
           <div class="rangee-champs">
-            <div class="champ"><label for="rc-mode">Mode</label><select id="rc-mode" class="input">${modes.map((x) => `<option value="${x.mode}" ${x.mode === s.mode ? 'selected' : ''}>${esc(MODES[x.mode]?.libelle || x.mode)} · ${x.delai_jours ?? '?'} jours</option>`).join('')}</select></div>
+            <div class="champ"><label for="rc-mode">Mode</label><select id="rc-mode" class="input">${modes.map((x) => `<option value="${x.mode}" ${x.mode === s.mode ? 'selected' : ''}>${esc(MODES[x.mode]?.libelle || x.mode)} · ${x.delai_jours ?? '?'} jour${Number(x.delai_jours) > 1 ? 's' : ''}</option>`).join('')}</select></div>
             <div class="champ"><label for="rc-valeur">Valeur déclarée (facultatif)</label><input id="rc-valeur" class="input" inputmode="numeric" placeholder="0"></div>
           </div>
           <div class="champ"><label for="rc-douane">Contenu pour la douane (facultatif)</label><input id="rc-douane" class="input" maxlength="200" placeholder="${esc(c.contenu)}"></div>

@@ -328,7 +328,7 @@ function monterCommandes(zone) {
     function rendreModes() {
       const modes = corridors.filter((x) => x.agence_depart === st.depart.id && x.agence_arrivee === arrivee.id);
       if (!modes.some((x) => x.mode === st.mode)) st.mode = (modes.find((x) => x.mode === 'route') || modes[0])?.mode || null;
-      ref('modes').innerHTML = modes.map((x) => `<option value="${esc(x.mode)}" ${x.mode === st.mode ? 'selected' : ''}>${esc(MODES[x.mode]?.libelle || x.mode)} · ${esc(x.delai_jours ?? '?')} jours</option>`).join('');
+      ref('modes').innerHTML = modes.map((x) => `<option value="${esc(x.mode)}" ${x.mode === st.mode ? 'selected' : ''}>${esc(MODES[x.mode]?.libelle || x.mode)} · ${esc(x.delai_jours ?? '?')} jour${Number(x.delai_jours) > 1 ? 's' : ''}</option>`).join('');
     }
     function majBouton() {
       const m = lireMesure(el);

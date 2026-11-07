@@ -65,7 +65,7 @@ function miniature(communs, nomAssocie) {
     <div class="cs-miniature" aria-hidden="true">
       <div class="cs-mini-barre">Direction · ${esc(nomAssocie || 'associé')}</div>
       ${communs.map((e) => `<div class="cs-mini-zone" style="--cs-couleur:${esc(e.couleur)}"><strong>${esc(e.nom_public)}</strong>
-        <span>${formatNombre(e.boutiques)} vendeurs · ${esc(montantEspace(e, e.recette_30j))} sur 30 j</span>
+        <span>${formatNombre(e.boutiques)} vendeur${Number(e.boutiques) > 1 ? 's' : ''} · ${esc(montantEspace(e, e.recette_30j))} sur 30 j</span>
         <span class="cs-mini-caisse">${esc(montantEspace(e, e.en_caisse))} en caisse · ne vous appartient pas encore</span></div>`).join('')}
     </div>
   </section>`;

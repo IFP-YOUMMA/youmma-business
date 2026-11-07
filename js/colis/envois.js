@@ -169,7 +169,7 @@ function afficherEnvoi(conteneur, id) {
           </div>
         </header>
         <section class="col-kpis cinq no-print">
-          ${kpi('Colis', formatNombre(nb), nb ? `${formatNombre(s.colis.reduce((x, c) => x + c.nb, 0))} cartons` : 'Ajoutez des colis')}
+          ${kpi('Colis', formatNombre(nb), nb ? `${formatNombre(s.colis.reduce((x, c) => x + c.nb, 0))} carton${Number(s.colis.reduce((x, c) => x + c.nb, 0)) > 1 ? 's' : ''}` : 'Ajoutez des colis')}
           ${kpi('Poids taxable', poidsTexte(t.poids_taxable).replace(',00', ''), `${poidsTexte(poidsTotal).replace(',00', '')} sur la balance`)}
           ${kpi('Recette', esc(montant(recette, devise())), Number(t.a_encaisser) ? `dont ${esc(montant(t.a_encaisser, devise()))} à encaisser à l’arrivée` : 'tout est payé au départ')}
           ${kpi('Frais du voyage', esc(montant(frais, devise())), s.frais.map((f) => f.nom).slice(0, 3).join(', ').toLowerCase() || 'aucun frais saisi')}

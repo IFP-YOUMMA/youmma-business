@@ -53,7 +53,7 @@ const MODELES = {
   rappel_echeance: { libelle: 'Rappel avant échéance', variables: ['{prenom}', '{montant}', '{echeance}'], reglages: ['heure', 'jours_avant'],
     resume: (p) => `${p.jours_avant ?? 2} jour${(p.jours_avant ?? 2) > 1 ? 's' : ''} avant la date de paiement prévue, à ${p.heure || '09:00'}` },
   relance_retard: { libelle: 'Relance des retards', variables: ['{prenom}', '{montant}', '{echeance}'], reglages: ['heure', 'intervalle_jours', 'max'],
-    resume: (p) => `Après l’échéance, tous les ${p.intervalle_jours ?? 7} jours (${p.max ?? 3} fois max.), à ${p.heure || '09:00'}` },
+    resume: (p) => `Après l’échéance, ${Number(p.intervalle_jours ?? 7) > 1 ? `tous les ${p.intervalle_jours ?? 7} jours` : 'chaque jour'} (${p.max ?? 3} fois max.), à ${p.heure || '09:00'}` },
   recu_remboursement: { libelle: 'Reçu de remboursement', variables: ['{prenom}', '{montant}', '{reste}'],
     resume: () => 'Après chaque remboursement encaissé' },
   situation_chantier: { libelle: 'Situation chantier', variables: ['{prenom}', '{chantier}', '{operation}', '{montant}', '{solde}'],
@@ -65,7 +65,7 @@ const MODELES = {
   bon_commande: { libelle: 'Bon de commande', variables: ['{fournisseur}', '{numero}', '{lignes}'],
     resume: () => 'À la création d’un bon, si « Envoyer aussi par SMS » est coché' },
   relance_livraison: { libelle: 'Relance livraison', variables: ['{fournisseur}', '{numero}', '{date}'], reglages: ['heure', 'jours'],
-    resume: (p) => `Si la commande n’est pas reçue après ${p.jours ?? 3} jours, à ${p.heure || '09:00'}` }
+    resume: (p) => `Si la commande n’est pas reçue après ${p.jours ?? 3} jour${Number(p.jours ?? 3) > 1 ? 's' : ''}, à ${p.heure || '09:00'}` }
 };
 
 const GROUPES = [

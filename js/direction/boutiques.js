@@ -3,7 +3,10 @@
  * comme une autre, avec son métier. liste_boutiques(p_pays, p_filtre, p_recherche, p_limite) fait tout le tri ; le
  * serveur ne renvoie que la portée de la personne (un associé n'a que ses boutiques, rien des autres n'arrive ici).
  *
- *  - pays (pastilles et groupes) et métiers viennent de la réponse (par_pays, metier) : aucune liste écrite ici ;
+ *  - pays (pastilles et groupes) et métiers viennent de la réponse (par_pays, metier) : aucune liste écrite ici. Le pays
+ *    s'écrit en cartouche (code) : drapeau (émoji) n'est pas utilisé, Windows ne sait pas le dessiner ;
+ *  - le groupe suit le pays, l'association suit l'espace : « Commune » sur la ligne d'une boutique commun = true ;
+ *  - villes en initiales capitales à l'affichage (« CONAKRY », « dakar » → « Conakry », « Dakar »), donnée intacte ;
  *  - état : etat.libelle tel quel, coloré par etat.ton ; facturation : facturation.libelle et detail ;
  *  - actions : Ouvrir (entrer, avec l'accès de dépannage si besoin) · Vitrine (seulement si vitrine existe) ou Colis
  *    (logistique) · Fiche. ouverture → « 4 points sur 6 » (vendeur ouvert sur le terrain, pas fini) ;
@@ -35,6 +38,11 @@ function encre(hex) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.36 ? '#10231E' : '#FFFFFF';
 }
+/** Cartouche du code pays (« GN »), à la place de l'émoji du drapeau. */
+const codePays = (code) => `<span class="dir-code-pays">${esc(code || '?')}</span>`;
+/** « CONAKRY » / « dakar » / « n'zérékoré » → « Conakry » / « Dakar » / « N'Zérékoré » (affichage seulement). */
+const initcap = (v) => String(v || '').toLocaleLowerCase('fr').replace(/(^|[\s'’-])(\p{L})/gu, (m, sep, l) => sep + l.toLocaleUpperCase('fr'));
+const accord = (n, mot) => `${formatNombre(Number(n) || 0)} ${mot}${Number(n) > 1 ? 's' : ''}`;
 const lienVitrine = (slug) => new URL(`b/?s=${encodeURIComponent(slug)}`, location.href.split('#')[0]).href;
 
 export function afficherListeBoutiques(conteneur, params) {
@@ -43,7 +51,7 @@ export function afficherListeBoutiques(conteneur, params) {
   if (id === 'nouvelle') { afficherTerrainDirection(conteneur, params); return undefined; }
   if (id) { naviguer(`fiche/${encodeURIComponent(id)}`, { remplacer: true }); return undefined; }
   majLiens('boutiques');
-  const s = { pays: params.get('pays') || null, filtre: params.get('filtre') || null, recherche: params.get('q') || '', r: null, jeton: 0, associe: undefined };
+  const s = { pays: params.get('pays') || null, filtre: params.get('filtre') || null, recherche: params.get('q') || '', r: null, jeton: 0 };
 
   conteneur.innerHTML = `
     <div class="dir-page dir-boutiques">
@@ -66,15 +74,15 @@ export function afficherListeBoutiques(conteneur, params) {
     const puce = (attr, valeur, libelle, actif) => `<button type="button" class="cs-puce ${actif ? 'actif' : ''}" ${attr}="${esc(valeur)}" aria-pressed="${actif}">${libelle}</button>`;
     q('[data-zone="filtres"]').innerHTML = [
       puce('data-tout', '1', 'Toutes', !s.pays && !s.filtre),
-      ...(r.par_pays || []).map((p) => puce('data-pays', p.pays, `${esc(p.drapeau || '')} ${esc(nomPays(p.pays))} <span>${formatNombre(Number(p.n) || 0)}</span>`, s.pays === p.pays)),
+      ...(r.par_pays || []).map((p) => puce('data-pays', p.pays, `${codePays(p.pays)} ${esc(nomPays(p.pays))} <span>${formatNombre(Number(p.n) || 0)}</span>`, s.pays === p.pays)),
       ...FILTRES.map(([code, libelle]) => puce('data-filtre', code, esc(libelle), s.filtre === code))
     ].join('');
   }
 
   function sousTitre() {
     const r = s.r || {};
-    const pays = (r.par_pays || []).map((p) => `${p.drapeau || ''} ${formatNombre(Number(p.n) || 0)}`.trim()).join(' · ');
-    q('[data-ref="sous"]').textContent = `${formatNombre(Number(r.total) || 0)} boutique${Number(r.total) > 1 ? 's' : ''}${pays ? ` · ${pays}` : ''}`;
+    const pays = (r.par_pays || []).map((p) => `${p.pays} ${formatNombre(Number(p.n) || 0)}`).join(' · ');
+    q('[data-ref="sous"]').textContent = `${accord(r.total, 'boutique')}${pays ? ` · ${pays}` : ''}`;
   }
 
   function ligne(b) {
@@ -87,8 +95,8 @@ export function afficherListeBoutiques(conteneur, params) {
       <span class="dir-initiales" style="background:${esc(couleur)};color:${encre(couleur)}" aria-hidden="true">${esc(initiales(b.nom))}</span>
       <span class="dir-boutique-textes">
         <a class="dir-boutique-nom" href="#/fiche/${encodeURIComponent(b.id)}">${esc(b.nom)}</a>
-        <span class="dir-boutique-sous">${esc(b.ville || '—')}${m.nom ? ` · <span class="dir-metier" style="--metier:${esc(couleur)}">${m.emoji ? `<span aria-hidden="true">${esc(m.emoji)}</span>` : ''}${esc(m.nom)}</span>` : ''}</span>
-        <span class="dir-boutique-sous">${f ? `${esc(f.libelle || '')}${f.detail ? ` · <span class="dir-num">${esc(f.detail)}</span>` : ''}` : ''}${o ? ` · <span class="dir-ouverture">${formatNombre(Number(o.faits) || 0)} points sur ${formatNombre(Number(o.total) || 0)}</span>` : ''}</span>
+        <span class="dir-boutique-sous">${esc(initcap(b.ville) || '—')}${m.nom ? ` · <span class="dir-metier" style="--metier:${esc(couleur)}">${m.emoji ? `<span aria-hidden="true">${esc(m.emoji)}</span>` : ''}${esc(m.nom)}</span>` : ''}${b.commun ? ' <span class="dir-commune">Commune</span>' : ''}</span>
+        <span class="dir-boutique-sous">${f ? `${esc(f.libelle || '')}${f.detail ? ` · <span class="dir-num">${esc(f.detail)}</span>` : ''}` : ''}${o ? ` · <span class="dir-ouverture">${accord(o.faits, 'point')} sur ${formatNombre(Number(o.total) || 0)}</span>` : ''}</span>
       </span>
       ${e.libelle ? `<span class="dir-etat ${TONS[e.ton] || 'ton-neutre'}">${esc(e.libelle)}</span>` : ''}
       <span class="dir-boutique-actions">
@@ -100,17 +108,6 @@ export function afficherListeBoutiques(conteneur, params) {
     </li>`;
   }
 
-  async function nomAssocie() {
-    if (s.associe !== undefined) return s.associe;
-    s.associe = null;
-    try {
-      const acces = await rpc('console_acces');
-      const a = (Array.isArray(acces) ? acces : []).find((x) => x.role === 'admin_espace' && x.actif !== false);
-      s.associe = a ? String(a.nom || '').split(' ')[0] || null : null;
-    } catch { /* pas d'accès à la liste : « votre associé » */ }
-    return s.associe;
-  }
-
   async function rendre() {
     const r = s.r;
     const boutiques = r.boutiques || [];
@@ -118,13 +115,11 @@ export function afficherListeBoutiques(conteneur, params) {
     const groupes = new Map();
     boutiques.forEach((b) => { if (!groupes.has(b.pays)) groupes.set(b.pays, []); groupes.get(b.pays).push(b); });
     const codes = [...groupes.keys()].sort((a, b) => (ordre.indexOf(a) + 1 || 99) - (ordre.indexOf(b) + 1 || 99));
-    const commun = boutiques.some((b) => b.commun);
-    const associe = commun && estSuperAdmin() ? await nomAssocie() : null;
     q('[data-zone="liste"]').innerHTML = boutiques.length ? codes.map((code) => {
       const liste = groupes.get(code);
-      const drapeau = liste[0]?.drapeau || (r.par_pays || []).find((p) => p.pays === code)?.drapeau || '';
+      // Le titre ne dit que le pays : l'association est une affaire d'espace, portée par chaque ligne (« Commune »).
       return `<section class="carte dir-groupe-pays">
-        <h2 class="dir-groupe-titre">${esc(drapeau)} ${esc(nomPays(code))} · ${formatNombre(liste.length)} boutique${liste.length > 1 ? 's' : ''}${liste.some((b) => b.commun) ? ` · avec ${esc(associe || 'votre associé')}` : ''}</h2>
+        <h2 class="dir-groupe-titre">${codePays(code)} ${esc(nomPays(code))} · ${accord(liste.length, 'boutique')}</h2>
         <ul class="dir-liste-boutiques">${liste.map(ligne).join('')}</ul>
       </section>`;
     }).join('') : `<p class="col-vide">${s.recherche || s.filtre || s.pays ? 'Aucune boutique ne correspond.' : 'Aucune boutique pour l’instant.'}</p>`;
@@ -163,7 +158,7 @@ export function afficherListeBoutiques(conteneur, params) {
     if (t.closest('[data-action="exporter"]')) {
       const { exporterCsv } = await import('../admin/commun.js');
       exporterCsv(`boutiques-youmma-${new Date().toISOString().slice(0, 10)}.csv`, [
-        ['Boutique', (b) => b.nom], ['Ville', (b) => b.ville || ''], ['Pays', (b) => b.pays || ''], ['Métier', (b) => b.metier?.nom || ''],
+        ['Boutique', (b) => b.nom], ['Ville', (b) => initcap(b.ville)], ['Pays', (b) => b.pays || ''], ['Métier', (b) => b.metier?.nom || ''],
         ['Facturation', (b) => [b.facturation?.libelle, b.facturation?.detail].filter(Boolean).join(' · ')], ['État', (b) => b.etat?.libelle || ''],
         ['Vitrine', (b) => (b.vitrine?.slug ? lienVitrine(b.vitrine.slug) : '')]
       ], s.r?.boutiques || []);

@@ -45,7 +45,7 @@ async function chargerComplements(boutique) {
   const n = Number(ventes.count) || 0;
   const arrondi = n >= 20 ? Math.floor(n / 10) * 10 : n;
   const lieu = boutique.ville ? ` à ${boutique.ville}` : '';
-  const phraseMerci = n >= 20 ? `Plus de ${formatNombre(arrondi)} clients servis cette année${lieu}.` : n > 0 ? `${formatNombre(n)} clients servis cette année${lieu}. Merci !` : `Merci de faire confiance à ${boutique.nom}.`;
+  const phraseMerci = n >= 20 ? `Plus de ${formatNombre(arrondi)} clients servis cette année${lieu}.` : n > 0 ? `${formatNombre(n)} client${n > 1 ? 's' : ''} servi${n > 1 ? 's' : ''} cette année${lieu}. Merci !` : `Merci de faire confiance à ${boutique.nom}.`;
   return { horaires, phraseMerci };
 }
 

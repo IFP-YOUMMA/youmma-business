@@ -269,7 +269,7 @@ function banniereHTML() {
       ${r ? `<strong class="mk-banniere-prix num">${esc(montant(r.total_arrivee ?? r.total, r.total_arrivee !== undefined && r.total_arrivee !== null ? r.devise_arrivee : r.devise))}</strong>
         <span class="mk-banniere-sous num">le colis de ${nombre(b.poids)} kg · ${esc(montant(r.total, r.devise))} · soit ${esc(montant(c.prix_kg, c.devise))} le kilo</span>`
         : `<strong class="mk-banniere-prix num">${esc(montant(c.prix_kg, c.devise))}</strong><span class="mk-banniere-sous">le kilo${c.minimum_kg ? ` · minimum ${nombre(c.minimum_kg)} kg` : ''}</span>`}
-      ${c.prochain_depart ? `<span class="mk-banniere-depart">Prochain départ : <strong>${esc(jourLong(c.prochain_depart))}</strong>${c.delai_jours ? ` · arrivée en ${nombre(c.delai_jours)} jours environ` : ''}</span>` : ''}
+      ${c.prochain_depart ? `<span class="mk-banniere-depart">Prochain départ : <strong>${esc(jourLong(c.prochain_depart))}</strong>${c.delai_jours ? ` · arrivée en ${nombre(c.delai_jours)} jour${Number(c.delai_jours) > 1 ? 's' : ''} environ` : ''}</span>` : ''}
       <a class="mk-bouton-or" href="${esc(lienSimulateur())}">${ico('calcul')} Calculer mon prix</a>
     </section>`;
 }
@@ -358,7 +358,7 @@ async function rendreRayon() {
 
 function rendreRayons() {
   racine.innerHTML = `
-    <header class="mk-entete-blanc"><div class="mk-entete-titres"><h1>Les rayons</h1><span class="num">${nombre(s.tous.length)} articles · ${nombre((s.donnees.fournisseurs || []).length)} vendeurs</span></div></header>
+    <header class="mk-entete-blanc"><div class="mk-entete-titres"><h1>Les rayons</h1><span class="num">${nombre(s.tous.length)} article${Number(s.tous.length) > 1 ? 's' : ''} · ${nombre((s.donnees.fournisseurs || []).length)} vendeur${Number((s.donnees.fournisseurs || []).length) > 1 ? 's' : ''}</span></div></header>
     <div class="mk-corps">
       <button type="button" class="mk-ligne-rayon" data-rayon-tous><span class="mk-rond" style="--teinte:#0A3D33">★</span><span><strong>Tous les articles</strong><span class="num">${nombre(s.tous.length)}</span></span>${ico('chevron')}</button>
       ${rayons().map((r) => `<button type="button" class="mk-ligne-rayon" data-rayon="${esc(r.nom)}" data-depuis-rayons="1"><span class="mk-rond" style="--teinte:${teinte(r.nom)}">${esc(r.nom.charAt(0).toUpperCase())}</span><span><strong>${esc(r.nom)}</strong><span class="num">${nombre(r.n)} article${r.n > 1 ? 's' : ''}</span></span>${ico('chevron')}</button>`).join('')}

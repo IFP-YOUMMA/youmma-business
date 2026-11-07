@@ -90,7 +90,7 @@ export function afficherAnnonces(conteneur) {
       q('[data-zone="liste"]').innerHTML = tableau([
         ['Annonce', (a) => `<span class="adm-texte-annonce">${esc(a.texte)}</span><span class="discret">${esc(libelleCible(a.cible))}${a.fin ? ` · jusqu’au ${esc(formatDate(a.fin, 'court'))}` : ''}${a.sms ? ` · ${nombre(champ(a, 'sms_envoyes', 'nb_sms') || 0)} SMS` : ''}${a.bandeau === false ? ' · sans bandeau' : ''}</span>`],
         ['Publiée', (a) => esc(formatDate(a.created_at, 'court'))],
-        ['Vue par', (a) => `${nombre(champ(a, 'vues', 'nb_vues') || 0)} boutiques`],
+        ['Vue par', (a) => `${nombre(champ(a, 'vues', 'nb_vues') || 0)} boutique${Number(champ(a, 'vues', 'nb_vues') || 0) > 1 ? 's' : ''}`],
         ['', (a) => (a.retiree || a.active === false ? '<span class="pastille-admin gris">Retirée</span>'
           : estSuper() ? `<button type="button" class="btn-lien btn-lien-danger" data-retirer="${esc(a.id)}">Retirer</button>` : '<span class="pastille-admin vert">En ligne</span>')]
       ], s.annonces, { vide: 'Aucune annonce publiée.' });

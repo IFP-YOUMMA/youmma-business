@@ -65,10 +65,10 @@ export function afficherLicences(conteneur, { majCompteurs }) {
     if (!conteneur.isConnected) return;
     zone('formules').innerHTML = s.formules.map((f) => `
       <div class="adm-formule ${f.code === 'pro' ? 'mise-en-avant' : ''} ${f.actif === false ? 'inactive' : ''}">
-        <div class="adm-formule-haut"><span class="tres-gras">${esc(f.nom)}</span><span class="discret gras">${nombre(champ(f, 'nb_boutiques') || 0)} boutiques</span></div>
+        <div class="adm-formule-haut"><span class="tres-gras">${esc(f.nom)}</span><span class="discret gras">${nombre(champ(f, 'nb_boutiques') || 0)} boutique${Number(champ(f, 'nb_boutiques') || 0) > 1 ? 's' : ''}</span></div>
         <span class="adm-formule-prix">${Number(f.prix_mois) ? `${nombre(f.prix_mois)} <small>GNF / mois</small>` : 'Gratuit'}</span>
         <span class="discret">${Number(f.prix_mois) ? `1 an = ${12 - Number(f.mois_offerts || 0)} mois payés (${gnf(prixLicence(f, 12))})` : 'puis choix d’une formule'}</span>
-        <span class="adm-formule-desc">${esc(f.description || '')}${f.max_vendeurs ? ` · ${f.max_vendeurs} vendeurs max.` : ''}</span>
+        <span class="adm-formule-desc">${esc(f.description || '')}${f.max_vendeurs ? ` · ${f.max_vendeurs} vendeur${Number(f.max_vendeurs) > 1 ? 's' : ''} max.` : ''}</span>
         ${estSuper() ? `<button type="button" class="btn btn-secondaire btn-petit" data-modifier-formule="${esc(f.code)}">Modifier</button>` : ''}
       </div>`).join('') || '<p class="vide-admin">Aucune formule.</p>';
   }

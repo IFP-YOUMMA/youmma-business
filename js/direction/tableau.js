@@ -79,12 +79,13 @@ function carteKpi(k) {
 
 /** « Vos boutiques » : le total en gros, la répartition par pays, les métiers en pastilles de leur couleur. */
 function bandeBoutiques(b) {
-  const pays = (b.par_pays || []).map((p) => `${p.drapeau || ''} ${nomPays(p.pays)} ${formatNombre(Number(p.n) || 0)}`.trim()).join(' · ');
+  // Code du pays en cartouche (l'émoji du drapeau ne se dessine pas sous Windows).
+  const pays = (b.par_pays || []).map((p) => `<span class="dir-code-pays">${esc(p.pays)}</span> ${esc(nomPays(p.pays))} ${formatNombre(Number(p.n) || 0)}`).join(' · ');
   return `
     <a class="carte dir-vos-boutiques" href="#/boutiques">
       <span class="dir-vb-tete">
         <span><span class="etiquette-carte">Vos boutiques</span><strong class="dir-vb-total dir-num">${formatNombre(Number(b.total) || 0)}</strong>
-          ${pays ? `<span class="dir-vb-pays">${esc(pays)}</span>` : ''}</span>
+          ${pays ? `<span class="dir-vb-pays">${pays}</span>` : ''}</span>
         ${icone('chevronDroite', 20, 2.2)}
       </span>
       <span class="dir-metiers-pastilles">${(b.par_metier || []).map((m) => `
