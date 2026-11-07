@@ -3773,3 +3773,12 @@ body.depannage .fiche-actions[data-eteint], body.depannage section[data-eteint] 
 .fy-non-comptees { flex: none; color: var(--muted); font-size: 13px; font-weight: 700; font-style: italic; }
 .fy-suite { margin: 0; font-size: 14px; line-height: 1.45; }
 .fy-economise { margin: 0; font-size: 14px; color: #4A1F75; }
+
+/* Étape 28 — écran en cours de chargement (au-delà de 150 ms) et échec : l'écran précédent est masqué, pas retiré */
+.vue-attente > :not(.chargement-ecran):not(.echec-ecran) { display: none !important; }
+.chargement-ecran { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 160px; padding: 32px 16px; color: var(--muted); font-weight: 700; font-size: 14px; }
+.chargement-ecran .spinner { border-color: rgba(15, 123, 95, .25); border-top-color: var(--primary); }
+.echec-ecran {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 12px 16px 0;
+  padding: 10px 14px; border-radius: 12px; background: var(--alerte-bg); color: var(--alerte); font-weight: 700; font-size: 14px;
+}

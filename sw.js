@@ -8,174 +8,54 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v51';
+const VERSION_CACHE = 'yb-statique-v52';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
+/**
+ * Étape 28 — seul le noyau est pré-téléchargé à chaque mise à jour : la coquille, les feuilles de style du démarrage,
+ * les icônes, et les modules que js/app.js importe statiquement (directement ou par ceux qu'il importe).
+ * Les écrans (chargés à leur première ouverture), les pages publiques (b/, a/, c/…), les polices des affiches et le
+ * détourage ne sont plus dans cette liste : le gestionnaire fetch les met en cache quand ils sont ouverts une première fois.
+ * Conséquence acceptée : un écran jamais ouvert depuis la dernière mise à jour ne s'ouvre pas sans réseau.
+ */
 const FICHIERS_STATIQUES = [
   './',
   './index.html',
   './manifest.json',
   './css/app.css',
-  './js/app.js',
-  './js/config.js',
-  './js/supabase.js',
-  './js/utils.js',
-  './js/state.js',
-  './js/router.js',
-  './js/auth.js',
-  './js/onboarding.js',
-  './js/layout.js',
-  './js/modules.js',
-  './js/modes-paiement.js',
-  './js/module-a-acheter.js',
-  './js/lib/drapeaux.js',
-  './js/lib/telephone.js',
-  './js/depannage.js',
-  './js/facturation.js',
-  './js/commission-commun.js',
-  './js/mes-modules.js',
-  './js/variantes.js',
-  './js/variantes-fiche.js',
-  './js/unites.js',
-  './js/livraisons.js',
-  './js/vendor/JsBarcode.all.min.js',
-  './js/aujourdhui.js',
-  './js/onglets-vente.js',
-  './js/boutique-onglets.js',
-  './js/option-boutique.js',
-  './js/caisse.js',
-  './js/stock.js',
-  './js/clients-commun.js',
-  './js/clients.js',
-  './js/recu.js',
-  './js/ventes.js',
-  './js/depenses.js',
-  './js/vendeurs.js',
-  './js/rapports.js',
-  './js/parametres.js',
-  './js/chantiers-commun.js',
-  './js/chantiers.js',
-  './js/sms.js',
-  './js/fournisseurs.js',
-  './js/messages.js',
-  './js/campagne.js',
-  './js/plateforme.js',
-  './js/aide.js',
-  './js/licence.js',
-  // Console de direction YOUMMA (page séparée admin/, étape 19)
-  './admin/index.html',
+  './css/colis.css',
   './css/admin.css',
   './css/console.css',
   './css/direction.css',
+  './css/marche.css',
+  // Noyau : modules importés au démarrage (graphe statique de js/app.js).
+  './js/admin/commun.js',
+  './js/admin/console/commun.js',
+  './js/aide.js',
+  './js/alertes-commandes.js',
+  './js/app.js',
+  './js/auth.js',
+  './js/commission-commun.js',
+  './js/config.js',
+  './js/depannage.js',
+  './js/direction/administration.js',
   './js/direction/commun.js',
   './js/direction/shell.js',
-  './js/direction/accueil.js',
-  './js/direction/portes.js',
-  './js/direction/tableau.js',
-  './js/direction/boutiques.js',
-  './js/direction/administration.js',
-  './js/admin/console/commun.js',
-  './js/admin/console/accueil.js',
-  './js/admin/console/espace.js',
-  './js/admin/console/fiche.js',
-  './js/admin/console/facturation.js',
-  './js/admin/console/acces.js',
-  './js/admin/console/terrain.js',
-  './js/admin/console/recherche.js',
-  './js/admin/app.js',
-  './js/admin/commun.js',
-  './js/admin/accueil.js',
-  './js/admin/boutiques.js',
-  './js/admin/licences.js',
-  './js/admin/utilisateurs.js',
-  './js/admin/sms.js',
-  './js/admin/vitrines.js',
-  './js/admin/annonces.js',
-  './js/admin/support.js',
-  './js/admin/equipe.js',
-  './js/admin/parametres.js',
-  './js/admin/options.js',
-  './js/admin/fetes.js',
-  // Étape 10 : outil d'image unique, identité de la boutique, stockage (admin).
-  './js/images/traitement.js',
-  './js/images/prereglages.js',
-  './js/images/envoi.js',
-  './js/images/outil.js',
-  './js/images/actions.js',
-  './js/images/affichage.js',
-  './js/images/couverture.js',
-  './js/identite.js',
-  './js/admin/stockage.js',
-  './js/qr.js',
-  './js/vendor/qrcode.js',
-  './js/affiche.js',
-  './js/affiche-jour.js',
-  './js/affiche-publier.js',
-  './js/affiche-calendrier.js',
-  './js/alertes-commandes.js',
-  './js/commandes.js',
-  './js/boutique-en-ligne.js',
-  // Boutique en ligne publique (page indépendante de l'appli)
-  './b/index.html',
-  './css/vitrine.css',
-  './js/vitrine.js',
-  // Étape 9 : documents A4 (page d'impression), devis, réglages, page publique de vérification v/.
-  './document.html',
-  './css/document.css',
-  './js/documents/rendu.js',
-  './js/documents/lettres.js',
-  './js/documents/donnees.js',
-  './js/documents/page.js',
-  './js/documents/reglages.js',
-  './js/proformas.js',
-  './v/index.html',
-  './css/verification.css',
-  './js/verification.js',
-  // Étape 13 : page du chauffeur (d/<jeton>), sans compte
-  './d/index.html',
-  './css/chauffeur.css',
-  './js/chauffeur.js',
-  // Étape 16 : logistique de colis (écrans, étiquettes), suivi public c/ et photos p/ ; codes-barres partagés (16b)
-  './css/colis.css',
-  './js/codes-barres.js',
-  './js/colis/commun.js',
-  './js/colis/photos.js',
-  './js/colis/nouveau.js',
-  './js/colis/etiquettes.js',
-  './js/colis/tableau.js',
-  './js/colis/fiche.js',
-  './js/colis/envois.js',
-  './js/colis/reglages.js',
-  './c/index.html',
-  './p/index.html',
-  // Étape 18 : transit (accueil des corridors, réception, pesée, comptes), relevé public m/ et simulateur s/
-  './js/colis/transit.js',
-  './js/colis/reception.js',
-  './js/colis/comptes.js',
-  './m/index.html',
-  './s/index.html',
-  // Étape 21 : le marché (bureau #/marche, reçu A5) et ses pages publiques a/ (acheter) et f/ (relevé du vendeur)
-  './css/marche.css',
-  './js/marche/commun.js',
-  './js/marche/bureau.js',
-  './js/marche/reglements.js',
-  './js/marche/recu.js',
-  './js/marche/articles.js',
+  './js/facturation.js',
   './js/installation.js',
-  './js/admin/console/ouvertures.js',
-  './a/index.html',
-  './css/marche-client.css',
-  './js/marche-client.js',
-  './f/index.html',
-  // Étape 7b : affiches pro (polices copiées dans fonts/, licence OFL) et détourage (module seul ;
-  // le moteur onnxruntime et le modèle U²-Netp ne sont jamais pré-cachés, voir plus bas).
-  './js/detourage.js',
-  './fonts/manrope-500.woff2',
-  './fonts/manrope-700.woff2',
-  './fonts/manrope-800.woff2',
-  './fonts/bebas-neue-400.woff2',
-  // Identité YOUMMA Business (logo or & vert) : img/logo/ (l'original et l'aperçu og-image ne sont pas pré-cachés).
+  './js/layout.js',
+  './js/lib/telephone.js',
+  './js/mes-modules.js',
+  './js/modes-paiement.js',
+  './js/modules.js',
+  './js/onboarding.js',
+  './js/plateforme.js',
+  './js/router.js',
+  './js/sms.js',
+  './js/state.js',
+  './js/supabase.js',
+  './js/utils.js',
   './img/logo/youmma-business-symbole.png',
   './img/logo/youmma-business-logo.png',
   './img/logo/youmma-business-logo-fond-fonce.png',
@@ -189,10 +69,22 @@ const FICHIERS_STATIQUES = [
   './img/logo/favicon-64.png'
 ];
 
+/**
+ * Les images du logo et les icônes ne changent pas d'une version à l'autre (≈ 630 Ko) : reprises de la version
+ * précédente si elles y sont, téléchargées sinon. Tout le reste du noyau est retéléchargé (cache: 'reload').
+ */
+const reutilisable = (f) => f.startsWith('./img/');
 self.addEventListener('install', (evenement) => {
-  evenement.waitUntil(
-    caches.open(VERSION_CACHE).then((cache) => cache.addAll(FICHIERS_STATIQUES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())
-  );
+  evenement.waitUntil((async () => {
+    const cache = await caches.open(VERSION_CACHE);
+    const aTelecharger = [];
+    for (const f of FICHIERS_STATIQUES) {
+      const ancien = reutilisable(f) ? await caches.match(f) : null;
+      if (ancien) await cache.put(f, ancien); else aTelecharger.push(new Request(f, { cache: 'reload' }));
+    }
+    await cache.addAll(aTelecharger);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (evenement) => {
