@@ -305,7 +305,7 @@ function afficherFerme(r) {
     ${pied()}`;
 }
 
-const SYMBOLE = new URL('../img/logo/youmma-business-symbole.png', import.meta.url).href;
+const SYMBOLE = new URL('../img/logo/youmma-business-symbole.webp', import.meta.url).href;
 const pied = () => `<footer class="v-pied"><img src="${SYMBOLE}" width="20" height="20" alt="" decoding="async"><span>Boutique propulsée par <strong>YOUMMA Business</strong></span></footer>`;
 
 function router() {

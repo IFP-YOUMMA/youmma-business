@@ -312,7 +312,7 @@ export function rendreDocument(p) {
   const pied = `<footer class="ybd-pied">
       ${r.conditions ? `<span><strong>Conditions :</strong> ${esc(r.conditions).replace(/\n/g, ' ')}</span>` : ''}
       ${bandeauLogos(r)}
-      <span class="ybd-pied-bas"><span>${r.paiement_mobile ? esc(r.paiement_mobile) : ''}</span><span class="ybd-logiciel"><img src="${esc(urlLogo('youmma-business-symbole.png'))}" alt="">Logiciel YOUMMA Business</span></span>
+      <span class="ybd-pied-bas"><span>${r.paiement_mobile ? esc(r.paiement_mobile) : ''}</span><span class="ybd-logiciel"><img src="${esc(urlLogo('youmma-business-symbole.webp'))}" alt="">Logiciel YOUMMA Business</span></span>
     </footer>`;
 
   const titre = TITRES_DOCUMENTS[type];

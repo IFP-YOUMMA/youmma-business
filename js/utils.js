@@ -733,7 +733,7 @@ export function imagesPretes(conteneur, delai = 1500) {
 
 /** Symbole seul (cercle or, arc vert, barres) pour les petites tailles. alt vide : le texte est à côté. */
 export function logoSymbole(taille = 34, alt = '') {
-  return `<img class="logo-symbole" src="${urlLogo('youmma-business-symbole.png')}" width="${taille}" height="${taille}" alt="${esc(alt)}" decoding="async">`;
+  return `<img class="logo-symbole" src="${urlLogo('youmma-business-symbole.webp')}" width="${taille}" height="${taille}" alt="${esc(alt)}" decoding="async">`;
 }
 
 /** Symbole + « YOUMMA Business » en texte (menus, en-têtes). theme : 'sombre' (fond foncé) ou 'clair'. */
@@ -743,7 +743,7 @@ export function logoMarque(theme = 'sombre', taille = 34, sousTitre = '') {
 
 /** Logo complet (image, 120 px de large minimum). theme : 'sombre' (fond foncé) ou 'clair'. */
 export function logoComplet(theme = 'sombre', largeur = 160) {
-  const fichier = theme === 'sombre' ? 'youmma-business-logo-fond-fonce.png' : 'youmma-business-logo.png';
+  const fichier = theme === 'sombre' ? 'youmma-business-logo-fond-fonce.webp' : 'youmma-business-logo.webp';
   const l = Math.max(120, largeur);
   return `<img class="logo-complet" src="${urlLogo(fichier)}" width="${l}" height="${l}" alt="YOUMMA Business" decoding="async">`;
 }

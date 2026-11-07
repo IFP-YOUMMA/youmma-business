@@ -8,7 +8,7 @@
  * Jamais de cache pour l'API, l'authentification ni les buckets privés (adresses signées).
  * Les fichiers de ce site (même origine, GET) sont servis en « réseau d'abord ».
  */
-const VERSION_CACHE = 'yb-statique-v52';
+const VERSION_CACHE = 'yb-statique-v53';
 const CACHE_IMAGES = 'yb-images';
 const MAX_IMAGES = 400;
 
@@ -56,9 +56,9 @@ const FICHIERS_STATIQUES = [
   './js/state.js',
   './js/supabase.js',
   './js/utils.js',
-  './img/logo/youmma-business-symbole.png',
-  './img/logo/youmma-business-logo.png',
-  './img/logo/youmma-business-logo-fond-fonce.png',
+  './img/logo/youmma-business-symbole.webp',
+  './img/logo/youmma-business-logo.webp',
+  './img/logo/youmma-business-logo-fond-fonce.webp',
   './img/logo/icon-192.png',
   './img/logo/icon-512.png',
   './img/logo/icon-maskable-192.png',
