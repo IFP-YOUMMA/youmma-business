@@ -13,7 +13,8 @@
  *  - #/boutiques/nouvelle : créer une boutique (écran « terrain » existant) ; #/boutiques/<id> (anciens liens) → fiche.
  */
 import { sb } from '../supabase.js';
-import { esc, icone, formatNombre, differer } from '../utils.js';
+import { esc, icone, formatNombre, differer, copierTexte, toast } from '../utils.js';
+import { lienCourtVitrine } from '../admin/console/terrain.js';
 import { naviguer } from '../router.js';
 import { sortirDeBoutique } from '../state.js';
 import { cache, estSuperAdmin } from './commun.js';
@@ -102,7 +103,7 @@ export function afficherListeBoutiques(conteneur, params) {
       <span class="dir-boutique-actions">
         <button type="button" class="btn btn-primaire btn-petit" data-ouvrir="${esc(b.id)}">Ouvrir</button>
         ${b.logistique ? `<button type="button" class="btn btn-secondaire btn-petit" data-colis="${esc(b.id)}">${icone('colis', 15, 2)} Colis</button>`
-          : b.vitrine?.slug ? `<a class="btn btn-secondaire btn-petit" href="${esc(lienVitrine(b.vitrine.slug))}" target="_blank" rel="noopener">Vitrine</a>` : ''}
+          : b.vitrine?.slug ? `<a class="btn btn-secondaire btn-petit" href="${esc(lienVitrine(b.vitrine.slug))}" target="_blank" rel="noopener">Vitrine</a><button type="button" class="btn btn-secondaire btn-petit" data-copier="${esc(b.vitrine.slug)}">${icone('copier', 15, 2)} Copier le lien</button>` : ''}
         <a class="btn btn-secondaire btn-petit" href="#/fiche/${encodeURIComponent(b.id)}">Fiche</a>
       </span>
     </li>`;
@@ -153,6 +154,13 @@ export function afficherListeBoutiques(conteneur, params) {
     if (f) { s.filtre = s.filtre === f.dataset.filtre ? null : f.dataset.filtre; charger(); return; }
     const o = t.closest('[data-ouvrir]');
     if (o) { const b = s.r.boutiques.find((x) => x.id === o.dataset.ouvrir); if (b) ouvrirBoutique(b); return; }
+    const cp = t.closest('[data-copier]');
+    if (cp) {
+      const lien = lienCourtVitrine(cp.dataset.copier);
+      if (await copierTexte(lien)) toast(`Lien copié : ${lien.replace(/^https?:\/\//, '')}`, 'succes');
+      else toast('Copie impossible : sélectionnez le lien à la main.', 'erreur');
+      return;
+    }
     const c = t.closest('[data-colis]');
     if (c) { const b = s.r.boutiques.find((x) => x.id === c.dataset.colis); if (b) ouvrirBoutique(b, 'colis'); return; }
     if (t.closest('[data-action="exporter"]')) {

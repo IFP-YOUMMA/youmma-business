@@ -16,6 +16,9 @@ import { espaces, espace, erreurConsole, telInternational, chargerFormulesConsol
 import { blocFacturationHTML, monterFacturation } from './facturation.js';
 import { monterOuvertures } from './ouvertures.js';
 
+/** Adresse courte de la vitrine (…/b/<adresse>), celle qu'on colle dans WhatsApp ; aussi « Copier le lien » de #/boutiques. */
+export const lienCourtVitrine = (slug) => new URL(`b/${encodeURIComponent(slug)}`, location.href.split('#')[0]).href;
+
 export function afficherTerrain(conteneur, { params }) {
   const choisi = espace(params.get('espace')) || espaces()[0];
   const commission = choisi.facturation === 'commission';
@@ -124,7 +127,7 @@ export function afficherTerrain(conteneur, { params }) {
 
   function afficherPret(b) {
     const lien = b.slug ? urlVitrine(b.slug) : null;
-    const court = b.slug ? new URL(`b/${encodeURIComponent(b.slug)}`, location.href.split('#')[0]).href.replace(/^https?:\/\//, '') : '';
+    const court = b.slug ? lienCourtVitrine(b.slug).replace(/^https?:\/\//, '') : '';
     const inv = b.invitation;
     // Le message WhatsApp ne reprend que ce que la base a renvoyé : code d'invitation, lien vendeur, adresse publique.
     const message = [

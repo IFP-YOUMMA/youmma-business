@@ -1,13 +1,22 @@
 /**
- * vitrine.js — Boutique en ligne publique (b/?s=<adresse>), maquettes Vitrine.dc.html et Panier.dc.html.
+ * vitrine.js — Boutique en ligne publique (b/?s=<adresse>). Étape 22 : la vitrine moderne (même forme que le catalogue
+ * a/ de l'étape 21), le parcours de commande inchangé.
  *
- * Page indépendante de l'appli : aucun module de l'appli n'est chargé (seulement config.js pour
- * l'URL et la clé publishable). Le visiteur n'est jamais connecté : tout passe par les RPC
- * publiques boutique_publique et passer_commande_web (prix recalculés côté serveur).
+ * Page indépendante de l'appli : aucun module de l'appli n'est chargé (seulement config.js pour l'URL et la clé
+ * publishable). Le visiteur n'est jamais connecté : tout passe par les RPC publiques boutique_publique et
+ * passer_commande_web (prix recalculés côté serveur).
  *
- * Vues (dans l'adresse, pour que le bouton « retour » du téléphone marche) :
- *   (aucune) → la boutique · #p/<id> → fiche d'un modèle à tailles / couleurs · #panier → panier + coordonnées
- *   · #commande → confirmation.
+ * boutique_publique → { boutique, identite, zones, categories, produits, affiche } (ou { introuvable } / { ferme }).
+ * Lu sous ces noms-là : boutique.ouvert vient du serveur (jamais recalculé) ; categories ne contient que celles qui
+ * ont un produit en ligne (pas de filtre ici) ; produit.dispo = false → « Rupture » ; affiche absente ou dispo = false
+ * → pas de bannière du tout.
+ *
+ * La couleur de la boutique habille (en-tête, pastilles actives, ronds des rayons, onglet actif) ; le vert YOUMMA agit
+ * (ajouter, Commander, Envoyer la commande). Texte foncé sur une couleur claire.
+ *
+ * Vues (dans l'adresse, pour que le bouton « retour » du téléphone marche) : (aucune) l'accueil · #rayons · #r/<id>
+ * un rayon (#r/tous : tout) · #boutique la boutique · #panier · #p/<id> fiche d'un modèle à tailles / couleurs ·
+ * #commande la confirmation. Barre du bas fixe : Accueil · Rayons · Panier · La boutique.
  * Tailles & couleurs : produit.variantes = { tailles, couleurs, cases: [{ id, t, c, dispo, dernier, prix }] } ;
  * une ligne de panier par case (clé « produit|case ») ; passer_commande_web reçoit variante_id.
  */
@@ -20,19 +29,11 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const racine = document.getElementById('vitrine');
-const ESPACE = ' ';
+const ESPACE = ' ';
+const VERT = '#0F7B5F';
 const UNITES_DIVISIBLES = ['kg', 'tonne', 'm²', 'm2', 'm', 'litre', 'l'];
-const NOMS_JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-const TYPES = {
-  materiaux: 'Matériaux de construction', alimentation: 'Alimentation', habillement: 'Habillement',
-  cosmetique: 'Cosmétique', quincaillerie: 'Quincaillerie', electronique: 'Électronique',
-  pharmacie: 'Pharmacie', restauration: 'Restauration', autre: 'Commerce'
-};
-const DISPO = {
-  disponible: { texte: 'Disponible', classe: 'ok' },
-  sur_commande: { texte: 'Sur commande', classe: 'commande' },
-  epuise: { texte: 'Épuisé', classe: 'epuise' }
-};
+const JOURS_COURTS = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const JOURS_LONGS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const ICONES = {
   stock: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',
   recherche: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
@@ -51,7 +52,12 @@ const ICONES = {
   valide: 'M20 6L9 17l-5-5',
   alerte: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
   cadenas: 'M6 11V8a6 6 0 0 1 12 0v3M5 11h14v10H5z',
-  partager: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13'
+  partager: 'M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13',
+  maison: 'M3 10.5L12 3l9 7.5M5 9v11h14V9',
+  rayons: 'M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z',
+  panier: 'M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6M10 20.5h.01M17 20.5h.01',
+  horloge: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  lieu: 'M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'
 };
 const ICONES_UNITES = { sac: 'sac', barre: 'barre', feuille: 'tole', 'tôle': 'tole', seau: 'seau', 'm²': 'carreau', m2: 'carreau', voyage: 'camion', kg: 'clou' };
 
@@ -84,7 +90,10 @@ function formatNombre(valeur, decimalesMax = 0) {
 const gnf = (n) => `${formatNombre(n)}${ESPACE}GNF`;
 const divisible = (unite) => UNITES_DIVISIBLES.includes(String(unite || '').trim().toLowerCase());
 const qte = (n) => formatNombre(n, 3);
-
+const accord = (n, mot, pluriel = `${mot}s`) => `${qte(n)} ${Number(n) > 1 ? pluriel : mot}`;
+/** « 08:00 » → « 8 h », « 18:30 » → « 18 h 30 ». */
+const heure = (h) => { const [a, b] = String(h || '').split(':'); return a ? `${Number(a)} h${b && b !== '00' ? ` ${b}` : ''}` : ''; };
+const initiales = (nom) => String(nom || '?').trim().split(/\s+/).slice(0, 2).map((m) => m[0]).join('').toUpperCase();
 
 function messageErreur(err) {
   const brut = String(err?.message || err || '');
@@ -117,27 +126,29 @@ function toast(message, type = 'info') {
   setTimeout(() => el.remove(), 5000);
 }
 
-/* ------------------------------------------------------------ Heures (Conakry = UTC toute l'année) */
+/* ------------------------------------------------------------ Couleur de la boutique (habille) */
 
-const minutesDe = (h) => { const [a, b] = String(h || '').split(':').map(Number); return (a || 0) * 60 + (b || 0); };
-const heureCourte = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
-
-/** { ouvert, texte } : « Ouvert · ferme à 18h30 » / « Fermé · ouvre demain à 7h30 ». null sans horaires. */
-export function statutOuverture(b, maintenant = new Date()) {
-  if (!b?.ouverture || !b?.fermeture) return null;
-  const jours = (Array.isArray(b.jours) && b.jours.length ? b.jours : [1, 2, 3, 4, 5, 6, 7]).map(Number);
-  const jour = ((maintenant.getUTCDay() + 6) % 7) + 1;
-  const minutes = maintenant.getUTCHours() * 60 + maintenant.getUTCMinutes();
-  const o = minutesDe(b.ouverture);
-  const f = minutesDe(b.fermeture);
-  if (jours.includes(jour) && minutes >= o && minutes < f) return { ouvert: true, texte: `Ouvert · ferme à ${heureCourte(f)}` };
-  for (let d = 0; d <= 7; d++) {
-    const j = ((jour - 1 + d) % 7) + 1;
-    if (!jours.includes(j) || (d === 0 && minutes >= o)) continue;
-    const quand = d === 0 ? '' : d === 1 ? 'demain ' : `${NOMS_JOURS[j]} `;
-    return { ouvert: false, texte: `Fermé · ouvre ${quand}à ${heureCourte(o)}` };
-  }
-  return { ouvert: false, texte: 'Fermé' };
+const HEX = /^#[0-9a-f]{6}$/i;
+/** Encre lisible sur une couleur : foncé si la couleur est claire (même méthode que les initiales de #/boutiques). */
+function encre(hex) {
+  const m = HEX.exec(hex || '') ? hex.slice(1) : null;
+  if (!m) return '#FFFFFF';
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.36 ? '#10231E' : '#FFFFFF';
+}
+/** Mélange de deux couleurs #rrggbb (part de la seconde : t). */
+function melanger(a, b, t) {
+  const v = (h, i) => parseInt(h.slice(1 + i, 3 + i), 16);
+  return `#${[0, 2, 4].map((i) => Math.round(v(a, i) * (1 - t) + v(b, i) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+function appliquerCouleur(id) {
+  const c = HEX.test(id?.couleur || '') ? id.couleur : VERT;
+  const claire = encre(c) !== '#FFFFFF';
+  racine.style.setProperty('--c', c);
+  racine.style.setProperty('--c-encre', encre(c));
+  // La couleur écrite sur du blanc (onglet actif, pictos) : assombrie si elle est claire, pour rester lisible.
+  racine.style.setProperty('--c-texte', claire ? melanger(c, '#10231E', 0.55) : c);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
 }
 
 /* ------------------------------------------------------------ État */
@@ -153,7 +164,7 @@ const s = {
   reception: memoire.reception || null,
   zone: memoire.zone || null,
   recherche: '',
-  categorie: '',
+  filtre: 'tous',
   commande: null,
   envoi: false
 };
@@ -174,6 +185,10 @@ const libelleCase = (c) => [c.c, c.t].map((x) => String(x || '').trim()).filter(
 function couleursModele(p) {
   return (p.variantes?.couleurs || []).map((c) => (typeof c === 'string' ? { nom: c, hex: null, photo_url: null } : { nom: c?.nom || '', hex: c?.hex || null, photo_url: c?.photo_url || null })).filter((c) => c.nom);
 }
+/** Rupture : dispo = false (serveur), ou un modèle dont aucune taille / couleur n'est disponible. */
+const enRupture = (p) => p.dispo === false || (aVariantes(p) && !p.variantes.cases.some(caseDispo));
+const enPromo = (p) => Number(p.prix_barre) > Number(p.prix);
+
 /* ------------------------------------------------------------ Autres unités (vente en boutique seulement) */
 
 const CONTENANTS = ['botte', 'palette', 'carton', 'sac', 'paquet', 'rouleau', 'boîte', 'boite', 'lot', 'caisse', 'bidon', 'fût', 'balle', 'pack'];
@@ -213,6 +228,7 @@ function lignesPanier() {
 function totalArticles() {
   return lignesPanier().reduce((t, l) => t + Math.round(l.prix * l.quantite), 0);
 }
+const nbArticles = () => lignesPanier().reduce((t, l) => t + l.quantite, 0);
 function zoneChoisie() {
   return (s.donnees?.zones || []).find((z) => z.id === s.zone) || null;
 }
@@ -251,6 +267,7 @@ async function demarrer() {
   if (r.introuvable || (!r.boutique && !r.ferme)) { afficherIntrouvable(); return; }
   if (r.ferme) { afficherFerme(r); return; }
   s.donnees = r;
+  appliquerCouleur(r.identite);
   (r.produits || []).forEach((p) => s.produits.set(p.id, p));
   // Articles (ou tailles) retirés de la boutique depuis la dernière visite : on les enlève du panier.
   const valides = new Set(lignesPanier().map((l) => l.cle));
@@ -295,40 +312,29 @@ function router() {
   const vue = location.hash.replace('#', '');
   if (vue === 'commande' && s.commande) renderConfirmation();
   else if (vue.startsWith('p/') && aVariantes(s.produits.get(decodeURIComponent(vue.slice(2))))) renderFicheModele(decodeURIComponent(vue.slice(2)));
-  else if (vue === 'panier' && s.panier.size) renderPanier();
-  else { if (vue) history.replaceState(null, '', location.pathname + location.search); renderBoutique(); }
+  else if (vue === 'panier') renderPanier();
+  else if (vue === 'rayons') renderRayons();
+  else if (vue.startsWith('r/')) renderRayon(decodeURIComponent(vue.slice(2)));
+  else if (vue === 'boutique') renderLaBoutique();
+  else { if (vue) history.replaceState(null, '', location.pathname + location.search); renderAccueil(); }
   window.scrollTo(0, 0);
 }
 
-/* ------------------------------------------------------------ Vue boutique */
+/* ------------------------------------------------------------ Morceaux communs */
 
 /** Miniature de l'article (≈ 25 Ko) ; repli sur la grande photo, puis sur l'icône. */
 function vignette(p, taille = 44) {
   const mini = p.photo_mini_url || null;
   const grande = p.photo_url || null;
-  if (!mini && !grande) return icone(ICONES_UNITES[String(p.unite || '').toLowerCase()] || 'stock', taille, 1.5);
+  if (!mini && !grande) return `<span class="vm-sans-photo">${icone(ICONES_UNITES[String(p.unite || '').toLowerCase()] || 'stock', taille, 1.5)}</span>`;
   return `<img class="v-img" src="${esc(mini || grande)}" ${mini && grande ? `data-repli="${esc(grande)}"` : ''} alt="" width="300" height="300" loading="lazy" decoding="async"
     onerror="if(this.dataset.repli){var r=this.dataset.repli;this.removeAttribute('data-repli');this.src=r;}else{this.remove();}">`;
 }
 
-/* ------------------------------------------------------------ Couverture et identité */
-
-const HEX = /^#[0-9a-f]{6}$/i;
-const PICTOS_ACTIVITE = {
-  materiaux: 'M8 30 V16 L24 8 L40 16 V30 M18 30 v-8 h12 v8',
-  habillement: 'M14 10 l6 -4 h8 l6 4 l6 8 -6 4 v14 h-20 v-14 l-6 -4z',
-  alimentation: 'M10 18 h28 l-3 14 h-22z M16 18 l4 -8 M32 18 l-4 -8',
-  services: 'M24 10 a12 12 0 1 0 0.1 0 M24 15 v9 l6 4',
-  general: 'M8 18 h32 l-3 -8 h-26z M10 18 v18 h28 v-18 M20 36 v-10 h8 v10'
-};
-/** Couverture par défaut (aucune photo) : dégradé aux couleurs des documents, pictogramme de l'activité, liseré d'accent. */
-function couvertureDefaut(type, couleur, accent) {
-  const c = HEX.test(couleur || '') ? couleur : '#0F7B5F';
-  const a = HEX.test(accent || '') ? accent : '#F2B33D';
-  const picto = PICTOS_ACTIVITE[type] || PICTOS_ACTIVITE.general;
-  return `<div class="v-couverture-defaut" style="background:linear-gradient(135deg,${c} 0%,${c}cc 100%)">
-    <svg class="v-couverture-picto" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${picto}"/></svg>
-    <span class="v-couverture-liseret" style="background:${a}"></span></div>`;
+/** Badge de promotion (rouge) : la remise en %, à partir des deux prix renvoyés. */
+function badgePromo(p, classe = 'vm-badge') {
+  if (!enPromo(p)) return '';
+  return `<span class="${classe}">−${Math.round((1 - Number(p.prix) / Number(p.prix_barre)) * 100)} %</span>`;
 }
 
 /** Logos de paiement importés par la boutique (sinon badge texte sobre, jamais une imitation de logo). */
@@ -353,11 +359,6 @@ async function partager() {
   }
 }
 
-function badgePromo(p) {
-  if (!(Number(p.prix_barre) > Number(p.prix))) return '';
-  return `<span class="v-badge-promo">−${formatNombre(Number(p.prix_barre) - Number(p.prix))}</span>`;
-}
-
 function stepper(p, quantite, variante = '') {
   return `
     <div class="v-stepper ${variante}">
@@ -368,184 +369,294 @@ function stepper(p, quantite, variante = '') {
     </div>`;
 }
 
+/** Carte d'un article : photo, badge promo, nom, prix barré, bouton + (vert) qui devient − n + ; rupture voilée. */
 function carteProduit(p) {
   const modele = aVariantes(p);
   const quantite = modele ? [...s.panier].filter(([k]) => idProduit(k) === p.id).reduce((t, [, q]) => t + q, 0) : s.panier.get(p.id) || 0;
-  const dispo = DISPO[p.dispo] || DISPO.disponible;
-  const epuise = p.dispo === 'epuise' || (modele && !p.variantes.cases.some(caseDispo));
-  let action = `<button type="button" class="v-btn-ajouter" data-ajouter="${esc(p.id)}">Ajouter</button>`;
-  if (epuise) action = '<button type="button" class="v-btn-epuise" disabled>Épuisé</button>';
-  else if (modele) action = `<a class="v-btn-ajouter" href="#p/${encodeURIComponent(p.id)}">${quantite ? `${qte(quantite)} au panier · Choisir` : 'Choisir la taille'}</a>`;
-  else if (quantite) action = stepper(p, quantite, 'grille');
+  const rupture = enRupture(p);
+  let action = `<button type="button" class="vm-plus" data-ajouter="${esc(p.id)}" aria-label="Ajouter ${esc(p.nom)} au panier">+</button>`;
+  if (rupture) action = '';
+  else if (modele) action = `<a class="vm-choisir" href="#p/${encodeURIComponent(p.id)}">${quantite ? `${qte(quantite)} · Choisir` : 'Choisir'}</a>`;
+  else if (quantite) action = stepper(p, quantite, 'vm-pas');
   const couleurs = modele ? couleursModele(p).filter((c) => p.variantes.cases.some((x) => x.c === c.nom && caseDispo(x))) : [];
+  const visuel = `${vignette(p, 40)}${badgePromo(p)}${rupture ? '<span class="vm-rupture">Rupture</span>' : ''}`;
   return `
-    <article class="v-produit ${quantite ? 'dans-panier' : ''} ${epuise ? 'epuise' : ''}">
-      <div class="v-produit-visuel">${modele ? `<a href="#p/${encodeURIComponent(p.id)}" class="v-lien-fiche" aria-label="Voir ${esc(p.nom)}">${vignette(p)}</a>` : vignette(p)}${badgePromo(p)}</div>
-      ${couleurs.length ? `<div class="v-pastilles-couleurs" aria-label="${couleurs.length} couleur${couleurs.length > 1 ? 's' : ''}">${couleurs.slice(0, 5).map((c) => rond(c.hex, 14)).join('')}${couleurs.length > 5 ? `<span>+${couleurs.length - 5}</span>` : ''}</div>` : ''}
-      <div class="v-produit-corps">
-        <h3 class="v-produit-nom">${esc(p.nom)}</h3>
-        <span class="v-produit-prix">
-          ${Number(p.prix_barre) > Number(p.prix) ? `<s>${formatNombre(p.prix_barre)}</s> ` : ''}<strong>${formatNombre(p.prix)}</strong> GNF / ${esc(p.unite || 'unité')}
-        </span>
+    <article class="vm-carte ${quantite ? 'dans-panier' : ''} ${rupture ? 'rupture' : ''}" data-carte="${esc(p.id)}" ${rupture ? 'aria-disabled="true"' : ''}>
+      <div class="vm-photo">${modele && !rupture ? `<a href="#p/${encodeURIComponent(p.id)}" class="vm-lien-fiche" aria-label="Voir ${esc(p.nom)}">${visuel}</a>` : visuel}</div>
+      <div class="vm-corps">
+        <h3 class="vm-nom">${esc(p.nom)}</h3>
+        ${couleurs.length ? `<div class="v-pastilles-couleurs" aria-label="${couleurs.length} couleur${couleurs.length > 1 ? 's' : ''}">${couleurs.slice(0, 5).map((c) => rond(c.hex, 12)).join('')}${couleurs.length > 5 ? `<span>+${couleurs.length - 5}</span>` : ''}</div>` : ''}
+        <div class="vm-bas">
+          <span class="vm-prix">${enPromo(p) ? `<s>${formatNombre(p.prix_barre)}</s>` : ''}<strong>${gnf(p.prix)}</strong><small>/ ${esc(p.unite || 'unité')}</small></span>
+          ${action}
+        </div>
         ${mentionUnites(p)}
-        <span class="v-dispo ${dispo.classe}">${esc(dispo.texte)}</span>
-        ${action}
       </div>
     </article>`;
 }
 
-function produitsFiltres() {
-  const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const q = norm(s.recherche.trim());
-  return (s.donnees.produits || []).filter((p) => (!s.categorie || p.categorie_id === s.categorie) && (!q || norm(p.nom).includes(q)));
+/** Barre du bas, quatre onglets fixes : l'onglet actif prend la couleur de la boutique. */
+function onglets(actif) {
+  const n = lignesPanier().length;
+  const o = (cle, href, ic, libelle, extra = '') => `<a class="vm-onglet ${cle === actif ? 'actif' : ''}" href="${href}" ${cle === actif ? 'aria-current="page"' : ''}>${icone(ic, 22, 1.9)}<span>${libelle}</span>${extra}</a>`;
+  return `<nav class="vm-onglets" aria-label="Navigation de la boutique">
+    ${o('accueil', '#', 'maison', 'Accueil')}
+    ${o('rayons', '#rayons', 'rayons', 'Rayons')}
+    ${o('panier', '#panier', 'panier', 'Panier', n ? `<span class="vm-compteur" data-ref="compteur">${n}</span>` : '<span class="vm-compteur" data-ref="compteur" hidden></span>')}
+    ${o('boutique', '#boutique', 'magasin', 'La boutique')}
+  </nav>`;
 }
 
-function carteAffiche(a) {
-  const p = a.produit || s.produits.get(a.produit_id);
-  if (!p || !s.produits.has(p.id)) return '';
-  const produit = { ...s.produits.get(p.id), ...p };
-  const modele = ['promo', 'jour', 'arrivage'].includes(a.modele) ? a.modele : 'jour';
-  const etiquette = { promo: 'PROMO DU JOUR', jour: 'LE CHOIX DU JOUR', arrivage: 'NOUVEL ARRIVAGE' }[modele];
-  const epuise = produit.dispo === 'epuise';
-  return `
-    <button type="button" class="v-affiche v-affiche-${modele}" data-ajouter="${esc(produit.id)}" ${epuise ? 'disabled' : ''}
-      aria-label="${esc(`${etiquette} : ${produit.nom}, ${formatNombre(produit.prix)} GNF. ${epuise ? 'Épuisé' : 'Ajouter au panier'}`)}">
-      <span class="v-affiche-textes">
-        <span class="v-affiche-tag">${etiquette}</span>
-        <span class="v-affiche-nom">${esc(produit.nom)}</span>
-        ${Number(produit.prix_barre) > Number(produit.prix) ? `<s class="v-affiche-barre">${gnf(produit.prix_barre)}</s>` : ''}
-        <span class="v-affiche-prix">${formatNombre(produit.prix)} <small>GNF / ${esc(produit.unite || 'unité')}</small></span>
-        <span class="v-affiche-phrase">${a.phrase ? `${esc(a.phrase)} · ` : ''}${epuise ? 'Épuisé' : 'Ajouter au panier ›'}</span>
-      </span>
-      <span class="v-affiche-visuel">${vignette(produit, 62)}</span>
-    </button>`;
+/** Barre de panier flottante : total, nombre d'articles, frais de la zone choisie, Commander (vert). */
+function flottant() {
+  const lignes = lignesPanier();
+  if (!lignes.length) return '';
+  const z = s.reception === 'livraison' ? zoneChoisie() : null;
+  const frais = s.reception === 'retrait' ? 'Retrait gratuit en boutique'
+    : z ? (Number(z.frais) ? `+ ${gnf(z.frais)} de livraison · ${z.nom}` : `Livraison gratuite · ${z.nom}`) : 'Livraison : zone à choisir';
+  return `<div class="vm-flottant" data-zone="flottant">
+    <div class="vm-flottant-textes">
+      <strong class="num">${gnf(totalArticles())}</strong>
+      <span>${accord(nbArticles(), 'article')} · <span data-ref="frais">${esc(frais)}</span></span>
+    </div>
+    <a class="vm-btn-commander" href="#panier">Commander</a>
+  </div>`;
+}
+function majFlottant() {
+  const zone = racine.querySelector('[data-zone="flottant"]');
+  const html = flottant();
+  if (zone) { if (html) zone.outerHTML = html; else zone.remove(); } else if (html) racine.querySelector('.vm-onglets')?.insertAdjacentHTML('beforebegin', html);
+  const c = racine.querySelector('[data-ref="compteur"]');
+  if (c) { const n = lignesPanier().length; c.textContent = n || ''; c.hidden = !n; }
 }
 
-function renderBoutique() {
-  const { boutique: b, zones = [], categories = [], affiche } = s.donnees;
-  const statut = statutOuverture(b) || (b.ouvert === undefined ? null : { ouvert: Boolean(b.ouvert), texte: b.ouvert ? 'Ouvert' : 'Fermé' });
-  const nomsZones = zones.map((z) => z.nom);
-  const texteZones = nomsZones.length
-    ? `Livraison ${nomsZones.length > 3 ? `${nomsZones.slice(0, 3).join(', ')}…` : nomsZones.join(' & ').replace(/ & (?=.* & )/g, ', ')}`
-    : (b.retrait ? 'Retrait en boutique' : '');
-  const categoriesAvecArticles = categories.filter((c) => (s.donnees.produits || []).some((p) => p.categorie_id === c.id));
-  const id = s.donnees.identite || {};
-  const sousTitre = [TYPES[b.type] || '', [b.commune, b.ville].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
-  const photo = id.couverture_url || id.couverture_mini;
-  const couverture = photo
-    ? `<img class="v-couverture-photo" src="${esc(id.couverture_mini || id.couverture_url)}" ${id.couverture_mini && id.couverture_url ? `srcset="${esc(id.couverture_mini)} 800w, ${esc(id.couverture_url)} 1600w" sizes="(min-width: 560px) 560px, 100vw"` : ''}
-        alt="" width="1600" height="900" decoding="async" fetchpriority="high">`
-    : couvertureDefaut(b.type, id.couleur, id.accent);
-  const logoVisible = b.logo_url && id.logo_vitrine !== false;
+/* ------------------------------------------------------------ 1 — L'accueil */
+
+/** « Ouvert · ferme à 18 h 30 · Dubréka » ou « Fermé · Dubréka » : boutique.ouvert vient du serveur. */
+function etatOuverture(b) {
+  const lieu = b.ville || b.commune || '';
+  if (b.ouvert === undefined || b.ouvert === null) return lieu ? `<span class="vm-etat">${esc(lieu)}</span>` : '';
+  return `<span class="vm-etat ${b.ouvert ? 'ouvert' : 'ferme'}"><span class="vm-point" aria-hidden="true"></span>${b.ouvert ? `Ouvert${b.fermeture ? ` · ferme à ${esc(heure(b.fermeture))}` : ''}` : 'Fermé'}${lieu ? ` · ${esc(lieu)}` : ''}</span>`;
+}
+
+function enteteBoutique(b, id, { recherche = true } = {}) {
+  const logo = b.logo_url && id.logo_vitrine !== false;
+  return `<header class="vm-entete">
+    <div class="vm-entete-haut">
+      <span class="vm-logo">${logo ? `<img src="${esc(b.logo_url)}" alt="" width="48" height="48" decoding="async">` : esc(initiales(b.nom))}</span>
+      <div class="vm-entete-textes"><h1>${esc(b.nom)}</h1>${etatOuverture(b)}</div>
+      <button type="button" class="vm-partager" data-action="partager" aria-label="Partager la boutique">${icone('partager', 19)}</button>
+    </div>
+    ${recherche ? `<label class="vm-recherche">${icone('recherche', 18)}<span class="v-sr">Rechercher un article</span>
+      <input type="search" id="v-recherche" placeholder="Rechercher un article…" value="${esc(s.recherche)}" autocomplete="off"></label>` : ''}
+  </header>`;
+}
+
+/** La bannière, c'est l'affiche du jour. Absente, en rupture, ou article hors ligne → rien du tout. */
+function banniere(a) {
+  if (!a || a.dispo === false || !s.produits.has(a.produit)) return '';
+  const p = s.produits.get(a.produit);
+  if (enRupture(p)) return '';
+  const promo = Number(a.prix_barre) > Number(a.prix);
+  const action = aVariantes(p) ? `<a class="vm-btn-action" href="#p/${encodeURIComponent(p.id)}">Choisir</a>`
+    : `<button type="button" class="vm-btn-action" data-ajouter="${esc(p.id)}" data-banniere>Ajouter au panier</button>`;
+  return `<section class="vm-banniere" aria-label="L’affiche du jour">
+    <div class="vm-banniere-photo">${a.photo_url ? `<img src="${esc(a.photo_url)}" alt="" width="400" height="400" decoding="async" fetchpriority="high">` : vignette(p, 48)}
+      ${promo ? `<span class="vm-badge">−${Math.round((1 - Number(a.prix) / Number(a.prix_barre)) * 100)} %</span>` : ''}</div>
+    <div class="vm-banniere-textes">
+      <span class="vm-banniere-tag">${promo ? 'Promotion du jour' : 'L’article du jour'}</span>
+      <strong class="vm-banniere-nom">${esc(a.nom || p.nom)}</strong>
+      ${a.phrase ? `<span class="vm-banniere-phrase">${esc(a.phrase)}</span>` : ''}
+      <span class="vm-banniere-prix">${promo ? `<s>${gnf(a.prix_barre)}</s>` : ''}<strong>${gnf(a.prix)}</strong><small>/ ${esc(a.unite || p.unite || 'unité')}</small></span>
+      ${action}
+    </div>
+  </section>`;
+}
+
+/** Un rond de rayon : la photo du premier article du rayon, sinon l'initiale sur la couleur de la boutique. */
+function rondImage(c) {
+  const p = (s.donnees.produits || []).find((x) => x.categorie_id === c.id && (x.photo_mini_url || x.photo_url));
+  return `<span class="vm-rond">${p ? `<img src="${esc(p.photo_mini_url || p.photo_url)}" alt="" width="64" height="64" loading="lazy" decoding="async">` : esc(initiales(c.nom))}</span>`;
+}
+const rondRayon = (c) => `<a class="vm-rayon" href="#r/${encodeURIComponent(c.id)}">${rondImage(c)}<span>${esc(c.nom)}</span></a>`;
+
+/** « Lun – Sam », ou « Lun, Mer, Ven » si les jours ne se suivent pas. */
+function plageJours(jours) {
+  const j = [...new Set((Array.isArray(jours) ? jours : []).map(Number).filter((x) => x >= 1 && x <= 7))].sort((a, b) => a - b);
+  if (!j.length) return '';
+  if (j.length === 7) return 'Tous les jours';
+  const suivis = j.every((x, i) => i === 0 || x === j[i - 1] + 1);
+  return suivis && j.length > 2 ? `${JOURS_COURTS[j[0]]} – ${JOURS_COURTS[j.at(-1)]}` : j.map((x) => JOURS_COURTS[x]).join(', ');
+}
+
+/** Livraison, retrait, horaires : trois lignes, pas plus. */
+function blocLivraison(b, zones) {
+  const lignes = [];
+  if (zones.length) {
+    const tries = [...zones].sort((a, z) => (Number(a.frais) || 0) - (Number(z.frais) || 0));
+    const min = Number(tries[0].frais) || 0;
+    lignes.push([icone('camion', 18), `${min ? `Livraison dès ${gnf(min)}` : 'Livraison gratuite'} · ${tries.slice(0, 2).map((z) => z.nom).join(', ')}${tries.length > 2 ? '…' : ''}`]);
+  }
+  if (b.retrait) lignes.push([icone('magasin', 18), 'Retrait gratuit en boutique']);
+  if (b.ouverture && b.fermeture) lignes.push([icone('horloge', 18), `${plageJours(b.jours) || 'Ouvert'} · ${heure(b.ouverture)} – ${heure(b.fermeture)}`]);
+  if (!lignes.length) return '';
+  return `<section class="vm-livraison">${lignes.slice(0, 3).map(([ic, t]) => `<div>${ic}<span>${esc(t)}</span></div>`).join('')}</section>`;
+}
+
+const PLUS_DEMANDES = 8;
+const normaliser = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+function renderAccueil() {
+  const { boutique: b, identite: id = {}, zones = [], categories = [], affiche } = s.donnees;
+  racine.innerHTML = `
+    ${enteteBoutique(b, id)}
+    <main class="vm-contenu">
+      ${b.bandeau ? `<p class="vm-bandeau" role="note">${esc(b.bandeau)}</p>` : ''}
+      ${banniere(affiche)}
+      ${categories.length ? `<section class="vm-section"><div class="vm-section-tete"><h2>Les rayons</h2><a href="#rayons">Tout voir</a></div>
+        <div class="vm-rayons">${categories.map(rondRayon).join('')}</div></section>` : ''}
+      <section class="vm-section" data-zone="liste"></section>
+      ${blocLivraison(b, zones)}
+      ${pied()}
+    </main>
+    ${flottant()}
+    ${onglets('accueil')}`;
+  renderListeAccueil();
+}
+
+/** Les plus demandés (ordre du serveur), ou les résultats de la recherche. */
+function renderListeAccueil() {
+  const zone = racine.querySelector('[data-zone="liste"]');
+  if (!zone) return;
+  const tous = s.donnees.produits || [];
+  const q = normaliser(s.recherche.trim());
+  if (q) {
+    const res = tous.filter((p) => normaliser(p.nom).includes(q));
+    zone.innerHTML = `<div class="vm-section-tete"><h2>Résultats</h2><span>${accord(res.length, 'article')}</span></div>
+      ${res.length ? `<div class="vm-grille">${res.map(carteProduit).join('')}</div>` : '<p class="v-vide">Aucun article ne correspond à votre recherche.</p>'}`;
+    return;
+  }
+  zone.innerHTML = tous.length ? `<div class="vm-section-tete"><h2>Les plus demandés</h2>${tous.length > PLUS_DEMANDES ? `<a href="#r/tous">Tout voir (${tous.length})</a>` : ''}</div>
+    <div class="vm-grille">${tous.slice(0, PLUS_DEMANDES).map(carteProduit).join('')}</div>` : '<p class="v-vide">La boutique n’a pas encore d’article en ligne.</p>';
+}
+
+/* ------------------------------------------------------------ Rayons et un rayon */
+
+function renderRayons() {
+  const { categories = [], produits = [] } = s.donnees;
+  racine.innerHTML = `
+    <header class="vm-entete-blanc"><a href="#" class="vm-retour" aria-label="Retour à l’accueil">${icone('retour', 22)}</a>
+      <div class="vm-entete-blanc-textes"><h1>Les rayons</h1><span>${accord(produits.length, 'article')}</span></div></header>
+    <main class="vm-contenu">
+      <div class="vm-liste-rayons">
+        <a class="vm-ligne-rayon" href="#r/tous"><span class="vm-rond">${icone('rayons', 22)}</span><span><strong>Tous les articles</strong><small>${accord(produits.length, 'article')}</small></span>${icone('suivant', 18)}</a>
+        ${categories.map((c) => {
+          const n = produits.filter((p) => p.categorie_id === c.id).length;
+          return `<a class="vm-ligne-rayon" href="#r/${encodeURIComponent(c.id)}">${rondImage(c)}<span><strong>${esc(c.nom)}</strong><small>${accord(n, 'article')}</small></span>${icone('suivant', 18)}</a>`;
+        }).join('')}
+      </div>
+      ${pied()}
+    </main>
+    ${flottant()}
+    ${onglets('rayons')}`;
+}
+
+/** Une tranche de prix lisible : la médiane du rayon, arrondie vers le haut à 1, 2 ou 5 × 10^n. */
+function seuilPrix(liste) {
+  const prix = liste.map((p) => Number(p.prix) || 0).filter((x) => x > 0).sort((a, b) => a - b);
+  if (prix.length < 4 || prix[0] === prix.at(-1)) return null;
+  const m = prix[Math.floor(prix.length / 2)];
+  const p10 = 10 ** Math.floor(Math.log10(m));
+  const pas = [1, 2, 5, 10].map((k) => k * p10).find((x) => x >= m);
+  return pas;
+}
+
+function renderRayon(id) {
+  const { categories = [], produits = [] } = s.donnees;
+  const c = id === 'tous' ? { id: 'tous', nom: 'Tous les articles' } : categories.find((x) => x.id === id);
+  if (!c) { location.hash = 'rayons'; return; }
+  const base = id === 'tous' ? produits : produits.filter((p) => p.categorie_id === id);
+  const seuil = seuilPrix(base);
+  if (s.filtre === 'prix' && !seuil) s.filtre = 'tous';
+  const filtres = [['tous', 'Tous'], ['promo', 'En promotion'], ...(seuil ? [['prix', `Moins de ${gnf(seuil)}`]] : []), ['dispo', 'Disponible']];
+  const liste = base.filter((p) => (s.filtre === 'promo' ? enPromo(p) : s.filtre === 'prix' ? Number(p.prix) < seuil : s.filtre === 'dispo' ? !enRupture(p) : true));
+  const promos = base.filter(enPromo).length;
+  racine.innerHTML = `
+    <header class="vm-entete-blanc"><a href="#rayons" class="vm-retour" aria-label="Retour aux rayons">${icone('retour', 22)}</a>
+      <div class="vm-entete-blanc-textes"><h1>${esc(c.nom)}</h1><span>${accord(base.length, 'article')}${promos ? ` · ${promos} en promotion` : ''}</span></div></header>
+    <main class="vm-contenu">
+      <div class="vm-filtres" role="group" aria-label="Filtres">${filtres.map(([cle, l]) => `<button type="button" class="vm-filtre ${s.filtre === cle ? 'actif' : ''}" data-filtre="${cle}" aria-pressed="${s.filtre === cle}">${esc(l)}</button>`).join('')}</div>
+      ${liste.length ? `<div class="vm-grille">${liste.map(carteProduit).join('')}</div>` : '<p class="v-vide">Aucun article pour ce filtre.</p>'}
+      ${pied()}
+    </main>
+    ${flottant()}
+    ${onglets('rayons')}`;
+}
+
+/* ------------------------------------------------------------ La boutique */
+
+function renderLaBoutique() {
+  const { boutique: b, identite: id = {} } = s.donnees;
+  const jours = (Array.isArray(b.jours) ? b.jours : []).map(Number);
   const paiements = logosPaiement(id);
   const partenaires = (id.partenaires || []).filter((x) => x?.logo_url).slice(0, 6);
+  const photo = id.couverture_mini || id.couverture_url;
   racine.innerHTML = `
-    <header class="v-couverture ${photo ? 'avec-photo' : 'sans-photo'}">
-      <div class="v-couverture-fond">${couverture}</div>
-      <span class="v-couverture-degrade"></span>
-      <div class="v-couverture-haut">
-        ${statut ? `<span class="v-pastille-ouverture ${statut.ouvert ? 'ouvert' : 'ferme'}"><span class="v-point"></span>${esc(statut.texte)}</span>` : '<span></span>'}
-        <button type="button" class="v-partager" data-action="partager" aria-label="Partager la boutique">${icone('partager', 18)}</button>
+    ${enteteBoutique(b, id, { recherche: false })}
+    <main class="vm-contenu">
+      ${photo ? `<img class="vm-couverture" src="${esc(photo)}" alt="" width="1600" height="900" loading="lazy" decoding="async">` : ''}
+      ${b.message ? `<p class="vm-message">${esc(b.message)}</p>` : ''}
+      <section class="vm-carte-infos">
+        ${[b.commune, b.ville].filter(Boolean).length ? `<div class="vm-info">${icone('lieu', 18)}<span>${esc([b.commune, b.ville].filter(Boolean).join(', '))}</span></div>` : ''}
+        ${b.ouverture && b.fermeture ? `<div class="vm-horaires"><div class="vm-info">${icone('horloge', 18)}<strong>Horaires</strong></div>
+          <ul>${[1, 2, 3, 4, 5, 6, 7].map((j) => `<li><span>${JOURS_LONGS[j]}</span><span>${jours.includes(j) || (j === 7 && jours.includes(0)) ? `${esc(heure(b.ouverture))} – ${esc(heure(b.fermeture))}` : 'Fermé'}</span></li>`).join('')}</ul></div>` : ''}
+      </section>
+      <div class="vm-actions-boutique">
+        ${b.telephone ? `<a class="v-btn vm-btn-contour" href="tel:+${esc(String(b.telephone).replace(/\D/g, ''))}">${icone('telephone', 18)} Appeler</a>` : ''}
+        ${b.whatsapp ? `<a class="v-btn v-btn-whatsapp" href="https://wa.me/${esc(String(b.whatsapp).replace(/\D/g, ''))}" target="_blank" rel="noopener">${icone('whatsapp', 18)} WhatsApp</a>` : ''}
+        <button type="button" class="v-btn vm-btn-contour" data-action="partager">${icone('partager', 18)} Partager</button>
       </div>
-      <div class="v-couverture-textes">
-        <h1>${esc(b.nom)}</h1>
-        ${sousTitre ? `<span>${esc(sousTitre)}</span>` : ''}
-      </div>
-    </header>
-    <section class="v-carte-infos">
-      ${logoVisible ? `<span class="v-logo"><img src="${esc(b.logo_url)}" alt="" width="58" height="58" decoding="async"></span>` : ''}
-      <div class="v-infos-textes">
-        ${texteZones ? `<span class="v-infos-zones">${esc(texteZones)}</span>` : ''}
-        ${b.message ? `<p class="v-message">${esc(b.message)}</p>` : ''}
-      </div>
-    </section>
-    <main class="v-contenu">
-      <div class="v-entete-actions">
-        ${b.whatsapp ? `<a class="v-btn v-btn-whatsapp" href="https://wa.me/${esc(b.whatsapp)}" target="_blank" rel="noopener">${icone('whatsapp', 16)} WhatsApp</a>` : ''}
-        ${b.telephone ? `<a class="v-btn v-btn-contour" href="tel:+${esc(String(b.telephone).replace(/\D/g, ''))}">${icone('telephone', 16)} Appeler</a>` : ''}
-      </div>
-      ${paiements.length ? `<div class="v-paiements"><span>Paiement à la livraison :</span>${paiements.join('')}</div>` : ''}
-      ${b.bandeau ? `<p class="v-bandeau" role="note">${esc(b.bandeau)}</p>` : ''}
-      ${affiche ? carteAffiche(affiche) : ''}
-      <label class="v-recherche">
-        ${icone('recherche', 18)}
-        <span class="v-sr">Rechercher un produit</span>
-        <input type="search" id="v-recherche" placeholder="Rechercher un produit…" value="${esc(s.recherche)}" autocomplete="off">
-      </label>
-      ${categoriesAvecArticles.length ? `
-        <div class="v-categories" role="group" aria-label="Catégories">
-          ${[{ id: '', nom: 'Tout' }, ...categoriesAvecArticles].map((c) => `
-            <button type="button" class="v-categorie" data-categorie="${esc(c.id)}" aria-pressed="${c.id === s.categorie}">${esc(c.nom)}</button>`).join('')}
-        </div>` : ''}
-      <div class="v-grille" data-zone="grille"></div>
+      ${paiements.length ? `<div class="v-paiements"><span>Paiement à la réception :</span>${paiements.join('')}</div>` : ''}
       ${partenaires.length ? `<div class="v-partenaires" aria-label="Partenaires">${partenaires.map((x) => `<img src="${esc(x.logo_url)}" alt="${esc(x.nom || '')}" title="${esc(x.nom || '')}" height="28" loading="lazy" decoding="async">`).join('')}</div>` : ''}
       ${pied()}
     </main>
-    <div class="v-barre-panier" data-zone="barre"></div>`;
-  renderGrille();
-  renderBarre();
-}
-
-function renderGrille() {
-  const zone = racine.querySelector('[data-zone="grille"]');
-  if (!zone) return;
-  const liste = produitsFiltres();
-  zone.innerHTML = liste.length ? liste.map(carteProduit).join('')
-    : `<p class="v-vide">${s.recherche ? 'Aucun produit ne correspond à votre recherche.' : 'Aucun produit dans cette catégorie.'}</p>`;
-}
-
-function renderBarre() {
-  const zone = racine.querySelector('[data-zone="barre"]');
-  if (!zone) return;
-  const lignes = lignesPanier();
-  zone.hidden = !lignes.length;
-  if (!lignes.length) { zone.innerHTML = ''; return; }
-  const nbArticles = lignes.reduce((t, l) => t + l.quantite, 0);
-  zone.innerHTML = `
-    <div class="v-barre-textes">
-      <span>${lignes.length} produit${lignes.length > 1 ? 's' : ''} · ${qte(nbArticles)} article${nbArticles > 1 ? 's' : ''}</span>
-      <strong>${formatNombre(totalArticles())} <small>GNF</small></strong>
-    </div>
-    <a class="v-btn-panier" href="#panier">Voir le panier ${icone('suivant', 16, 2.4)}</a>`;
+    ${flottant()}
+    ${onglets('boutique')}`;
 }
 
 /** Après un changement de quantité : met à jour la carte concernée sans tout redessiner (garde le focus). */
 function rafraichirProduit(cleLigne) {
   const id = idProduit(cleLigne);
   const p = s.produits.get(id);
-  if (location.hash === '#panier') { renderLignesPanier(); renderTotaux(); return; }
-  racine.querySelectorAll(`[data-ajouter="${CSS.escape(id)}"], [data-quantite="${CSS.escape(id)}"]`).forEach((el) => {
-    const carte = el.closest('.v-produit');
-    if (carte && p) carte.outerHTML = carteProduit(p);
-  });
-  renderBarre();
+  if (location.hash === '#panier') { renderLignesPanier(); renderTotaux(); majFlottant(); return; }
+  racine.querySelectorAll(`[data-carte="${CSS.escape(id)}"]`).forEach((carte) => { if (p) carte.outerHTML = carteProduit(p); });
+  majFlottant();
 }
 
-/* ------------------------------------------------------------ Vue panier */
+/* ------------------------------------------------------------ 3 — Le panier et la commande */
 
 function renderPanier() {
   const { boutique: b, zones = [] } = s.donnees;
+  if (!lignesPanier().length) {
+    racine.innerHTML = `
+      <header class="vm-entete-blanc"><a href="#" class="vm-retour" aria-label="Retour à l’accueil">${icone('retour', 22)}</a>
+        <div class="vm-entete-blanc-textes"><h1>Votre panier</h1><span>${esc(b.nom)}</span></div></header>
+      <main class="vm-contenu"><div class="vm-panier-vide">${icone('panier', 40, 1.6)}<p>Votre panier est vide.</p><a class="vm-btn-action" href="#">Voir les articles</a></div>${pied()}</main>
+      ${onglets('panier')}`;
+    return;
+  }
   racine.innerHTML = `
-    <header class="v-entete-panier">
-      <a href="#" class="v-btn-retour" aria-label="Retour à la boutique">${icone('retour', 20)}</a>
-      <div class="v-entete-panier-textes">
-        <h1>Votre commande</h1>
-        <span>${esc(b.nom)}${b.ville ? ` · ${esc(b.ville)}` : ''}</span>
-      </div>
-    </header>
-    <main class="v-contenu v-contenu-panier">
+    <header class="vm-entete-blanc"><a href="#" class="vm-retour" aria-label="Retour à la boutique">${icone('retour', 22)}</a>
+      <div class="vm-entete-blanc-textes"><h1>Votre panier</h1><span>${esc(b.nom)}</span></div></header>
+    <main class="vm-contenu vm-contenu-panier">
       <section class="v-carte v-lignes" aria-label="Articles" data-zone="lignes"></section>
       <section class="v-carte">
         <h2>Comment recevoir ?</h2>
-        <div class="v-receptions" role="radiogroup" aria-label="Mode de réception">
-          ${b.retrait ? `
-            <button type="button" role="radio" class="v-reception" data-reception="retrait" aria-checked="${s.reception === 'retrait'}">
-              <strong>Retrait</strong><span>Gratuit · en boutique</span>
-            </button>` : ''}
-          ${zones.length ? `
-            <button type="button" role="radio" class="v-reception" data-reception="livraison" aria-checked="${s.reception === 'livraison'}">
-              <strong>Livraison</strong><span>${zoneChoisie() ? esc(zoneChoisie().nom) : 'Choisir la zone'}</span>
-            </button>` : ''}
+        <div class="vm-receptions" role="radiogroup" aria-label="Mode de réception">
+          ${zones.length ? `<button type="button" role="radio" class="vm-reception" data-reception="livraison" aria-checked="${s.reception === 'livraison'}">
+            ${icone('camion', 22)}<strong>Livraison</strong><span data-ref="zone-choisie">${zoneChoisie() ? esc(zoneChoisie().nom) : 'Choisir la zone'}</span></button>` : ''}
+          ${b.retrait ? `<button type="button" role="radio" class="vm-reception" data-reception="retrait" aria-checked="${s.reception === 'retrait'}">
+            ${icone('magasin', 22)}<strong>Retrait</strong><span>Gratuit · en boutique</span></button>` : ''}
         </div>
         <div class="v-zones" data-zone="zones" ${s.reception === 'livraison' ? '' : 'hidden'}>
           ${zones.map((z) => `
@@ -569,20 +680,17 @@ function renderPanier() {
           <label class="v-champ"><span>Note (facultatif)</span>
             <input name="note" type="text" maxlength="300" placeholder="Ex. livrer avant 10 h" value="${esc(s.client.note)}"></label>
         </form>
+        <p class="v-aide">Vous payez <strong>à la livraison ou au retrait</strong>. La boutique vous appelle d’abord pour confirmer.</p>
       </section>
-      <section class="v-carte">
-        <h2>Paiement</h2>
-        <p class="v-aide">Vous payez <strong>à la livraison ou au retrait</strong> : espèces, Orange Money ou MTN MoMo. La boutique vous appelle d’abord pour confirmer.</p>
-      </section>
-      <section class="v-totaux" data-zone="totaux"></section>
+      <section class="vm-totaux" data-zone="totaux"></section>
+      <p class="v-erreur" role="alert" hidden></p>
+      <div class="vm-envoyer">
+        <button type="button" class="vm-btn-envoyer" data-action="commander">Envoyer la commande</button>
+        ${b.whatsapp ? `<button type="button" class="v-btn vm-btn-whatsapp-contour" data-action="commander-wa">${icone('whatsapp', 18)} Envoyer par WhatsApp</button>` : ''}
+      </div>
       ${pied()}
     </main>
-    <div class="v-bas-fixe">
-      <div class="v-total"><span>Total à payer</span><strong data-ref="total"></strong></div>
-      <p class="v-erreur" role="alert" hidden></p>
-      <button type="button" class="v-btn v-btn-whatsapp v-btn-grand" data-action="commander">${icone('whatsapp', 20)} Commander par WhatsApp</button>
-      <span class="v-bas-note">Votre commande est enregistrée chez la boutique, puis WhatsApp s’ouvre avec le détail.</span>
-    </div>`;
+    ${onglets('panier')}`;
   renderLignesPanier();
   renderTotaux();
 }
@@ -591,14 +699,15 @@ function renderLignesPanier() {
   const zone = racine.querySelector('[data-zone="lignes"]');
   if (!zone) return;
   const lignes = lignesPanier();
-  if (!lignes.length) { location.hash = ''; return; }
+  if (!lignes.length) { renderPanier(); return; }
   zone.innerHTML = lignes.map(({ cle: cleLigne, produit: p, quantite, cas, prix, nom }) => {
-    const epuise = cas ? !caseDispo(cas) : p.dispo === 'epuise';
+    const rupture = cas ? !caseDispo(cas) : p.dispo === false;
     return `
-    <div class="v-ligne ${epuise ? 'epuise' : ''}">
+    <div class="v-ligne ${rupture ? 'epuise' : ''}">
+      <span class="vm-ligne-photo">${vignette(p, 22)}</span>
       <div class="v-ligne-textes">
         <span class="v-ligne-nom">${esc(nom)}</span>
-        <span class="v-ligne-prix">${formatNombre(prix)} GNF / ${esc(p.unite || 'unité')}${epuise ? ' · <strong>Épuisé</strong>' : p.dispo === 'sur_commande' ? ' · sur commande' : ''}</span>
+        <span class="v-ligne-prix">${gnf(prix)} / ${esc(p.unite || 'unité')}${rupture ? ' · <strong>Rupture</strong>' : ''}</span>
       </div>
       ${stepper({ ...p, id: cleLigne, nom }, quantite, 'ligne')}
       <span class="v-ligne-total">${formatNombre(Math.round(prix * quantite))}</span>
@@ -613,9 +722,9 @@ function renderTotaux() {
   const z = s.reception === 'livraison' ? zoneChoisie() : null;
   const frais = z ? Number(z.frais) || 0 : 0;
   zone.innerHTML = `
-    <div><span>Articles</span><strong>${gnf(articles)}</strong></div>
-    ${s.reception === 'livraison' ? `<div><span>Livraison${z ? ` ${esc(z.nom)}` : ''}</span><strong>${z ? (frais ? gnf(frais) : 'Gratuit') : 'Choisissez la zone'}</strong></div>` : ''}`;
-  racine.querySelector('[data-ref="total"]').innerHTML = `${formatNombre(articles + frais)} <small>GNF</small>`;
+    <div><span>Articles (${accord(nbArticles(), 'article')})</span><strong>${gnf(articles)}</strong></div>
+    ${s.reception === 'livraison' ? `<div><span>Livraison${z ? ` · ${esc(z.nom)}` : ''}</span><strong>${z ? (frais ? gnf(frais) : 'Gratuit') : 'Zone à choisir'}</strong></div>` : '<div><span>Retrait en boutique</span><strong>Gratuit</strong></div>'}
+    <div class="vm-total"><span>Total à payer</span><strong data-ref="total">${gnf(articles + frais)}</strong></div>`;
 }
 
 function erreurPanier(message, champ) {
@@ -625,7 +734,8 @@ function erreurPanier(message, champ) {
   if (champ) racine.querySelector(`[name="${champ}"]`)?.focus();
 }
 
-async function commander(bouton) {
+/** passer_commande_web (inchangé). viaWhatsApp : la commande est enregistrée puis WhatsApp s'ouvre avec le détail. */
+async function commander(bouton, { viaWhatsApp = false } = {}) {
   if (s.envoi) return;
   const form = racine.querySelector('#v-form');
   const nom = form.nom.value.trim();
@@ -636,8 +746,8 @@ async function commander(bouton) {
   if (!s.reception) return erreurPanier(ERREURS.RECEPTION_INVALIDE);
   if (s.reception === 'livraison' && !zoneChoisie()) return erreurPanier(ERREURS.ZONE_REQUISE);
   if (s.reception === 'livraison' && !adresse) return erreurPanier(ERREURS.ADRESSE_REQUISE, 'adresse');
-  const epuise = lignesPanier().find((l) => (l.cas ? !caseDispo(l.cas) : l.produit.dispo === 'epuise'));
-  if (epuise) return erreurPanier(`« ${epuise.nom} » est épuisé : retirez-le du panier.`);
+  const rupture = lignesPanier().find((l) => (l.cas ? !caseDispo(l.cas) : l.produit.dispo === false));
+  if (rupture) return erreurPanier(`« ${rupture.nom} » est en rupture : retirez-le du panier.`);
   erreurPanier('');
   s.envoi = true;
   const libelle = bouton.innerHTML;
@@ -661,8 +771,8 @@ async function commander(bouton) {
     s.client.note = '';
     memoriser();
     location.hash = 'commande';
-    // Ouverture automatique de WhatsApp (souvent bloquée hors clic : le grand bouton reste affiché).
-    try { window.open(lienCommande(), '_blank', 'noopener'); } catch { /* bouton */ }
+    // WhatsApp ouvert tout de suite (souvent bloqué hors clic : le grand bouton de la confirmation reste affiché).
+    if (viaWhatsApp) { try { window.open(lienCommande(), '_blank', 'noopener'); } catch { /* bouton */ } }
   } catch (err) {
     erreurPanier(messageErreur(err));
   } finally {
@@ -702,7 +812,7 @@ function renderFicheModele(id) {
       ${photo ? `<img src="${esc(photo)}" alt="${esc(p.nom)}${couleur ? ` ${esc(couleur.nom)}` : ''}" width="1080" height="1080" decoding="async">` : `<span class="v-fiche-sans-photo">${icone('stock', 64, 1.2)}</span>`}
       <a href="#" class="v-btn-retour v-fiche-retour" aria-label="Retour à la boutique">${icone('retour', 20)}</a>
     </header>
-    <main class="v-contenu v-fiche">
+    <main class="vm-contenu v-fiche">
       <div class="v-fiche-titres"><h1>${esc(p.nom)}</h1>
         <span class="v-fiche-prix">${Number(p.prix_barre) > prix ? `<s>${formatNombre(p.prix_barre)}</s> ` : ''}${gnf(prix)}</span></div>
       ${couleurs.length ? `
@@ -722,10 +832,10 @@ function renderFicheModele(id) {
           ${dernier ? `<span class="v-fiche-dernier">Plus qu’une pièce en ${esc(dernier.t || libelleCase(dernier))}.</span>` : ''}</div>` : ''}
       ${epuiseChoisi
         ? (demande ? `<a class="v-btn v-btn-contour-whatsapp v-btn-grand" href="${demande}" target="_blank" rel="noopener">${icone('whatsapp', 18)} ${esc(libelleTaille(cas.t))} épuisé ? Demander sur WhatsApp</a>` : `<p class="v-aide">${esc(libelleCase(cas))} est épuisé.</p>`)
-        : `<button type="button" class="v-btn v-btn-primaire v-btn-grand" data-action="ajouter-variante" ${cas ? '' : 'disabled'}>${cas ? `Ajouter au panier${cas.t ? ` · ${esc(cas.t)}` : ''}` : 'Choisissez la taille'}</button>`}
+        : `<button type="button" class="vm-btn-envoyer" data-action="ajouter-variante" ${cas ? '' : 'disabled'}>${cas ? `Ajouter au panier${cas.t ? ` · ${esc(cas.t)}` : ''}` : 'Choisissez la taille'}</button>`}
     </main>
-    <div class="v-barre-panier" data-zone="barre"></div>`;
-  renderBarre();
+    ${flottant()}
+    ${onglets('rayons')}`;
 }
 
 /* ------------------------------------------------------------ Confirmation */
@@ -742,11 +852,12 @@ function renderConfirmation() {
     <main class="v-page-simple v-confirmation">
       <span class="v-simple-icone ok">${icone('valide', 40, 2.4)}</span>
       <h1>Commande ${esc(c.numero)} enregistrée</h1>
-      <p>Total : <strong>${gnf(c.total)}</strong>. Envoyez-la maintenant sur WhatsApp : la boutique vous répond pour confirmer.</p>
+      <p>Total : <strong>${gnf(c.total)}</strong>. La boutique vous appelle pour confirmer. Vous pouvez aussi lui envoyer le détail sur WhatsApp.</p>
       <a class="v-btn v-btn-whatsapp v-btn-grand" href="${esc(lienCommande())}" target="_blank" rel="noopener">${icone('whatsapp', 20)} Envoyer sur WhatsApp</a>
       <a class="v-btn v-btn-secondaire" href="#">Retour à la boutique</a>
     </main>
-    ${pied()}`;
+    ${pied()}
+    ${onglets('panier')}`;
 }
 
 /* ------------------------------------------------------------ Évènements */
@@ -764,17 +875,17 @@ racine.addEventListener('click', (e) => {
     const cleLigne = `${p.id}|${cas.id}`;
     changerQuantite(cleLigne, (s.panier.get(cleLigne) || 0) + 1);
     toast(`${p.nom} — ${libelleCase(cas)} ajouté au panier.`, 'succes');
-    renderBarre();
+    majFlottant();
     return;
   }
   const ajouter = e.target.closest('[data-ajouter]');
   if (ajouter) {
     const id = ajouter.dataset.ajouter;
     const p = s.produits.get(id);
-    if (!p || p.dispo === 'epuise') return;
+    if (!p || enRupture(p)) return;
     if (aVariantes(p)) { location.hash = `p/${encodeURIComponent(id)}`; return; }
     changerQuantite(id, (s.panier.get(id) || 0) + 1);
-    if (ajouter.classList.contains('v-affiche')) toast(`${p.nom} ajouté au panier.`, 'succes');
+    if (ajouter.hasAttribute('data-banniere')) toast(`${p.nom} ajouté au panier.`, 'succes');
     rafraichirProduit(id);
     return;
   }
@@ -790,13 +901,8 @@ racine.addEventListener('click', (e) => {
     rafraichirProduit(id);
     return;
   }
-  const categorie = e.target.closest('[data-categorie]');
-  if (categorie) {
-    s.categorie = categorie.dataset.categorie;
-    racine.querySelectorAll('[data-categorie]').forEach((b) => b.setAttribute('aria-pressed', String(b === categorie)));
-    renderGrille();
-    return;
-  }
+  const filtre = e.target.closest('[data-filtre]');
+  if (filtre) { s.filtre = filtre.dataset.filtre; renderRayon(decodeURIComponent(location.hash.replace('#r/', ''))); return; }
   const reception = e.target.closest('[data-reception]');
   if (reception) {
     s.reception = reception.dataset.reception;
@@ -808,11 +914,12 @@ racine.addEventListener('click', (e) => {
     erreurPanier('');
     return;
   }
-  if (e.target.closest('[data-action="commander"]')) commander(e.target.closest('button'));
+  if (e.target.closest('[data-action="commander"]')) { commander(e.target.closest('button')); return; }
+  if (e.target.closest('[data-action="commander-wa"]')) commander(e.target.closest('button'), { viaWhatsApp: true });
 });
 
 racine.addEventListener('input', (e) => {
-  if (e.target.id === 'v-recherche') { s.recherche = e.target.value; renderGrille(); return; }
+  if (e.target.id === 'v-recherche') { s.recherche = e.target.value; renderListeAccueil(); return; }
   const form = e.target.closest('#v-form');
   if (form && e.target.name in s.client) { s.client[e.target.name] = e.target.value; memoriser(); }
 });
@@ -820,7 +927,7 @@ racine.addEventListener('input', (e) => {
 racine.addEventListener('change', (e) => {
   if (e.target.name === 'zone') {
     s.zone = e.target.value;
-    const b = racine.querySelector('[data-reception="livraison"] span');
+    const b = racine.querySelector('[data-ref="zone-choisie"]');
     if (b) b.textContent = zoneChoisie()?.nom || 'Choisir la zone';
     memoriser();
     renderTotaux();
