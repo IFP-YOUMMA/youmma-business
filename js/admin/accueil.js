@@ -112,7 +112,7 @@ export function afficherAccueil(conteneur) {
     const lignes = [
       [t.paiements_a_valider, 'Paiements à valider', 'Licence à prolonger ou SMS à ajouter', 'marque', '#/licences'],
       [champ(s, 'a_renouveler_7j', 'renouveler_7j'), 'Licences qui expirent sous 7 jours', 'Relancer par SMS en un clic', 'orange', '#/licences'],
-      [opt?.a_relancer, 'Boutiques en ligne à renouveler', 'Fin de l’option dans moins de 15 jours (SMS automatique à J-7 et J-2)', 'orange', '#/parametres?options=bientot'],
+      [opt?.a_relancer, 'Boutiques en ligne à renouveler', 'Fin de l’option dans moins de 15 jours (SMS automatique à J-7 et J-2)', 'orange', '#/reglages?options=bientot'],
       [t.support_ouvertes, 'Demandes d’aide ouvertes', t.support_24h ? `Dont ${t.support_24h} depuis plus de 24 h` : 'À traiter dans Support', 'rouge', '#/support'],
       [t.inactives_7j, 'Boutiques inactives depuis 7 jours', 'Aucune vente enregistrée', 'gris', '#/boutiques?filtre=inactives'],
       [t.sans_credit_sms, 'Boutiques sans crédit SMS', 'Alertes et reçus bloqués', 'orange', '#/sms'],

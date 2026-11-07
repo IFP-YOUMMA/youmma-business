@@ -1,8 +1,8 @@
 /**
- * direction/commun.js — Tableau de bord de direction (étape 20) : données partagées et petits outils.
+ * direction/commun.js — Tableau de bord de direction (étapes 20 et 26) : données partagées et petits outils.
  *
- *  - direction_accueil() : tout l'écran #/ en un seul appel (moi, jour, resume, kpis, portes, decisions, metiers,
- *    chaine). Gardé en mémoire pour la barre latérale et la recherche des autres écrans ;
+ *  - accueil() (étape 26) : tout l'écran #/ en un seul appel (moi, jour, kpis, boutiques, rapporte, decisions,
+ *    administration). Gardé en mémoire pour la barre latérale (nombre de boutiques, pastilles de l'administration) ;
  *  - console_accueil() : chargé seulement en entrant dans une porte, pour les écrans de la console réutilisés
  *    (liste des boutiques, fiche, création, accès), jamais sur #/.
  * Le serveur filtre selon la portée : une porte absente de la réponse n'existe pas, on n'affiche rien pour elle.
@@ -10,8 +10,10 @@
 import { sb } from '../supabase.js';
 import { esc, formatNombre, formatGNF } from '../utils.js';
 import { direction as consoleDirection } from '../admin/console/commun.js';
+import { etat } from '../state.js';
 
-export const cache = { accueil: null };
+/** accueil : la dernière réponse d'accueil() ; total : le dernier nombre de boutiques connu (accueil ou liste). */
+export const cache = { accueil: null, total: null };
 
 async function appel(nom, params) {
   const { data, error } = await sb.rpc(nom, params);
@@ -19,10 +21,11 @@ async function appel(nom, params) {
   return data;
 }
 
-/** direction_accueil() : l'objet de l'écran #/ (un seul aller-retour). */
+/** accueil() : l'objet de l'écran #/ (un seul aller-retour). */
 export async function chargerAccueil() {
-  const d = await appel('direction_accueil');
+  const d = await appel('accueil');
   cache.accueil = (Array.isArray(d) ? d[0] : d) || {};
+  if (cache.accueil.boutiques?.total !== undefined) cache.total = cache.accueil.boutiques.total;
   return cache.accueil;
 }
 
@@ -48,7 +51,9 @@ export function portes() {
 }
 export const porte = (code) => portes().find((p) => p.code === code) || null;
 /** Personne connectée (nom, rôle, portée, peut_gerer_acces). */
-export const moi = () => cache.accueil?.moi || consoleDirection.accueil?.moi || {};
+export const moi = () => cache.accueil?.moi || consoleDirection.accueil?.moi || etat.entree?.moi || {};
+/** Super administrateur : l'administration (outils de la plateforme) n'existe que pour lui. */
+export const estSuperAdmin = () => moi().role === 'super_admin';
 
 /**
  * Écran d'une porte selon sa facturation : les licences → #/boutiques, la commission → #/marche-monde.

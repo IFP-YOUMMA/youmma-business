@@ -124,7 +124,7 @@ export function afficherTerrain(conteneur, { params }) {
 
   function afficherPret(b) {
     const lien = b.slug ? urlVitrine(b.slug) : null;
-    const court = b.slug ? new URL(`../b/${encodeURIComponent(b.slug)}`, location.href.split('#')[0]).href.replace(/^https?:\/\//, '') : '';
+    const court = b.slug ? new URL(`b/${encodeURIComponent(b.slug)}`, location.href.split('#')[0]).href.replace(/^https?:\/\//, '') : '';
     const inv = b.invitation;
     // Le message WhatsApp ne reprend que ce que la base a renvoyé : code d'invitation, lien vendeur, adresse publique.
     const message = [

@@ -1,5 +1,8 @@
 /**
- * direction/portes.js — Les écrans derrière les portes (étape 20), en réutilisant ceux qui existent :
+ * direction/portes.js — Les écrans derrière les portes (étape 20), en réutilisant ceux qui existent.
+ * Étape 26 : les deux portes ne sont plus dans la navigation (#/boutiques est direction/boutiques.js) ; ce fichier
+ * garde ce qui sert encore — entrer dans une boutique, la fiche, la création, les accès — et sera retiré plus tard.
+ * Ce qui suit décrit l'étape 20 :
  *  - #/boutiques (porte des licences) : la liste de la console (console_boutiques), la fiche, la création. C'est ici,
  *    et nulle part ailleurs, qu'on entre dans une boutique pour y travailler (« Ouvrir la boutique ») ;
  *  - #/marche-monde (porte de la commission) : onglets Colis · Envois · Agences · Marché (sauf marché en veille) (pages de la boutique
@@ -49,14 +52,15 @@ async function avecConsole(conteneur, route, rendre) {
  * « Ouvrir la boutique » : bascule dans l'interface boutique actuelle, inchangée. Membre : on entre sans question.
  * Sinon : accès de dépannage (depannage.js), motif d'abord, avec les droits d'un vendeur et un bandeau ambre.
  */
-export async function ouvrirBoutique(b) {
+/** route : l'écran d'arrivée dans la boutique (« colis » pour le bouton Colis d'une logistique, étape 26). */
+export async function ouvrirBoutique(b, route = 'aujourdhui') {
   let ok = false;
   try { ok = await demanderEntree(b); } catch (err) { toast(String(err?.message || err), 'erreur', 7000); return; }
   if (!ok) return;
   entrerDansBoutique(b.id);
   await Promise.all([chargerEtatLicence(), chargerModules(b.id, { annoncer: false })]);
   document.querySelector('.dir-shell')?.remove();
-  naviguer('aujourdhui');
+  naviguer(route);
 }
 
 /* ------------------------------------------------------------ #/boutiques */

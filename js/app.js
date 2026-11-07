@@ -5,9 +5,11 @@
 import { sb, configurationValide } from './supabase.js';
 import { etat, chargerSession, chargerBoutiques, viderEtat, peut, chargerEntree, estDirection, routeEntree, dansBoutique, sortirDeBoutique } from './state.js';
 import { preparerDirection } from './direction/shell.js';
-import { afficherAccueilDirection } from './direction/accueil.js';
+import { afficherTableau } from './direction/tableau.js';
+import { afficherListeBoutiques } from './direction/boutiques.js';
+import { OUTILS, routeOutil } from './direction/administration.js';
 import {
-  afficherBoutiquesDirection, afficherMarcheMonde, afficherFicheDirection, afficherTerrainDirection, afficherAccesDirection,
+  afficherMarcheMonde, afficherFicheDirection, afficherTerrainDirection, afficherAccesDirection,
   afficherEspaceDirection, afficherRechercheDirection
 } from './direction/portes.js';
 import { demarrerRouteur, lireRoute, naviguer } from './router.js';
@@ -134,17 +136,22 @@ const ROUTES = {
  * Les écrans de boutique ne s'ouvrent qu'après être entré par une porte (dansBoutique) ; sinon retour à #/.
  */
 const ROUTES_DIRECTION = {
-  '': (conteneur) => { sortirDeBoutique(); return afficherAccueilDirection(conteneur); },
-  boutiques: afficherBoutiquesDirection,
-  'marche-monde': afficherMarcheMonde,
+  // Étape 26 : un seul tableau de bord (accueil()), une seule liste de boutiques, l'administration au même endroit.
+  '': (conteneur) => { sortirDeBoutique(); return afficherTableau(conteneur); },
+  boutiques: afficherListeBoutiques, // #/boutiques, #/boutiques/nouvelle, #/boutiques/<id> → fiche
   fiche: afficherFicheDirection,
   terrain: afficherTerrainDirection,
   acces: afficherAccesDirection,
   espace: afficherEspaceDirection,
   chercher: afficherRechercheDirection,
-  // Liens de la console : son accueil est ici #/ ; les paiements à valider restent dans l'ancienne administration.
+  recherche: afficherRechercheDirection,
+  // Hors navigation : écrans de l'ancienne porte logistique, encore visés par des décisions (« Peser », « Payer »).
+  'marche-monde': afficherMarcheMonde,
+  // Outils de l'administration (super administrateur), montés dans cette coquille : une seule connexion.
+  ...Object.fromEntries(OUTILS.map((o) => [o.route, routeOutil(o)])),
+  // Anciens liens : l'accueil de la console est #/ ; licences et paiements vivent sous les statistiques.
   accueil: () => naviguer('', { remplacer: true }),
-  licences: () => location.assign('admin/#/licences')
+  licences: () => naviguer('statistiques', { remplacer: true })
 };
 
 function afficherDirection(nom, vue, params) {

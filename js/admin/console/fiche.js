@@ -13,9 +13,10 @@ import { esc, icone, formatNombre, formatGNF, formatDate, confirmer, toast, ouvr
 import { rpc, initiales, telLocal, lienWa, ilYa } from '../commun.js';
 import { sb } from '../../supabase.js';
 import { erreurFacturation } from '../../commission-commun.js';
-import { ouvrirEnregistrerPaiement } from '../licences.js';
+import { ouvrirEnregistrerPaiement, ouvrirRefus, objet as objetPaiement } from '../licences.js';
+import { preparerAdmin, majCompteurs } from '../../direction/administration.js';
 import { chargerModes } from '../../modes-paiement.js';
-import { ouvrirSuspension, ouvrirDateLibre } from '../boutiques.js';
+import { ouvrirSuspension, ouvrirDateLibre, monterFiche } from '../boutiques.js';
 import { espace, estSuperAdmin, montantDevise, erreurConsole, dernierUsage, finDans, SEUIL_AFFICHES, chargerFormulesConsole } from './commun.js';
 import { blocFacturationHTML, monterFacturation } from './facturation.js';
 
@@ -125,6 +126,7 @@ function blocLicence(f, l, formules) {
       <button type="button" class="btn btn-primaire" data-action="encaisser">Encaisser</button>
       <button type="button" class="btn btn-secondaire" data-action="offrir">Offrir un mois</button>
       <button type="button" class="btn btn-secondaire" data-action="prolonger">Prolonger…</button>
+      ${estSuperAdmin() ? '<button type="button" class="btn btn-secondaire" data-action="relancer">Relancer (SMS)</button>' : ''}
       <button type="button" class="btn btn-secondaire cs-btn-danger" data-action="suspendre">${f.suspendue ? 'Réactiver' : 'Suspendre'}</button>
     </div>
   </section>`;
@@ -243,6 +245,7 @@ export function afficherFiche(conteneur, { id, payer = false }) {
       if (!conteneur.isConnected) return;
       if (!f) { conteneur.innerHTML = '<div class="cs-page"><p class="bloc-erreur">Boutique introuvable.</p></div>'; return; }
       rendre(formules);
+      if (estSuperAdmin()) chargerAttente();
       if (payer && f.commission?.fournisseur_id) { payer = false; ouvrirReglement(f, relire); }
     } catch (err) {
       conteneur.innerHTML = `<div class="cs-page"><p class="bloc-erreur">${icone('alerte', 18, 2)} ${esc(erreurConsole(err))}</p><a class="btn btn-secondaire" href="#/accueil">Retour à l’accueil</a></div>`;
@@ -279,7 +282,8 @@ export function afficherFiche(conteneur, { id, payer = false }) {
             ${commission && f.commission ? blocMarche(f, f.commission) : ''}
             ${commission || Number(f.colis?.partis_30j) ? blocColis(f) : ''}
             ${blocPays(f)}
-            ${estSuperAdmin() && !commission ? `<a class="cs-lien-outils" href="#/boutiques/${encodeURIComponent(f.id)}">${icone('outil', 16, 2)} Fiche complète dans les outils (modules, SMS, mot de passe)</a>` : ''}
+            ${estSuperAdmin() ? `<section class="carte cs-bloc" data-zone="attente" hidden></section>
+            <details class="carte cs-bloc cs-avance" data-zone="avance"><summary>${icone('outil', 16, 2)} Gestion avancée · membres, modules, SMS, vitrine, activité</summary><div class="adm-fiche" data-zone="avance-corps"></div></details>` : ''}
           </div>
           <div class="cs-colonne">${blocJournal(f)}</div>
         </div>
@@ -295,6 +299,54 @@ export function afficherFiche(conteneur, { id, payer = false }) {
   }
 
   const relire = (message) => { if (message) toast(message, 'succes'); charger(); };
+
+  /**
+   * Étape 26 — ce que l'ancien outil « Licences & paiements » faisait pour cette boutique : ses paiements à valider
+   * (admin_paiements, valider / refuser). « Toutes les boutiques » : sa fiche détaillée, montée à l'ouverture.
+   */
+  async function chargerAttente() {
+    const z = conteneur.querySelector('[data-zone="attente"]');
+    if (!z) return;
+    let lignes = [];
+    try {
+      const r = await rpc('admin_paiements', { p_statut: 'a_valider', p_debut: null, p_fin: null });
+      const brut = Array.isArray(r) ? (r[0]?.lignes ?? r) : (r?.lignes || []);
+      lignes = (Array.isArray(brut) ? brut : []).filter((p) => (p.boutique_id || p.boutique) === f.id);
+    } catch (err) { z.hidden = false; z.innerHTML = `<p class="bloc-erreur">${esc(erreurConsole(err))}</p>`; return; }
+    if (!z.isConnected) return;
+    z.dataset.lignes = JSON.stringify(lignes.map((p) => p.id));
+    z.hidden = !lignes.length;
+    z.innerHTML = `<div class="cs-bloc-tete"><h2>Paiements à valider</h2><span class="pastille-admin orange">${lignes.length}</span></div>
+      ${lignes.map((p) => `<div class="cs-paiement-attente">
+        <span><strong>${esc(objetPaiement(p))}</strong><small>${esc(p.mode || '')}${p.reference ? ` · réf. ${esc(p.reference)}` : ''} · ${esc(ilYa(p.created_at))}</small></span>
+        <strong class="cs-montant">${esc(formatGNF(Number(p.montant) || 0))}</strong>
+        <span class="cs-actions-ligne"><button type="button" class="btn btn-primaire btn-petit" data-valider="${esc(p.id)}">Valider</button><button type="button" class="btn btn-secondaire btn-petit cs-btn-danger" data-refuser="${esc(p.id)}">Refuser</button></span>
+      </div>`).join('')}
+      <p class="cs-note">Valider prolonge la licence (ou ajoute les SMS) et envoie un reçu SMS au propriétaire.</p>`;
+    s.attente = lignes;
+  }
+  const s = { attente: [] };
+
+  conteneur.addEventListener('toggle', (ev) => {
+    const d = ev.target.closest?.('[data-zone="avance"]');
+    if (!d?.open || d.dataset.monte) return;
+    d.dataset.monte = '1';
+    preparerAdmin().then(() => monterFiche(d.querySelector('[data-zone="avance-corps"]'), f.id, { majCompteurs, recharger: () => {} }));
+  }, true);
+
+  conteneur.addEventListener('click', async (ev) => {
+    const v = ev.target.closest('[data-valider]');
+    if (v) {
+      const p = s.attente.find((x) => x.id === v.dataset.valider);
+      if (!p || !(await confirmer(`Valider ${objetPaiement(p)} (${formatGNF(Number(p.montant) || 0)}) ? Un reçu SMS part au propriétaire.`, { titre: 'Valider le paiement', libelleOk: 'Valider' }))) return;
+      boutonOccupe(v, true, '…');
+      try { await rpc('admin_valider_paiement', { p_paiement: p.id }); relire('Paiement validé : reçu envoyé au propriétaire.'); majCompteurs(); }
+      catch (err) { boutonOccupe(v, false); toast(erreurConsole(err), 'erreur'); }
+      return;
+    }
+    const r = ev.target.closest('[data-refuser]');
+    if (r) { const p = s.attente.find((x) => x.id === r.dataset.refuser); if (p) ouvrirRefus(p, () => { relire(); majCompteurs(); }); }
+  });
 
   conteneur.addEventListener('click', async (ev) => {
     const action = ev.target.closest('[data-action]')?.dataset.action;
@@ -322,6 +374,11 @@ export function afficherFiche(conteneur, { id, payer = false }) {
       }
       if (action === 'commission') ouvrirCommission(f, relire);
       if (action === 'pays') ouvrirPays(f, relire);
+      if (action === 'relancer' && await confirmer(`Envoyer un SMS de rappel de licence à « ${f.nom} » ? (1 relance par jour, payée par YOUMMA)`, { titre: 'Relancer par SMS', libelleOk: 'Envoyer' })) {
+        const r = await rpc('admin_relancer_licences', { p_boutiques: [f.id] });
+        const n = Number((Array.isArray(r) ? r[0] : r)?.envoyes ?? r) || 0;
+        toast(n ? 'Relance envoyée.' : 'Déjà relancée aujourd’hui.', n ? 'succes' : 'info');
+      }
       if (action === 'payer') ouvrirReglement(f, relire);
       if (action === 'lier' || action === 'delier') {
         const lier = action === 'lier';

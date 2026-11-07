@@ -123,8 +123,9 @@ export function initiales(nom) {
 export const telLocal = (t) => (t ? formatTelephoneLocal(t) : '—');
 export const lienWa = (tel, texte = '') => `https://wa.me/${String(tel || '').replace(/\D/g, '')}${texte ? `?text=${encodeURIComponent(texte)}` : ''}`;
 /** Racine de l'appli des boutiques (…/youmma-business/). */
-export const urlAppli = () => new URL('../', location.href.split('#')[0]).href;
-export const urlVitrine = (slug) => new URL(`../b/?s=${encodeURIComponent(slug)}`, location.href.split('#')[0]).href;
+// Étape 26 : ces outils tournent dans l'application (racine), plus dans admin/.
+export const urlAppli = () => new URL('./', location.href.split('#')[0]).href;
+export const urlVitrine = (slug) => new URL(`b/?s=${encodeURIComponent(slug)}`, location.href.split('#')[0]).href;
 export const gnf = (n) => formatGNF(Number(n) || 0);
 export const nombre = (n) => formatNombre(Number(n) || 0);
 

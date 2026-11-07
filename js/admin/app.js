@@ -196,7 +196,7 @@ export async function majCompteurs() {
       el.textContent = n ? String(n) : '';
     });
     const zone = document.querySelector('[data-zone="bandeau"]');
-    if (zone) zone.innerHTML = champ(stats.sante, 'maintenance') ? `<p class="adm-bandeau-maintenance">${icone('alerte', 18, 2)} Mode maintenance actif : les boutiques voient l’écran de maintenance. <a href="#/parametres">Paramètres</a></p>` : '';
+    if (zone) zone.innerHTML = champ(stats.sante, 'maintenance') ? `<p class="adm-bandeau-maintenance">${icone('alerte', 18, 2)} Mode maintenance actif : les boutiques voient l’écran de maintenance. <a href="#/reglages">Réglages</a></p>` : '';
     return stats;
   } catch { return null; }
 }

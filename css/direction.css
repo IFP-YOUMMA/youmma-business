@@ -138,3 +138,83 @@
 
 /* Retour à la direction depuis une boutique */
 a.dir-retour-direction { text-decoration: none; color: #FFFFFF; display: flex; align-items: center; }
+
+/* ============ Étape 26 — un seul tableau de bord, une seule liste de boutiques, l'administration ============ */
+/* Barre latérale : compte des boutiques, titre « Administration », pastilles */
+.dir-compte { margin-left: auto; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: rgba(255, 255, 255, .14); font-variant-numeric: tabular-nums; }
+.dir-lien-creer { opacity: .9; }
+.dir-menu-titre { display: block; margin: 14px 12px 4px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.dir-menu-separateur { display: block; height: 1px; margin: 10px 12px; background: rgba(255, 255, 255, .12); }
+.dir-pastille-admin { margin-left: auto; min-width: 20px; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.dir-pastille-admin + .dir-pastille-admin { margin-left: 4px; }
+.dir-pastille-admin.rouge { background: #B42318; color: #FFFFFF; }
+.dir-pastille-admin.ambre { background: #FFE7B3; color: #6B3E00; }
+.dir-pastille-admin.gris { background: rgba(127, 140, 136, .22); color: inherit; }
+
+/* Tableau de bord : « Vos boutiques », « Ce qui rapporte », administration */
+.dir-vos-boutiques { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; text-decoration: none; color: inherit; }
+.dir-vb-tete { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.dir-vb-tete > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.dir-vb-total { font-size: 34px; font-weight: 800; line-height: 1.1; color: #10231E; }
+.dir-vb-pays { color: var(--muted); font-size: 14px; }
+.dir-metiers-pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-metier {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  color: #10231E; background: color-mix(in srgb, var(--metier) 14%, #FFFFFF); border: 1px solid color-mix(in srgb, var(--metier) 40%, #FFFFFF);
+}
+.dir-metier strong { color: var(--metier); }
+.dir-rien-entre { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.dir-titre-section { margin: 4px 0 10px; font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.dir-tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.dir-tuile { display: flex; align-items: center; gap: 10px; padding: 14px 14px; text-decoration: none; color: var(--text); font-weight: 700; min-width: 0; }
+.dir-tuile > span:nth-child(2) { flex: 1; min-width: 0; }
+.dir-tuile-pastilles { display: inline-flex; gap: 4px; }
+.dir-tuile-pastilles .dir-pastille-admin.gris { background: #EEF1F0; color: #33423E; }
+
+/* #/boutiques */
+.dir-page-entete { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px; }
+.dir-page-titres h1 { margin: 0; font-size: 26px; }
+.dir-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dir-page-entete .dir-recherche { background: #FFFFFF; border-color: var(--border); color: var(--muted); }
+.dir-page-entete .dir-recherche input { color: var(--text); }
+.dir-filtres { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-groupe-pays { padding: 6px 0; }
+.dir-groupe-titre { margin: 0; padding: 12px 18px; font-size: 15px; border-bottom: 1px solid var(--border); }
+.dir-liste-boutiques { list-style: none; margin: 0; padding: 0; }
+.dir-boutique { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: center; gap: 8px 14px; padding: 12px 18px; border-top: 1px solid var(--border); }
+.dir-boutique:first-child { border-top: 0; }
+.dir-initiales { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+.dir-boutique-textes { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dir-boutique-nom { font-weight: 800; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.dir-boutique-sous { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.dir-boutique-sous .dir-metier { padding: 1px 8px; font-size: 12px; }
+.dir-ouverture { color: #B45309; font-weight: 700; }
+.dir-etat { font-size: 12.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #EEF1F0; white-space: nowrap; }
+.dir-etat.ton-bien { background: #E3F4EC; }
+.dir-etat.ton-attention { background: #FFF1D6; }
+.dir-etat.ton-alerte { background: #FDECEC; }
+.dir-boutique-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+@media (max-width: 899.98px) {
+  .dir-boutique { grid-template-columns: 40px minmax(0, 1fr); padding: 12px 14px; }
+  .dir-initiales { width: 40px; height: 40px; }
+  .dir-etat { grid-column: 2; justify-self: start; }
+  .dir-boutique-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .dir-page-actions { width: 100%; }
+  .dir-page-entete .dir-recherche { flex: 1 1 100%; }
+}
+
+/* Fiche : paiements à valider, gestion avancée ; statistiques : la vue de l'argent sous les chiffres */
+.cs-paiement-attente { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.cs-paiement-attente > span:first-child { display: flex; flex-direction: column; flex: 1 1 200px; min-width: 0; }
+.cs-paiement-attente small { color: var(--muted); }
+.cs-montant { font-variant-numeric: tabular-nums; }
+.cs-actions-ligne { display: flex; gap: 6px; }
+.cs-avance > summary { cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 8px; list-style: none; }
+.cs-avance > summary::-webkit-details-marker { display: none; }
+.cs-avance[open] > summary { margin-bottom: 12px; }
+.dir-argent { margin-top: 24px; }
+.dir-filtres .cs-puce { background: #FFFFFF; border: 1px solid var(--border); color: var(--text); }
+.dir-filtres .cs-puce.actif { background: #0A3D33; border-color: #0A3D33; color: #FFFFFF; }
+.dir-filtres .cs-puce.actif span { color: rgba(255, 255, 255, .75); }
+.dir-page-actions { flex: 1 1 520px; justify-content: flex-end; }
+.dir-page-entete .dir-recherche { flex: 1 1 240px; max-width: 360px; }

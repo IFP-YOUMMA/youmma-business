@@ -273,5 +273,5 @@ export async function afficherAnnonces() {
 /** Bandeau maintenance pour l'équipe YOUMMA (qui peut continuer à travailler). */
 export function bandeauMaintenanceHTML() {
   if (!etat.plateforme?.maintenance || !etat.adminPlateforme) return '';
-  return `<div class="bandeau-licence bandeau-maintenance" role="status">${icone('horloge', 20, 2)}<span>Mode maintenance actif : les boutiques voient l’écran de maintenance. Vous pouvez continuer (équipe YOUMMA).</span><a class="btn btn-bandeau" href="admin/#/parametres">Paramètres</a></div>`;
+  return `<div class="bandeau-licence bandeau-maintenance" role="status">${icone('horloge', 20, 2)}<span>Mode maintenance actif : les boutiques voient l’écran de maintenance. Vous pouvez continuer (équipe YOUMMA).</span><a class="btn btn-bandeau" href="#/reglages">Réglages</a></div>`;
 }

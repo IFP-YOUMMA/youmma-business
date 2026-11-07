@@ -253,7 +253,8 @@ async function ouvrirCreation(apres) {
    Fiche boutique
    ========================================================================= */
 
-function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
+/** Fiche détaillée (onglets) ; étape 26 : montée dans la fiche de la boutique (« Gestion avancée »). */
+export function monterFiche(cadre, idBoutique, { majCompteurs, recharger }) {
   const s = { onglet: 'resume', fiche: null };
   cadre.dataset.boutique = idBoutique;
   cadre.innerHTML = squelette(6);

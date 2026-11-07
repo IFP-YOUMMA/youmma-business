@@ -34,7 +34,7 @@ function valeurAffichee(cle, v) {
 export function afficherParametres(conteneur, { majCompteurs, params }) {
   const lecture = !estSuper();
   conteneur.innerHTML = `
-    <header class="adm-entete"><div class="adm-titres"><h1>Paramètres de la plateforme</h1>
+    <header class="adm-entete"><div class="adm-titres"><h1>Réglages de la plateforme</h1>
       <span class="discret">${lecture ? 'Lecture seule : réservé au super admin.' : 'S’appliquent à toutes les boutiques.'}</span></div></header>
     <section class="adm-carte" data-zone="parametres">${squelette(6)}</section>
     <section class="adm-carte" data-zone="option">${squelette(2)}</section>`;
@@ -107,7 +107,7 @@ export function afficherParametres(conteneur, { majCompteurs, params }) {
       erreur('');
       const bouton = form.querySelector('[type=submit]');
       boutonOccupe(bouton, true, 'Enregistrement…');
-      try { await rpc('admin_modifier_parametres', { p_valeurs: valeurs }); toast('Paramètres enregistrés.', 'succes'); majCompteurs?.(); charger(); }
+      try { await rpc('admin_modifier_parametres', { p_valeurs: valeurs }); toast('Réglages enregistrés.', 'succes'); majCompteurs?.(); charger(); }
       catch (err) { boutonOccupe(bouton, false); erreur(erreurAdmin(err)); }
     });
     form.maintenance.addEventListener('change', () => form.querySelector('.adm-maintenance').classList.toggle('active', form.maintenance.checked));

@@ -1,21 +1,31 @@
 /**
- * direction/shell.js — Coquille du tableau de bord de direction (étape 20) : barre latérale d'accueil SANS sélecteur
- * de boutique (on n'entre dans une boutique que par sa porte), une entrée par porte renvoyée par le serveur,
- * Accès si la personne gère les accès, déconnexion. Sur téléphone, les mêmes liens en bandeau sous le logo.
+ * direction/shell.js — Coquille de la direction (étapes 20 et 26) : barre latérale SANS sélecteur de boutique.
+ * Étape 26 : plus de portes. Tableau de bord · Les boutiques (leur nombre) · Créer une boutique · ADMINISTRATION (les
+ * outils de la plateforme, super administrateur seulement, avec leurs pastilles) · Accès · Se déconnecter.
+ * Sur téléphone, le bandeau sous le logo garde l'essentiel ; l'administration s'ouvre par les tuiles du tableau de bord.
  */
 import { deconnecter } from '../auth.js';
-import { esc, icone, logoMarque, logoSymbole } from '../utils.js';
-import { portes, routePorte, moi } from './commun.js';
+import { esc, icone, logoMarque, logoSymbole, formatNombre } from '../utils.js';
+import { moi, cache, estSuperAdmin } from './commun.js';
+import { OUTILS, pastillesHTML } from './administration.js';
+
+/** Écrans rattachés à une entrée du menu (la fiche et la création appartiennent aux boutiques). */
+const PARENT = { fiche: 'boutiques', terrain: 'boutiques', chercher: 'boutiques', recherche: 'boutiques' };
 
 function liens() {
-  return [
-    { route: '', libelle: 'Accueil', icone: 'maison' },
-    ...portes().map((p) => ({ route: routePorte(p), libelle: p.nom || p.nom_public, couleur: p.couleur, icone: p.facturation === 'licence' ? 'magasin' : 'colis' })),
-    ...(moi().peut_gerer_acces ? [{ route: 'acces', libelle: 'Accès', icone: 'bouclier' }] : [])
-  ];
+  const total = cache.total;
+  return {
+    principaux: [
+      { route: '', libelle: 'Tableau de bord', icone: 'maison' },
+      { route: 'boutiques', libelle: 'Les boutiques', icone: 'magasin', compte: total },
+      { route: 'boutiques/nouvelle', libelle: 'Créer une boutique', icone: 'plus', creer: true }
+    ],
+    administration: estSuperAdmin() ? OUTILS : [],
+    fin: moi().peut_gerer_acces ? [{ route: 'acces', libelle: 'Accès', icone: 'bouclier', pastilles: [['acces', 'gris']] }] : []
+  };
 }
 
-const lien = (l, classe) => `<a href="#/${l.route}" class="${classe}" data-route="${esc(l.route)}">${icone(l.icone, 17, 1.7)}<span class="lien-menu-libelle">${esc(l.libelle)}</span>${l.couleur ? `<span class="dir-pastille-porte" style="background:${esc(l.couleur)}"></span>` : ''}</a>`;
+const lien = (l, classe) => `<a href="#/${l.route}" class="${classe}${l.creer ? ' dir-lien-creer' : ''}" data-route="${esc(l.route)}">${icone(l.icone, 17, 1.7)}<span class="lien-menu-libelle">${esc(l.libelle)}</span>${l.compte !== undefined && l.compte !== null ? `<span class="dir-compte">${formatNombre(Number(l.compte) || 0)}</span>` : ''}${l.pastilles ? pastillesHTML(l.pastilles) : ''}</a>`;
 
 /** Construit (si besoin) la coquille, allume l'entrée de la route et renvoie un conteneur de vue neuf. */
 export function preparerDirection(route) {
@@ -56,10 +66,15 @@ export function majLiens(route = null) {
   const actif = route ?? shell.dataset.route ?? '';
   shell.dataset.route = actif;
   const l = liens();
-  shell.querySelector('[data-zone="dir-liens"]').innerHTML = l.map((x) => lien(x, 'lien-menu')).join('');
-  shell.querySelector('[data-zone="dir-liens-mobile"]').innerHTML = l.map((x) => lien(x, 'dir-lien-mobile')).join('');
+  shell.querySelector('[data-zone="dir-liens"]').innerHTML = [
+    ...l.principaux.map((x) => lien(x, 'lien-menu')),
+    l.administration.length ? `<span class="dir-menu-titre">Administration</span>${l.administration.map((x) => lien(x, 'lien-menu')).join('')}` : '',
+    l.fin.length ? `<span class="dir-menu-separateur" aria-hidden="true"></span>${l.fin.map((x) => lien(x, 'lien-menu')).join('')}` : ''
+  ].join('');
+  shell.querySelector('[data-zone="dir-liens-mobile"]').innerHTML = [...l.principaux, ...l.fin].map((x) => lien(x, 'dir-lien-mobile')).join('');
+  const racine = PARENT[actif.split('/')[0]] || actif.split('/')[0];
   shell.querySelectorAll('[data-route]').forEach((a) => {
-    const on = a.dataset.route === actif.split('/')[0] || (a.dataset.route && actif.startsWith(a.dataset.route));
+    const on = a.dataset.route === racine;
     a.classList.toggle('actif', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });

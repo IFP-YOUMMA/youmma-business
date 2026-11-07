@@ -15,7 +15,7 @@ const DUREES = [1, 3, 6, 12];
 const PERIODES = [['mois', 'Ce mois'], ['moisDernier', 'Mois dernier'], ['7j', '7 jours'], ['annee', 'Cette année']];
 export const prixLicence = (f, mois) => (mois === 12 ? Number(f.prix_mois || 0) * (12 - Number(f.mois_offerts || 0)) : Number(f.prix_mois || 0) * mois);
 
-function objet(p) {
+export function objet(p) {
   if (p.objet === 'sms') return `Pack ${nombre(champ(p, 'nb_sms') || 0)} SMS`;
   if (p.objet === 'option') { const n = Number(champ(p, 'duree_mois', 'mois')) || 0; const nom = champ(p, 'option_nom', 'option'); return `Option ${!nom || nom === 'boutique_en_ligne' ? 'boutique en ligne' : nom}${n ? ` · ${n === 12 ? '1 an' : `${n} mois`}` : ''}`; }
   const mois = Number(champ(p, 'duree_mois')) || 0;
@@ -194,7 +194,8 @@ export function afficherLicences(conteneur, { majCompteurs }) {
   toutRecharger();
 }
 
-function ouvrirRefus(p, apres) {
+/** Refuser un paiement (motif obligatoire) ; étape 26 : aussi depuis la fiche de la boutique. */
+export function ouvrirRefus(p, apres) {
   const { el, fermer } = ouvrirModale({
     titre: 'Refuser le paiement',
     contenu: `
